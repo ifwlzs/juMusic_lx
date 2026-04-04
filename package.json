@@ -1,7 +1,7 @@
 {
   "name": "lx-music-mobile",
-  "version": "1.8.2",
-  "versionCode": 74,
+  "version": "26040507",
+  "versionCode": 26040507,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -17,10 +17,13 @@
     "pack:android:debug": "./gradlew assembleDebug",
     "pack": "npm run pack:android",
     "pack:android": "cd android && gradlew.bat assembleRelease",
+    "pack:android:release:local": "powershell -ExecutionPolicy Bypass -File .\\scripts\\pack-android-release.ps1",
     "clear": "cd android && gradlew.bat clean",
     "clear:full": "git clean -fdx -e android/keystore.properties -e android/app/*.keystore",
     "build:theme": "node src/theme/themes/createThemes.js",
-    "publish": "node publish"
+    "publish": "node publish",
+    "release:prepare": "node scripts/release/prepare-release.js",
+    "test:release": "node --test tests/release/versioning.test.js"
   },
   "engines": {
     "node": ">= 18",
@@ -28,7 +31,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lyswhut/lx-music-mobile.git"
+    "url": "git+https://github.com/ifwlzs/juMusic_lx.git"
   },
   "keywords": [
     "music-player",
@@ -40,9 +43,9 @@
   },
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/lyswhut/lx-music-mobile/issues"
+    "url": "https://github.com/ifwlzs/juMusic_lx/issues"
   },
-  "homepage": "https://github.com/lyswhut/lx-music-mobile#readme",
+  "homepage": "https://github.com/ifwlzs/juMusic_lx#readme",
   "dependencies": {
     "@craftzdog/react-native-buffer": "^6.1.1",
     "@react-native-async-storage/async-storage": "^2.1.2",

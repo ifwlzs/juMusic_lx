@@ -2,9 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-Project versioning adheres to [Semantic Versioning](http://semver.org/).
+Project versioning uses release timestamps in `yymmddhh` format (Asia/Shanghai).
 Commit convention is based on [Conventional Commits](http://conventionalcommits.org).
 Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
+
+## [26040507](https://github.com/ifwlzs/juMusic_lx/compare/v1.8.2...v26040507) - 2026-04-05
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994, @ikun0014)
 
 ## [1.8.2](https://github.com/lyswhut/lx-music-mobile/compare/v1.8.1...v1.8.2) - 2026-03-28
 
