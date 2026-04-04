@@ -98,6 +98,12 @@ test('release workflow protects against recursive release commits', () => {
   assert.match(workflow, /concurrency:/)
 })
 
+test('release workflow restores gradlew execute permission on Linux runners', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
+
+  assert.match(workflow, /chmod \+x gradlew/)
+})
+
 test('local PowerShell packaging script parses without syntax errors', () => {
   const scriptPath = path.resolve(__dirname, '../../scripts/pack-android-release.ps1')
   const escapedPath = scriptPath.replace(/'/g, "''")
