@@ -3,8 +3,9 @@ import type { InitState as SearchState } from '@/store/search/state'
 import type { Source as MusicSource } from '@/store/search/music/state'
 import type { Source as SongListSource } from '@/store/search/songlist/state'
 import MusicList, { type MusicListType } from './MusicList'
+import LibraryMusicList, { type LibraryMusicListType } from './LibraryMusicList'
 import BlankView, { type BlankViewType } from './BlankView'
-import SonglistList from './SonglistList'
+import SonglistList, { type MusicListType as SonglistListType } from './SonglistList'
 
 interface ListProps {
   onSearch: (keyword: string) => void
@@ -16,11 +17,13 @@ export interface ListType {
 export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
   const [listType, setListType] = useState<SearchState['searchType']>('music')
   const [showBlankView, setShowListView] = useState(true)
-  const listRef = useRef<MusicListType>(null)
+  const [activeSource, setActiveSource] = useState<MusicSource | SongListSource>('kw')
+  const listRef = useRef<MusicListType | LibraryMusicListType | SonglistListType>(null)
   const blankViewRef = useRef<BlankViewType>(null)
 
   useImperativeHandle(ref, () => ({
     loadList(text, source, type) {
+      setActiveSource(source)
       if (text) {
         setShowListView(false)
         setListType(type)
@@ -37,11 +40,10 @@ export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
     },
   }), [])
 
-  return (
-    showBlankView
-      ? <BlankView ref={blankViewRef} onSearch={onSearch} />
-      : listType == 'songlist'
-        ? <SonglistList ref={listRef} />
-        : <MusicList ref={listRef} />
-  )
+  const isLibraryMusicSource = listType == 'music' && ['local', 'webdav', 'smb', 'all'].includes(activeSource as string)
+
+  if (showBlankView) return <BlankView ref={blankViewRef} onSearch={onSearch} />
+  if (isLibraryMusicSource) return <LibraryMusicList ref={listRef} />
+  if (listType == 'songlist') return <SonglistList ref={listRef} />
+  return <MusicList ref={listRef} />
 })

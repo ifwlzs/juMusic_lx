@@ -7,8 +7,8 @@ import { type LayoutChangeEvent, View } from 'react-native'
 // import MusicList from './components/MusicList'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import searchState, { type SearchType } from '@/store/search/state'
-import searchMusicState from '@/store/search/music/state'
-import searchSonglistState from '@/store/search/songlist/state'
+import searchMusicState, { type Source as MusicSource } from '@/store/search/music/state'
+import searchSonglistState, { type Source as SonglistSource } from '@/store/search/songlist/state'
 import { getSearchSetting, saveSearchSetting } from '@/utils/data'
 import { createStyle } from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
@@ -17,9 +17,14 @@ import { addHistoryWord } from '@/core/search/search'
 
 
 interface SearchInfo {
-  temp_source: LX.OnlineSource
-  source: LX.OnlineSource | 'all'
+  temp_source: MusicSource
+  source: MusicSource | SonglistSource
   searchType: 'music' | 'songlist'
+}
+
+const getValidSearchSource = (type: SearchType, source: SearchInfo['source']) => {
+  const sourceList = type == 'music' ? searchMusicState.sources : searchSonglistState.sources
+  return sourceList.includes(source as never) ? source : sourceList[0]
 }
 
 export default () => {
@@ -32,16 +37,15 @@ export default () => {
 
   useEffect(() => {
     void getSearchSetting().then(info => {
-      // info.type = 'music'
-      searchInfo.current.temp_source = info.temp_source
-      searchInfo.current.source = info.source
+      searchInfo.current.temp_source = info.temp_source as MusicSource
       searchInfo.current.searchType = info.type
+      searchInfo.current.source = getValidSearchSource(info.type, info.source as SearchInfo['source'])
       switch (info.type) {
         case 'music':
-          headerBarRef.current?.setSourceList(searchMusicState.sources, info.source)
+          headerBarRef.current?.setSourceList(searchMusicState.sources, searchInfo.current.source as MusicSource)
           break
         case 'songlist':
-          headerBarRef.current?.setSourceList(searchSonglistState.sources, info.source)
+          headerBarRef.current?.setSourceList(searchSonglistState.sources, searchInfo.current.source as SonglistSource)
           break
       }
       headerBarRef.current?.setText(searchState.searchText)
@@ -50,7 +54,16 @@ export default () => {
 
     const handleTypeChange = (type: SearchType) => {
       searchInfo.current.searchType = type
-      void saveSearchSetting({ type })
+      searchInfo.current.source = getValidSearchSource(type, searchInfo.current.source)
+      void saveSearchSetting({ type, source: searchInfo.current.source as MusicSource })
+      switch (type) {
+        case 'music':
+          headerBarRef.current?.setSourceList(searchMusicState.sources, searchInfo.current.source as MusicSource)
+          break
+        case 'songlist':
+          headerBarRef.current?.setSourceList(searchSonglistState.sources, searchInfo.current.source as SonglistSource)
+          break
+      }
       listRef.current?.loadList(searchState.searchText, searchInfo.current.source, type)
     }
     global.app_event.on('searchTypeChanged', handleTypeChange)
@@ -67,7 +80,7 @@ export default () => {
 
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     searchInfo.current.source = source
-    void saveSearchSetting({ source })
+    void saveSearchSetting({ source: source as MusicSource })
     listRef.current?.loadList(searchState.searchText, source, searchInfo.current.searchType)
   }
   const handleTipSearch: HeaderBarProps['onTipSearch'] = (text) => {

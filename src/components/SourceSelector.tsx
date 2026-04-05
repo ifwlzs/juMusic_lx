@@ -8,7 +8,7 @@ import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
 
-type Sources = Readonly<Array<LX.OnlineSource | 'all'>>
+type Sources = Readonly<Array<LX.Source | 'all'>>
 
 export interface SourceSelectorProps<S extends Sources> {
   fontSize?: number
@@ -32,7 +32,7 @@ export const useSourceListI18n = (list: Sources) => {
 const Component = <S extends Sources>({ fontSize = 15, center, onSourceChange }: SourceSelectorProps<S>, ref: Ref<SourceSelectorType<S>>) => {
   const sourceNameType = useSettingValue('common.sourceNameType')
   const [list, setList] = useState([] as unknown as S)
-  const [source, setSource] = useState<S[number]>('kw')
+  const [source, setSource] = useState<S[number]>('kw' as S[number])
   const t = useI18n()
 
   useImperativeHandle(ref, () => ({

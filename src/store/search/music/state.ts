@@ -1,7 +1,8 @@
 import music from '@/utils/musicSdk'
+import { getSearchSources } from '@/core/mediaLibrary/searchRegistry'
 
 export declare interface ListInfo {
-  list: LX.Music.MusicInfoOnline[]
+  list: LX.Music.MusicInfo[]
   total: number
   page: number
   maxPage: number
@@ -9,18 +10,18 @@ export declare interface ListInfo {
   key: string | null
 }
 
-interface ListInfos extends Partial<Record<LX.OnlineSource, ListInfo>> {
+interface ListInfos extends Partial<Record<LX.Source, ListInfo>> {
   'all': ListInfo
 }
 
-export type Source = LX.OnlineSource | 'all'
+export type Source = LX.Source | 'all'
 
 export interface InitState {
   searchText: string
   source: Source
   sources: Source[]
   listInfos: ListInfos
-  maxPages: Partial<Record<LX.OnlineSource, number>>
+  maxPages: Partial<Record<Source, number>>
 }
 
 const state: InitState = {
@@ -40,9 +41,10 @@ const state: InitState = {
   maxPages: {},
 }
 
+const onlineSources: LX.OnlineSource[] = []
 for (const source of music.sources) {
   if (!music[source.id as LX.OnlineSource]?.musicSearch) continue
-  state.sources.push(source.id as LX.OnlineSource)
+  onlineSources.push(source.id as LX.OnlineSource)
   state.listInfos[source.id as LX.OnlineSource] = {
     page: 1,
     maxPage: 0,
@@ -53,6 +55,12 @@ for (const source of music.sources) {
   }
   state.maxPages[source.id as LX.OnlineSource] = 0
 }
-state.sources.push('all')
+state.sources = getSearchSources(onlineSources) as Source[]
+state.listInfos.local = { page: 1, maxPage: 0, limit: 30, total: 0, list: [], key: '' }
+state.listInfos.webdav = { page: 1, maxPage: 0, limit: 30, total: 0, list: [], key: '' }
+state.listInfos.smb = { page: 1, maxPage: 0, limit: 30, total: 0, list: [], key: '' }
+state.maxPages.local = 0
+state.maxPages.webdav = 0
+state.maxPages.smb = 0
 
 export default state

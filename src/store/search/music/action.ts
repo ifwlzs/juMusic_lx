@@ -1,14 +1,14 @@
 import state, { type InitState, type Source } from './state'
-import { sortInsert, similar, arrPush } from '@/utils/common'
+import { similar, arrPush } from '@/utils/common'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 
 
 export interface SearchResult {
-  list: LX.Music.MusicInfoOnline[]
+  list: LX.Music.MusicInfo[]
   allPage: number
   limit: number
   total: number
-  source: LX.OnlineSource
+  source: Source
 }
 
 
@@ -18,24 +18,36 @@ export interface SearchResult {
  * @param keyword 搜索关键词
  * @returns 排序后的列表
  */
-const handleSortList = (list: LX.Music.MusicInfoOnline[], keyword: string) => {
-  let arr: any[] = []
-  for (const item of list) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    sortInsert(arr, {
-      num: similar(keyword, `${item.name} ${item.singer}`),
-      data: item,
-    })
+const getSourcePriority = (source: LX.Music.MusicInfo['source']) => {
+  switch (source) {
+    case 'local': return 0
+    case 'webdav': return 1
+    case 'smb': return 2
+    default: return 99
   }
-  return arr.map(item => item.data).reverse()
 }
 
+const normalizeSearchItem = (item: LX.Music.MusicInfo) => {
+  if (item.source == 'local' || item.source == 'webdav' || item.source == 'smb') return item
+  return toNewMusicInfo(item)
+}
 
-const setLists = (results: SearchResult[], page: number, text: string): LX.Music.MusicInfoOnline[] => {
+const handleSortList = (list: LX.Music.MusicInfo[], keyword: string) => {
+  return [...list]
+    .map(item => ({
+      priority: getSourcePriority(item.source),
+      score: similar(keyword, `${item.name} ${item.singer}`),
+      item,
+    }))
+    .sort((left, right) => left.priority - right.priority || right.score - left.score)
+    .map(item => item.item)
+}
+
+const setLists = (results: SearchResult[], page: number, text: string): LX.Music.MusicInfo[] => {
   let pages = []
   let totals = []
   let limit = 0
-  let list = [] as LX.Music.MusicInfoOnline[]
+  let list = [] as LX.Music.MusicInfo[]
   for (const source of results) {
     state.maxPages[source.source] = source.allPage
     limit = Math.max(source.limit, limit)
@@ -44,7 +56,7 @@ const setLists = (results: SearchResult[], page: number, text: string): LX.Music
     pages.push(source.allPage)
     totals.push(source.total)
   }
-  list = handleSortList(list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline), text)
+  list = handleSortList(list.map(normalizeSearchItem), text)
   let listInfo = state.listInfos.all
   listInfo.maxPage = Math.max(0, ...pages)
   const total = Math.max(0, ...totals)
@@ -58,10 +70,10 @@ const setLists = (results: SearchResult[], page: number, text: string): LX.Music
   return listInfo.list
 }
 
-const setList = (datas: SearchResult, page: number, text: string): LX.Music.MusicInfoOnline[] => {
+const setList = (datas: SearchResult, page: number): LX.Music.MusicInfo[] => {
   // console.log(datas.source, datas.list)
   let listInfo = state.listInfos[datas.source]!
-  const list = datas.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline)
+  const list = datas.list.map(normalizeSearchItem)
   listInfo.list = deduplicationList(page == 1 ? list : [...listInfo.list, ...list])
   if (page == 1 || (datas.total && datas.list.length)) listInfo.total = datas.total
   else listInfo.total = datas.limit * page
