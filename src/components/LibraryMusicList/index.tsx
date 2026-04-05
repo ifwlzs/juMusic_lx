@@ -7,13 +7,11 @@ import settingState from '@/store/setting/state'
 import { getListMusicSync } from '@/utils/listManage'
 
 const handlePlay = (musicInfo: LX.Music.MusicInfo) => {
-  if (musicInfo.source === 'local') {
-    void addListMusics(LIST_IDS.DEFAULT, [musicInfo], settingState.setting['list.addMusicLocationType']).then(() => {
-      const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex(item => item.id == musicInfo.id)
-      if (index < 0) return
-      void playList(LIST_IDS.DEFAULT, index)
-    })
-  }
+  void addListMusics(LIST_IDS.DEFAULT, [musicInfo], settingState.setting['list.addMusicLocationType']).then(() => {
+    const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex(item => item.id == musicInfo.id)
+    if (index < 0) return
+    void playList(LIST_IDS.DEFAULT, index)
+  })
 }
 
 export default ({ list }: { list: LX.Music.MusicInfo[] }) => {

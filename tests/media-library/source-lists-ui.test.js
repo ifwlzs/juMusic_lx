@@ -14,9 +14,11 @@ test('来源歌曲列表页面文件存在', () => {
   assert.equal(fs.existsSync(path.resolve(__dirname, '../../src/screens/Home/Views/Mylist/SourceLists/index.tsx')), true)
 })
 
-test('LibraryMusicList 在 Task 7 之前避免直接点播未接入播放链路的远端来源', () => {
+test('LibraryMusicList 在 Task 7 后允许远端来源走统一播放链路', () => {
   const file = readFile('src/components/LibraryMusicList/index.tsx')
-  assert.match(file, /musicInfo\.source\s*===\s*'local'/)
+  assert.doesNotMatch(file, /musicInfo\.source\s*===\s*'local'/)
+  assert.match(file, /addListMusics/)
+  assert.match(file, /playList/)
 })
 
 test('Task 6 来源歌曲列表骨架不直接承担连接创建与凭据保存', () => {

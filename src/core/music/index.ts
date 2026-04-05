@@ -17,6 +17,11 @@ import {
   getPicUrl as getLocalPicUrl,
   getLyricInfo as getLocalLyricInfo,
 } from './local'
+import {
+  getMusicUrl as getMediaLibraryMusicUrl,
+  getPicUrl as getMediaLibraryPicUrl,
+  getLyricInfo as getMediaLibraryLyricInfo,
+} from './mediaLibrary'
 
 
 export const getMusicUrl = async({
@@ -36,6 +41,11 @@ export const getMusicUrl = async({
     return getDownloadMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
   } else if (musicInfo.source == 'local') {
     return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
+  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb') {
+    return getMediaLibraryMusicUrl({
+      musicInfo,
+      isRefresh,
+    })
   } else {
     return getOnlineMusicUrl({ musicInfo, isRefresh, quality, onToggleSource, allowToggleSource })
   }
@@ -56,6 +66,11 @@ export const getPicPath = async({
     return getDownloadPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
   } else if (musicInfo.source == 'local') {
     return getLocalPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
+  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb') {
+    return getMediaLibraryPicUrl({
+      musicInfo,
+      isRefresh,
+    })
   } else {
     return getOnlinePicUrl({ musicInfo, isRefresh, listId, onToggleSource })
   }
@@ -74,6 +89,11 @@ export const getLyricInfo = async({
     return getDownloadLyricInfo({ musicInfo, isRefresh, onToggleSource })
   } else if (musicInfo.source == 'local') {
     return getLocalLyricInfo({ musicInfo, isRefresh, onToggleSource })
+  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb') {
+    return getMediaLibraryLyricInfo({
+      musicInfo,
+      isRefresh,
+    })
   } else {
     return getOnlineLyricInfo({ musicInfo, isRefresh, onToggleSource })
   }
