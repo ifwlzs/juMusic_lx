@@ -11,13 +11,15 @@ test('play detail uses emby-style page background preset', () => {
   assert.match(playDetailFile, /<PageContent\s+backgroundVariant="playDetailEmby"/)
 })
 
-test('page content defines the emby background variant with stronger blur but lighter overlay', () => {
+test('page content defines the emby background variant with stronger blur, theme tint, and a lighter dark overlay', () => {
   const pageContentFile = readFile('src/components/PageContent.tsx')
 
   assert.match(pageContentFile, /type BackgroundVariant = 'default' \| 'playDetailEmby'/)
   assert.match(pageContentFile, /playDetailEmby:/)
   assert.match(pageContentFile, /resizeMode: 'stretch'/)
   assert.match(pageContentFile, /blurRadius: Math\.max\(scaleSizeAbsHR\(36\), 18\)/)
-  assert.match(pageContentFile, /backgroundColor: 'rgba\(0, 0, 0, 0\.14\)'/)
+  assert.match(pageContentFile, /tintThemeColorKey: 'c-primary-background-active'/)
+  assert.match(pageContentFile, /tintOpacity: 0\.16/)
+  assert.match(pageContentFile, /backgroundColor: 'rgba\(0, 0, 0, 0\.1\)'/)
   assert.match(pageContentFile, /imageStyle: \{ transform: \[\{ scaleX: 1\.16 \}, \{ scaleY: 1\.08 \}\] \}/)
 })
