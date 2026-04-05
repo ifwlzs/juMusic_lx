@@ -8,13 +8,27 @@ function createKeyBuilder(prefix = '@media_library__') {
   }
 }
 
+function sanitizeConnection(connection) {
+  return {
+    connectionId: connection.connectionId,
+    providerType: connection.providerType,
+    displayName: connection.displayName,
+    rootPathOrUri: connection.rootPathOrUri,
+    credentialRef: connection.credentialRef ?? null,
+    lastScanAt: connection.lastScanAt ?? null,
+    lastScanStatus: connection.lastScanStatus,
+    lastScanSummary: connection.lastScanSummary,
+    listProjectionEnabled: connection.listProjectionEnabled,
+  }
+}
+
 function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
   return {
     async getConnections() {
       return await storage.get(keys.connections()) || []
     },
     async saveConnections(items) {
-      await storage.set(keys.connections(), items)
+      await storage.set(keys.connections(), items.map(sanitizeConnection))
     },
     async getSourceItems(connectionId) {
       return await storage.get(keys.sourceItems(connectionId)) || []
@@ -82,6 +96,10 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
         }
       }
 
+      if (invalidatedCaches.length) {
+        const invalidatedCacheIds = new Set(invalidatedCaches.map(item => item.cacheId))
+        await storage.set(keys.caches(), prevCaches.filter(item => !invalidatedCacheIds.has(item.cacheId)))
+      }
       await storage.set(keys.sourceItems(connectionId), nextItems)
       return { invalidatedCaches }
     },
