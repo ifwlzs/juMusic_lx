@@ -3,6 +3,13 @@ declare namespace LX {
     type ProviderType = 'local' | 'webdav' | 'smb'
     type ConnectionScanStatus = 'idle' | 'running' | 'success' | 'failed'
 
+    interface ConnectionCredential {
+      host?: string
+      share?: string
+      username?: string
+      password?: string
+    }
+
     interface SourceConnection {
       connectionId: string
       providerType: ProviderType
@@ -65,6 +72,11 @@ declare namespace LX {
       playCount: number
       playDurationTotalSec: number
       lastPlayedAt: number
+    }
+
+    interface DevSeedConnection {
+      connection: SourceConnection
+      credential?: ConnectionCredential | null
     }
   }
 }

@@ -1,6 +1,9 @@
+const { sanitizeCredential } = require('./credentials.js')
+
 function createKeyBuilder(prefix = '@media_library__') {
   return {
     connections: () => `${prefix}connections`,
+    credentials: credentialRef => `${prefix}credential__${credentialRef}`,
     sourceItems: connectionId => `${prefix}source_items__${connectionId}`,
     aggregateSongs: () => `${prefix}aggregate_songs`,
     caches: () => `${prefix}caches`,
@@ -29,6 +32,18 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
     },
     async saveConnections(items) {
       await storage.set(keys.connections(), items.map(sanitizeConnection))
+    },
+    async getCredential(credentialRef) {
+      if (!credentialRef) return null
+      return await storage.get(keys.credentials(credentialRef)) || null
+    },
+    async saveCredential(credentialRef, credential) {
+      if (!credentialRef) throw new Error('credentialRef is required')
+      await storage.set(keys.credentials(credentialRef), sanitizeCredential(credential))
+    },
+    async removeCredential(credentialRef) {
+      if (!credentialRef) return
+      await storage.remove(keys.credentials(credentialRef))
     },
     async getSourceItems(connectionId) {
       return await storage.get(keys.sourceItems(connectionId)) || []
