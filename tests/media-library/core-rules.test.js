@@ -234,6 +234,72 @@ test('buildAggregateSongs 在纯远端分组里新增近似重复项时保持稳
   assert.equal(expandedSongs[0].aggregateSongId, baseSongs[0].aggregateSongId)
 })
 
+test('buildAggregateSongs 在同一 webdav 提供方内新增近似重复项时保持稳定代表项和 aggregateSongId', () => {
+  const baseSongs = buildAggregateSongs([
+    {
+      sourceItemId: 'webdav_1',
+      providerType: 'webdav',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+  ])
+  const expandedSongs = buildAggregateSongs([
+    {
+      sourceItemId: 'webdav_1',
+      providerType: 'webdav',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+    {
+      sourceItemId: 'webdav_2',
+      providerType: 'webdav',
+      title: '七里香 ',
+      artist: '周杰伦',
+      durationSec: 299,
+    },
+  ])
+
+  assert.equal(baseSongs.length, 1)
+  assert.equal(expandedSongs.length, 1)
+  assert.equal(expandedSongs[0].preferredSourceItemId, 'webdav_1')
+  assert.equal(expandedSongs[0].aggregateSongId, baseSongs[0].aggregateSongId)
+})
+
+test('buildAggregateSongs 在同一 local 提供方内新增近似重复项时保持稳定代表项和 aggregateSongId', () => {
+  const baseSongs = buildAggregateSongs([
+    {
+      sourceItemId: 'local_1',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+  ])
+  const expandedSongs = buildAggregateSongs([
+    {
+      sourceItemId: 'local_1',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+    {
+      sourceItemId: 'local_2',
+      providerType: 'local',
+      title: '七里香 ',
+      artist: '周杰伦',
+      durationSec: 299,
+    },
+  ])
+
+  assert.equal(baseSongs.length, 1)
+  assert.equal(expandedSongs.length, 1)
+  assert.equal(expandedSongs[0].preferredSourceItemId, 'local_1')
+  assert.equal(expandedSongs[0].aggregateSongId, baseSongs[0].aggregateSongId)
+})
+
 test('播放三分之一后只计一次完整播放', () => {
   const session = createPlaySession({ durationSec: 300 })
   updatePlaySession(session, { currentSec: 80, isPlaying: true })

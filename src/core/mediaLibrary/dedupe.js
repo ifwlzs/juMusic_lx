@@ -68,15 +68,25 @@ function sortSourceItems(sourceItems) {
   return [...sourceItems].sort(compareSourceItems)
 }
 
+function getStableItemIdentity(item) {
+  return String(item.sourceItemId || item.pathOrUri || item.fileName || '')
+}
+
+function compareRepresentativeItems(left, right) {
+  const priorityCompare = getProviderPriority(left.providerType) - getProviderPriority(right.providerType)
+  if (priorityCompare) return priorityCompare
+
+  const stableIdentityCompare = compareText(getStableItemIdentity(left), getStableItemIdentity(right))
+  if (stableIdentityCompare) return stableIdentityCompare
+
+  return compareSourceItems(left, right)
+}
+
 function selectRepresentativeItem(groupItems) {
   return groupItems.reduce((bestItem, item) => {
     if (!bestItem) return item
 
-    const priorityCompare = getProviderPriority(item.providerType) - getProviderPriority(bestItem.providerType)
-    if (priorityCompare < 0) return item
-    if (priorityCompare > 0) return bestItem
-
-    return compareSourceItems(item, bestItem) < 0 ? item : bestItem
+    return compareRepresentativeItems(item, bestItem) < 0 ? item : bestItem
   }, null)
 }
 
