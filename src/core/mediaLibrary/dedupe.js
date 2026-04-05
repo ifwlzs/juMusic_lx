@@ -1,8 +1,17 @@
 const { normalizeText } = require('./normalize.js')
 
 function shouldMergeSongs(left, right, toleranceSec = 2) {
-  return normalizeText(left.title) === normalizeText(right.title) &&
-    normalizeText(left.artist) === normalizeText(right.artist) &&
+  const leftTitle = normalizeText(left.title)
+  const rightTitle = normalizeText(right.title)
+  const leftArtist = normalizeText(left.artist)
+  const rightArtist = normalizeText(right.artist)
+
+  if (!leftTitle || !rightTitle || !leftArtist || !rightArtist) {
+    return false
+  }
+
+  return leftTitle === rightTitle &&
+    leftArtist === rightArtist &&
     Math.abs((left.durationSec || 0) - (right.durationSec || 0)) <= toleranceSec
 }
 
@@ -14,12 +23,34 @@ function createAggregateSongId(item) {
   ].join('__')
 }
 
+function defineDurationRange(aggregate, durationSec) {
+  Object.defineProperty(aggregate, '_durationMinSec', {
+    value: durationSec,
+    writable: true,
+    enumerable: false,
+  })
+  Object.defineProperty(aggregate, '_durationMaxSec', {
+    value: durationSec,
+    writable: true,
+    enumerable: false,
+  })
+}
+
+function updateAggregateDuration(aggregate, durationSec) {
+  aggregate._durationMinSec = Math.min(aggregate._durationMinSec, durationSec)
+  aggregate._durationMaxSec = Math.max(aggregate._durationMaxSec, durationSec)
+  aggregate.durationSec = (aggregate._durationMinSec + aggregate._durationMaxSec) / 2
+  aggregate.canonicalDurationSec = Math.round(aggregate.durationSec)
+  aggregate.aggregateSongId = createAggregateSongId(aggregate)
+}
+
 function buildAggregateSongs(sourceItems) {
   const aggregates = []
 
   for (const item of sourceItems) {
     const existing = aggregates.find(song => shouldMergeSongs(song, item))
     if (existing) {
+      updateAggregateDuration(existing, item.durationSec || 0)
       existing.sourceCount += 1
       existing.sourceItemIds.push(item.sourceItemId)
       if (item.providerType === 'local' && existing.preferredSource !== 'local') {
@@ -43,6 +74,8 @@ function buildAggregateSongs(sourceItems) {
       sourceCount: 1,
       sourceItemIds: [item.sourceItemId],
     })
+
+    defineDurationRange(aggregates[aggregates.length - 1], item.durationSec || 0)
   }
 
   return aggregates

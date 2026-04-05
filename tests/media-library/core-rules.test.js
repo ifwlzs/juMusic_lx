@@ -18,6 +18,18 @@ test('shouldMergeSongs 仅合并标题+歌手+时长容差内的歌曲', () => {
   ), false)
 })
 
+test('shouldMergeSongs 在标题或歌手缺失时保持保守不合并', () => {
+  assert.equal(shouldMergeSongs(
+    { title: '', artist: '周杰伦', durationSec: 299 },
+    { title: '', artist: '周杰伦', durationSec: 300 },
+  ), false)
+
+  assert.equal(shouldMergeSongs(
+    { title: '七里香', artist: '', durationSec: 299 },
+    { title: '七里香', artist: '', durationSec: 300 },
+  ), false)
+})
+
 test('buildLocalVersionToken 使用路径、大小和修改时间构造版本', () => {
   assert.equal(
     buildLocalVersionToken({
@@ -63,6 +75,45 @@ test('buildAggregateSongs 默认生成去重后的总曲库视图', () => {
   assert.equal(songs[0].preferredSourceItemId, 'local_1')
 })
 
+test('buildAggregateSongs 对同一逻辑聚合在不同输入顺序下生成稳定 aggregateSongId', () => {
+  const firstOrder = buildAggregateSongs([
+    {
+      sourceItemId: 'local_1',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+    {
+      sourceItemId: 'dav_1',
+      providerType: 'webdav',
+      title: '七里香 ',
+      artist: '周杰伦',
+      durationSec: 299,
+    },
+  ])
+  const secondOrder = buildAggregateSongs([
+    {
+      sourceItemId: 'dav_1',
+      providerType: 'webdav',
+      title: '七里香 ',
+      artist: '周杰伦',
+      durationSec: 299,
+    },
+    {
+      sourceItemId: 'local_1',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+  ])
+
+  assert.equal(firstOrder.length, 1)
+  assert.equal(secondOrder.length, 1)
+  assert.equal(firstOrder[0].aggregateSongId, secondOrder[0].aggregateSongId)
+})
+
 test('播放三分之一后只计一次完整播放', () => {
   const session = createPlaySession({ durationSec: 300 })
   updatePlaySession(session, { currentSec: 80, isPlaying: true })
@@ -73,6 +124,15 @@ test('播放三分之一后只计一次完整播放', () => {
 
   updatePlaySession(session, { currentSec: 220, isPlaying: true })
   assert.equal(session.incrementCount, 1)
+})
+
+test('播放进度的大幅前跳按 seek 处理而不是累计为已听时长', () => {
+  const session = createPlaySession({ durationSec: 300 })
+  updatePlaySession(session, { currentSec: 20, isPlaying: true })
+  updatePlaySession(session, { currentSec: 220, isPlaying: true })
+
+  assert.equal(session.incrementCount, 0)
+  assert.equal(session.shouldIncrementPlayCount, false)
 })
 
 test('normalizeText 清理空格并统一小写', () => {
