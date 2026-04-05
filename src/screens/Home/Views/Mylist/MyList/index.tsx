@@ -7,6 +7,7 @@ import ListImportExport, { type ListImportExportType } from './ListImportExport'
 import { handleRemove, handleSync } from './listAction'
 import ListMusicSort, { type ListMusicSortType } from './ListMusicSort'
 import DuplicateMusic, { type DuplicateMusicType } from './DuplicateMusic'
+import SourceLists, { type SourceListsType } from '../SourceLists'
 
 
 export default () => {
@@ -16,6 +17,7 @@ export default () => {
   const listMusicSortRef = useRef<ListMusicSortType>(null)
   const duplicateMusicRef = useRef<DuplicateMusicType>(null)
   const listImportExportRef = useRef<ListImportExportType>(null)
+  const sourceListsRef = useRef<SourceListsType>(null)
 
   useEffect(() => {
     let isInited = false
@@ -42,6 +44,7 @@ export default () => {
           <ListMusicSort ref={listMusicSortRef} />
           <DuplicateMusic ref={duplicateMusicRef} />
           <ListImportExport ref={listImportExportRef} />
+          <SourceLists ref={sourceListsRef} />
           <ListMenu
             ref={listMenuRef}
             onNew={index => listNameEditRef.current?.showCreate(index)}
@@ -53,6 +56,7 @@ export default () => {
             onRemove={info => { handleRemove(info) }}
             onSync={info => { handleSync(info) }}
             onSelectLocalFile={(info, position) => listImportExportRef.current?.selectFile(info, position)}
+            onSourceLists={() => sourceListsRef.current?.show()}
           />
           {/* <ImportExport actionType={actionType} visible={isShowChoosePath} hide={() => setShowChoosePath(false)} selectedListRef={selectedListRef} /> */}
         </>
