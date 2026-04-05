@@ -9,6 +9,7 @@ import { useAssertApiSupport } from '@/store/common/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import Text from '@/components/common/Text'
 import Badge from '@/components/common/Badge'
+import { useI18n } from '@/lang'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -25,11 +26,14 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   isShowAlbumName: boolean
   isShowInterval: boolean
 }) => {
+  const t = useI18n()
   const theme = useTheme()
 
   const isSelected = selectedList.includes(item)
   // console.log(item.name, selectedList, selectedList.includes(item))
   const isSupported = useAssertApiSupport(item.source)
+  const mediaLibrary = 'mediaLibrary' in item.meta ? item.meta.mediaLibrary : undefined
+  const isUnavailable = !!mediaLibrary?.unavailableReason
   const moreButtonRef = useRef<TouchableOpacity>(null)
   const handleShowMenu = () => {
     if (moreButtonRef.current?.measure) {
@@ -42,29 +46,31 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   const active = activeIndex == index
 
   const singer = `${item.singer}${isShowAlbumName && item.meta.albumName ? ` · ${item.meta.albumName}` : ''}`
+  const sourceBadge = String(mediaLibrary?.providerType ?? item.source).toUpperCase()
 
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: isSupported ? 1 : 0.5 }}>
+    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: !isSupported ? 0.5 : isUnavailable ? 0.72 : 1 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
         {
           active
             ? <Icon style={styles.sn} name="play-outline" size={13} color={theme['c-primary-font']} />
-            : <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
+            : <Text style={styles.sn} size={13} color={theme['c-font']}>{index + 1}</Text>
         }
         <View style={styles.itemInfo}>
           {/* <View style={styles.listItemTitle}> */}
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
           {/* </View> */}
           <View style={styles.listItemSingle}>
-            <Badge>{item.source.toUpperCase()}</Badge>
-            <Text style={styles.listItemSingleText} size={11} color={active ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
+            <Badge>{sourceBadge}</Badge>
+            {isUnavailable ? <Badge>{t('media_music_unavailable')}</Badge> : null}
+            <Text style={styles.listItemSingleText} size={11} color={active ? theme['c-primary-font'] : theme['c-font-label']} numberOfLines={1}>
               {singer}
             </Text>
           </View>
         </View>
         {
           isShowInterval ? (
-            <Text size={12} color={active ? theme['c-primary-alpha-400'] : theme['c-250']} numberOfLines={1}>{item.interval}</Text>
+            <Text size={12} color={active ? theme['c-primary-font'] : theme['c-font-label']} numberOfLines={1}>{item.interval}</Text>
           ) : null
         }
       </TouchableOpacity>
@@ -132,6 +138,7 @@ const styles = createStyle({
     // backgroundColor: 'rgba(0,0,0,0.2)',
     flexGrow: 0,
     flexShrink: 1,
+    marginLeft: 4,
     fontWeight: '300',
     // fontSize: 15,
   },

@@ -3,6 +3,7 @@ import { useI18n } from '@/lang'
 import Menu, { type Menus, type MenuType, type Position } from '@/components/common/Menu'
 import { hasDislike } from '@/core/dislikeList'
 import { existsFile } from '@/utils/fs'
+import listState from '@/store/list/state'
 
 export interface SelectInfo {
   musicInfo: LX.Music.MusicInfo
@@ -38,6 +39,11 @@ const hasEditMetadata = async(musicInfo: LX.Music.MusicInfo) => {
   if (musicInfo.source != 'local') return false
   return existsFile(musicInfo.meta.filePath)
 }
+
+const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
+  return 'mediaLibrary' in musicInfo.meta ? musicInfo.meta.mediaLibrary : undefined
+}
+
 export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
   const t = useI18n()
   const [visible, setVisible] = useState(false)
@@ -48,7 +54,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
   useImperativeHandle(ref, () => ({
     show(selectInfo, position) {
       selectInfoRef.current = selectInfo
-      handleSetMenu(selectInfo.musicInfo)
+      handleSetMenu(selectInfo)
       if (visible) menuRef.current?.show(position)
       else {
         setVisible(true)
@@ -59,23 +65,27 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
     },
   }))
 
-  const handleSetMenu = (musicInfo: LX.Music.MusicInfo) => {
+  const handleSetMenu = (selectInfo: SelectInfo) => {
+    const musicInfo = selectInfo.musicInfo
+    const listInfo = listState.allList.find(item => item.id == selectInfo.listId) as LX.List.UserListInfo | undefined
+    const isReadOnlyList = !!listInfo?.mediaSource?.readOnly
+    const isUnavailable = !!getMediaLibraryInfo(musicInfo)?.unavailableReason
     let edit_metadata = false
     const menu = [
-      { action: 'play', label: t('play') },
-      { action: 'playLater', label: t('play_later') },
+      { action: 'play', disabled: isUnavailable, label: t('play') },
+      { action: 'playLater', disabled: isUnavailable, label: t('play_later') },
       // { action: 'download', label: '下载' },
       { action: 'add', label: t('add_to') },
-      { action: 'move', label: t('move_to') },
-      { action: 'changePosition', label: t('change_position') },
-      { action: 'toggleSource', label: t('toggle_source') },
+      { action: 'move', disabled: isReadOnlyList || isUnavailable, label: t('move_to') },
+      { action: 'changePosition', disabled: isReadOnlyList || isUnavailable, label: t('change_position') },
+      { action: 'toggleSource', disabled: isUnavailable, label: t('toggle_source') },
       { action: 'copyName', label: t('copy_name') },
-      { action: 'musicSourceDetail', disabled: musicInfo.source == 'local', label: t('music_source_detail') },
+      { action: 'musicSourceDetail', disabled: musicInfo.source == 'local' || isUnavailable, label: t('music_source_detail') },
       // { action: 'musicSearch', label: t('music_search') },
       { action: 'dislike', disabled: hasDislike(musicInfo), label: t('dislike') },
-      { action: 'remove', label: t('delete') },
+      { action: 'remove', disabled: isReadOnlyList || isUnavailable, label: t('delete') },
     ]
-    if (musicInfo.source == 'local') menu.splice(5, 0, { action: 'editMetadata', disabled: !edit_metadata, label: t('edit_metadata') })
+    if (musicInfo.source == 'local') menu.splice(5, 0, { action: 'editMetadata', disabled: isReadOnlyList || isUnavailable || !edit_metadata, label: t('edit_metadata') })
     setMenus(menu)
     void Promise.all([hasEditMetadata(musicInfo)]).then(([_edit_metadata]) => {
       // console.log(_edit_metadata)
@@ -86,7 +96,9 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       }
 
       if (isUpdated) {
-        menu[menu.findIndex(m => m.action == 'editMetadata')].disabled = !edit_metadata
+        const editMetadataIndex = menu.findIndex(m => m.action == 'editMetadata')
+        if (editMetadataIndex < 0) return
+        menu[editMetadataIndex].disabled = isReadOnlyList || isUnavailable || !edit_metadata
         setMenus([...menu])
       }
     })

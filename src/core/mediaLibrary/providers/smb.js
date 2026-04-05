@@ -13,6 +13,24 @@ function stripExtension(name = '') {
   return String(name).replace(/\.[^.]+$/, '')
 }
 
+function getParentPath(pathOrUri = '') {
+  const normalized = String(pathOrUri || '').replace(/\/+$/, '')
+  const index = normalized.lastIndexOf('/')
+  if (index <= 0) return '/'
+  return normalized.slice(0, index)
+}
+
+function toBrowserNode(entry) {
+  return {
+    nodeId: `${entry.isDirectory ? 'directory' : 'track'}__${entry.path}`,
+    kind: entry.isDirectory ? 'directory' : 'track',
+    name: entry.name,
+    pathOrUri: entry.path,
+    parentPathOrUri: getParentPath(entry.path),
+    hasChildren: entry.isDirectory ? true : undefined,
+  }
+}
+
 async function collectSmbFiles(listDirectory, rootPathOrUri, connection) {
   const files = []
   let skipped = 0
@@ -33,60 +51,102 @@ async function collectSmbFiles(listDirectory, rootPathOrUri, connection) {
   return { files, skipped }
 }
 
+async function resolveSmbFile(listDirectory, connection, pathOrUri) {
+  const entries = await listDirectory(connection, getParentPath(pathOrUri))
+  return entries.find(entry => !entry.isDirectory && entry.path === pathOrUri) || null
+}
+
+async function buildSmbScanItems(files, connection, readMetadata, skipped = 0) {
+  const lastSeenAt = Date.now()
+  const items = await Promise.all(files.map(async(file) => {
+    let metadata = null
+    let scanStatus = 'success'
+    let scanError = null
+    try {
+      metadata = await readMetadata(file.path)
+      if (!metadata) {
+        scanStatus = 'failed'
+        scanError = new Error('metadata empty')
+      }
+    } catch (error) {
+      metadata = null
+      scanStatus = 'failed'
+      scanError = error
+    }
+
+    return {
+      sourceItemId: `${connection.connectionId}__${file.path}`,
+      connectionId: connection.connectionId,
+      providerType: 'smb',
+      sourceUniqueKey: file.path,
+      pathOrUri: file.path,
+      fileName: file.name,
+      title: metadata?.name || stripExtension(file.name),
+      artist: metadata?.singer || '',
+      album: metadata?.albumName || '',
+      durationSec: metadata?.interval || 0,
+      fileSize: file.size || 0,
+      versionToken: buildSmbVersionToken({
+        modifiedTime: file.modifiedTime || 0,
+        fileSize: file.size || 0,
+        pathOrUri: file.path,
+      }),
+      lastSeenAt,
+      scanStatus,
+      scanError: scanError ? String(scanError?.message || scanError) : undefined,
+    }
+  }))
+  const success = items.filter(item => item.scanStatus !== 'failed').length
+  const failed = items.length - success
+  return {
+    complete: true,
+    items,
+    summary: {
+      success,
+      failed,
+      skipped,
+    },
+  }
+}
+
 function createSmbProvider({ listDirectory, readMetadata, downloadFile }) {
   return {
     type: 'smb',
+    async browseConnection(connection, pathOrUri = connection.rootPathOrUri) {
+      const entries = await listDirectory(connection, pathOrUri)
+      return entries
+        .filter(entry => entry.isDirectory || isAudioFile(entry.name))
+        .map(toBrowserNode)
+    },
+    async scanSelection(connection, selection = {}) {
+      const files = []
+      let skipped = 0
+
+      for (const directory of selection.directories || []) {
+        const nested = await collectSmbFiles(listDirectory, directory.pathOrUri, connection)
+        files.push(...nested.files)
+        skipped += nested.skipped
+      }
+
+      for (const track of selection.tracks || []) {
+        const entry = await resolveSmbFile(listDirectory, connection, track.pathOrUri)
+        if (!entry) {
+          skipped += 1
+          continue
+        }
+        if (!isAudioFile(entry.name)) {
+          skipped += 1
+          continue
+        }
+        files.push(entry)
+      }
+
+      const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
+      return buildSmbScanItems(dedupedFiles, connection, readMetadata, skipped)
+    },
     async scanConnection(connection) {
       const { files, skipped } = await collectSmbFiles(listDirectory, connection.rootPathOrUri, connection)
-      const lastSeenAt = Date.now()
-      const items = await Promise.all(files.map(async(file) => {
-        let metadata = null
-        let scanStatus = 'success'
-        let scanError = null
-        try {
-          metadata = await readMetadata(file.path)
-          if (!metadata) {
-            scanStatus = 'failed'
-            scanError = new Error('metadata empty')
-          }
-        } catch (error) {
-          metadata = null
-          scanStatus = 'failed'
-          scanError = error
-        }
-
-        return {
-          sourceItemId: `${connection.connectionId}__${file.path}`,
-          connectionId: connection.connectionId,
-          providerType: 'smb',
-          sourceUniqueKey: file.path,
-          pathOrUri: file.path,
-          fileName: file.name,
-          title: metadata?.name || stripExtension(file.name),
-          artist: metadata?.singer || '',
-          album: metadata?.albumName || '',
-          durationSec: metadata?.interval || 0,
-          fileSize: file.size || 0,
-          versionToken: buildSmbVersionToken({
-            modifiedTime: file.modifiedTime || 0,
-            fileSize: file.size || 0,
-            pathOrUri: file.path,
-          }),
-          lastSeenAt,
-          scanStatus,
-          scanError: scanError ? String(scanError?.message || scanError) : undefined,
-        }
-      }))
-      const success = items.filter(item => item.scanStatus !== 'failed').length
-      const failed = items.length - success
-      return {
-        items,
-        summary: {
-          success,
-          failed,
-          skipped,
-        },
-      }
+      return buildSmbScanItems(files, connection, readMetadata, skipped)
     },
     async downloadToCache(connection, sourceItem, savePath) {
       return downloadFile(connection, sourceItem.pathOrUri, savePath)

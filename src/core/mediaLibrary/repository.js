@@ -4,10 +4,54 @@ function createKeyBuilder(prefix = '@media_library__') {
   return {
     connections: () => `${prefix}connections`,
     credentials: credentialRef => `${prefix}credential__${credentialRef}`,
+    importRules: () => `${prefix}import_rules`,
+    importJobs: () => `${prefix}import_jobs`,
+    importSnapshot: ruleId => `${prefix}import_snapshot__${ruleId}`,
     sourceItems: connectionId => `${prefix}source_items__${connectionId}`,
     aggregateSongs: () => `${prefix}aggregate_songs`,
     caches: () => `${prefix}caches`,
     playStats: () => `${prefix}play_stats`,
+  }
+}
+
+function sanitizeSelection(selection = {}) {
+  return {
+    selectionId: selection.selectionId,
+    kind: selection.kind,
+    pathOrUri: selection.pathOrUri,
+    displayName: selection.displayName,
+  }
+}
+
+function sanitizeImportRule(rule = {}) {
+  return {
+    ruleId: rule.ruleId,
+    connectionId: rule.connectionId,
+    name: rule.name,
+    mode: rule.mode,
+    directories: Array.isArray(rule.directories) ? rule.directories.map(sanitizeSelection) : [],
+    tracks: Array.isArray(rule.tracks) ? rule.tracks.map(sanitizeSelection) : [],
+    generatedListIds: Array.isArray(rule.generatedListIds) ? [...rule.generatedListIds] : [],
+    lastSyncAt: rule.lastSyncAt ?? null,
+    lastSyncStatus: rule.lastSyncStatus,
+    lastSyncSummary: rule.lastSyncSummary,
+  }
+}
+
+function sanitizeImportJob(job = {}) {
+  return {
+    jobId: job.jobId,
+    type: job.type,
+    connectionId: job.connectionId,
+    ruleId: job.ruleId ?? null,
+    status: job.status,
+    attempt: job.attempt ?? 0,
+    createdAt: job.createdAt ?? null,
+    startedAt: job.startedAt ?? null,
+    finishedAt: job.finishedAt ?? null,
+    summary: job.summary ?? '',
+    error: job.error ?? '',
+    payload: job.payload ?? null,
   }
 }
 
@@ -32,6 +76,33 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
     },
     async saveConnections(items) {
       await storage.set(keys.connections(), items.map(sanitizeConnection))
+    },
+    async getImportRules() {
+      return await storage.get(keys.importRules()) || []
+    },
+    async saveImportRules(items) {
+      await storage.set(keys.importRules(), items.map(sanitizeImportRule))
+    },
+    async getImportJobs() {
+      return await storage.get(keys.importJobs()) || []
+    },
+    async saveImportJobs(items) {
+      await storage.set(keys.importJobs(), items.map(sanitizeImportJob))
+    },
+    async getImportSnapshot(ruleId) {
+      if (!ruleId) return null
+      return await storage.get(keys.importSnapshot(ruleId)) || null
+    },
+    async saveImportSnapshot(ruleId, snapshot) {
+      if (!ruleId) throw new Error('ruleId is required')
+      await storage.set(keys.importSnapshot(ruleId), snapshot ? {
+        ruleId,
+        scannedAt: snapshot.scannedAt ?? null,
+        items: Array.isArray(snapshot.items) ? [...snapshot.items] : [],
+      } : null)
+    },
+    async removeImportSnapshots(ruleIds = []) {
+      await Promise.all(ruleIds.filter(Boolean).map(ruleId => storage.remove(keys.importSnapshot(ruleId))))
     },
     async getCredential(credentialRef) {
       if (!credentialRef) return null

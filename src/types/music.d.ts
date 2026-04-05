@@ -42,6 +42,7 @@ declare namespace LX {
         remotePathOrUri: string
         versionToken: string
         preferredSourceItemId?: string
+        unavailableReason?: 'connection_removed' | 'rule_removed'
       }
     }
 
@@ -56,6 +57,7 @@ declare namespace LX {
         remotePathOrUri: string
         versionToken: string
         preferredSourceItemId?: string
+        unavailableReason?: 'connection_removed' | 'rule_removed'
       }
     }
 

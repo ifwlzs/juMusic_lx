@@ -28,7 +28,6 @@ export interface ListMenuProps {
   onSync: (listInfo: LX.List.UserListInfo) => void
   onSelectLocalFile: (listInfo: LX.List.MyListInfo, index: number) => void
   onRemove: (listInfo: LX.List.UserListInfo) => void
-  onSourceLists: () => void
 }
 export interface ListMenuType {
   show: (selectInfo: SelectInfo, position: Position) => void
@@ -48,7 +47,6 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
   onSync,
   onSelectLocalFile,
   onRemove,
-  onSourceLists,
 }, ref) => {
   const t = useI18n()
   const menuRef = useRef<MenuType>(null)
@@ -72,6 +70,9 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
 
   const handleSetMenu = (listInfo: LX.List.MyListInfo) => {
     let rename = false
+    let sort = true
+    let duplicateMusic = true
+    let importList = true
     let sync = false
     let remove = false
     let local_file = !listState.fetchingListStatus[listInfo.id]
@@ -82,21 +83,24 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
         break
       default:
         userList = listInfo as LX.List.UserListInfo
-        rename = true
-        remove = true
-        sync = !!(userList.source && musicSdk[userList.source]?.songList)
+        rename = !userList.mediaSource?.readOnly
+        sort = !userList.mediaSource?.readOnly
+        duplicateMusic = !userList.mediaSource?.readOnly
+        importList = !userList.mediaSource?.readOnly
+        local_file &&= !userList.mediaSource?.readOnly
+        remove = !userList.mediaSource?.readOnly
+        sync = !userList.mediaSource?.readOnly && !!(userList.source && musicSdk[userList.source]?.songList)
         break
     }
 
     setMenus([
       { action: 'new', label: t('list_create') },
-      { action: 'sourceLists', label: t('list_source_lists') },
       { action: 'rename', disabled: !rename, label: t('list_rename') },
-      { action: 'sort', label: t('list_sort') },
-      { action: 'duplicateMusic', label: t('lists__duplicate') },
+      { action: 'sort', disabled: !sort, label: t('list_sort') },
+      { action: 'duplicateMusic', disabled: !duplicateMusic, label: t('lists__duplicate') },
       { action: 'local_file', disabled: !local_file, label: t('list_select_local_file') },
       { action: 'sync', disabled: !sync || !local_file, label: t('list_sync') },
-      { action: 'import', label: t('list_import') },
+      { action: 'import', disabled: !importList, label: t('list_import') },
       { action: 'export', label: t('list_export') },
       // { action: 'changePosition', label: t('change_position') },
       { action: 'remove', disabled: !remove, label: t('list_remove') },
@@ -108,9 +112,6 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
     switch (action) {
       case 'new':
         onNew(Math.max(selectInfo.index - 1, 0))
-        break
-      case 'sourceLists':
-        onSourceLists()
         break
       case 'rename':
         onRename(selectInfo.listInfo as LX.List.UserListInfo)

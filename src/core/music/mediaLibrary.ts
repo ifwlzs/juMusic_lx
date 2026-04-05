@@ -1,9 +1,11 @@
 import { buildLyricInfo } from './utils'
 import { parseLyric } from './local'
 import { invalidateCache, upsertCacheEntry } from '@/core/mediaLibrary/cache'
+import { buildMediaLibraryCacheFilePath } from '@/core/mediaLibrary/cachePath'
 import { resolveConnectionCredential } from '@/core/mediaLibrary/credentials'
 import { resolvePlayableResource } from '@/core/mediaLibrary/playbackResolver'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { buildWebdavHeaders, buildWebdavUrl } from '@/core/mediaLibrary/webdav'
 import { mkdir, temporaryDirectoryPath, unlink, downloadFile } from '@/utils/fs'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 import { downloadSmbFile } from '@/utils/nativeModules/smb'
@@ -12,28 +14,11 @@ const MEDIA_LIBRARY_CACHE_DIR = `${temporaryDirectoryPath}/media-library`
 const pendingPlayableFilePaths = new Map<string, Promise<string>>()
 
 const getCacheFilePath = (musicInfo: LX.Music.MusicInfoRemoteFile) => {
-  return `${MEDIA_LIBRARY_CACHE_DIR}/${encodeURIComponent(musicInfo.meta.mediaLibrary!.sourceItemId)}.${musicInfo.meta.ext ?? 'mp3'}`
-}
-
-const buildWebdavDownloadUrl = (rootPathOrUri: string, remotePathOrUri: string) => {
-  if (/^https?:\/\//i.test(remotePathOrUri)) return remotePathOrUri
-
-  try {
-    const rootUrl = new URL(rootPathOrUri)
-    if (remotePathOrUri.startsWith('/')) return new URL(remotePathOrUri, `${rootUrl.protocol}//${rootUrl.host}`).toString()
-    const normalizedRoot = rootPathOrUri.endsWith('/') ? rootPathOrUri : `${rootPathOrUri}/`
-    return new URL(remotePathOrUri, normalizedRoot).toString()
-  } catch {
-    return remotePathOrUri
-  }
-}
-
-const buildWebdavHeaders = (credential: LX.MediaLibrary.ConnectionCredential | null) => {
-  if (!credential?.username) return undefined
-  const auth = Buffer.from(`${credential.username}:${credential.password ?? ''}`).toString('base64')
-  return {
-    Authorization: `Basic ${auth}`,
-  }
+  return buildMediaLibraryCacheFilePath(
+    MEDIA_LIBRARY_CACHE_DIR,
+    musicInfo.meta.mediaLibrary!.sourceItemId,
+    musicInfo.meta.ext ?? 'mp3',
+  )
 }
 
 const downloadRemoteFile = async(musicInfo: LX.Music.MusicInfoRemoteFile, targetPath: string) => {
@@ -45,7 +30,7 @@ const downloadRemoteFile = async(musicInfo: LX.Music.MusicInfoRemoteFile, target
   const remotePathOrUri = musicInfo.meta.mediaLibrary!.remotePathOrUri
 
   if (musicInfo.source == 'webdav') {
-    const remoteUrl = buildWebdavDownloadUrl(connection.rootPathOrUri, remotePathOrUri)
+    const remoteUrl = buildWebdavUrl(connection.rootPathOrUri, remotePathOrUri)
     const headers = buildWebdavHeaders(credential)
     await downloadFile(remoteUrl, targetPath, headers ? { headers } : {}).promise
     return targetPath
@@ -73,7 +58,12 @@ const resolveLocalPlayableFilePath = async(musicInfo: LX.Music.MusicInfoRemoteFi
   const task = (async() => {
     await mkdir(MEDIA_LIBRARY_CACHE_DIR).catch(() => null)
 
-    const cacheEntry = await mediaLibraryRepository.findCacheBySourceItemId(musicInfo.meta.mediaLibrary!.sourceItemId)
+    const localFilePath = getCacheFilePath(musicInfo)
+    let cacheEntry = await mediaLibraryRepository.findCacheBySourceItemId(musicInfo.meta.mediaLibrary!.sourceItemId)
+    if (cacheEntry && cacheEntry.localFilePath !== localFilePath) {
+      await invalidateCache(cacheEntry, unlink, mediaLibraryRepository)
+      cacheEntry = null
+    }
     const sourceItem = {
       providerType: musicInfo.meta.mediaLibrary!.providerType,
       sourceItemId: musicInfo.meta.mediaLibrary!.sourceItemId,
@@ -88,7 +78,6 @@ const resolveLocalPlayableFilePath = async(musicInfo: LX.Music.MusicInfoRemoteFi
         await invalidateCache(entry, unlink, mediaLibraryRepository)
       },
       downloadToCache: async() => {
-        const localFilePath = getCacheFilePath(musicInfo)
         await downloadRemoteFile(musicInfo, localFilePath)
         await upsertCacheEntry(mediaLibraryRepository, {
           cacheId: `cache__${musicInfo.meta.mediaLibrary!.sourceItemId}`,

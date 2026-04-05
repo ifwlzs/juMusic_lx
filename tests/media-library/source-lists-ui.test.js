@@ -5,13 +5,14 @@ const path = require('node:path')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
-test('我的列表菜单增加来源歌曲列表入口', () => {
+test('我的列表菜单移除来源歌曲列表入口', () => {
   const file = readFile('src/screens/Home/Views/Mylist/MyList/ListMenu.tsx')
-  assert.match(file, /sourceLists/)
+  assert.doesNotMatch(file, /sourceLists/)
 })
 
-test('来源歌曲列表页面文件存在', () => {
-  assert.equal(fs.existsSync(path.resolve(__dirname, '../../src/screens/Home/Views/Mylist/SourceLists/index.tsx')), true)
+test('我的列表页面不再挂载来源歌曲列表浮层', () => {
+  const file = readFile('src/screens/Home/Views/Mylist/MyList/index.tsx')
+  assert.doesNotMatch(file, /SourceLists/)
 })
 
 test('LibraryMusicList 在 Task 7 后允许远端来源走统一播放链路', () => {

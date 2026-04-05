@@ -113,6 +113,7 @@ export const overwriteList = async(listInfoFull: LX.List.MyDefaultListInfoFull |
           source: userListInfo.source,
           sourceListId: userListInfo.sourceListId,
           locationUpdateTime: userListInfo.locationUpdateTime,
+          mediaSource: userListInfo.mediaSource,
         },
       ])
       break

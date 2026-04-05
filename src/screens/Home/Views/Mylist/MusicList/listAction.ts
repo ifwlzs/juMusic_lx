@@ -6,16 +6,52 @@ import { similar, sortInsert, toOldMusicInfo } from '@/utils'
 import { confirmDialog, openUrl, shareMusic, toast } from '@/utils/tools'
 import { addDislikeInfo, hasDislike } from '@/core/dislikeList'
 import playerState from '@/store/player/state'
+import listState from '@/store/list/state'
 
 import type { SelectInfo } from './ListMenu'
 import { type Metadata } from '@/components/MetadataEditModal'
 import musicSdk from '@/utils/musicSdk'
 import { getListMusicSync } from '@/utils/listManage'
 
-export const handlePlay = (listId: SelectInfo['listId'], index: SelectInfo['index']) => {
+const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
+  return 'mediaLibrary' in musicInfo.meta ? musicInfo.meta.mediaLibrary : undefined
+}
+
+export const isUnavailableMediaLibraryMusic = (musicInfo: LX.Music.MusicInfo) => {
+  return !!getMediaLibraryInfo(musicInfo)?.unavailableReason
+}
+
+export const isReadOnlyGeneratedList = (listId: string) => {
+  const listInfo = listState.allList.find(item => item.id == listId) as LX.List.UserListInfo | undefined
+  return !!listInfo?.mediaSource?.readOnly
+}
+
+export const showUnavailableMusicToast = () => {
+  toast(global.i18n.t('media_music_unavailable_tip'))
+}
+
+export const showReadOnlyListToast = () => {
+  toast(global.i18n.t('media_list_read_only_tip'))
+}
+
+const hasUnavailableSelection = (musicInfo: SelectInfo['musicInfo'], selectedList: SelectInfo['selectedList']) => {
+  const targetList = selectedList.length ? selectedList : [musicInfo]
+  return targetList.some(isUnavailableMediaLibraryMusic)
+}
+
+export const handlePlay = (listId: SelectInfo['listId'], index: SelectInfo['index'], musicInfo?: LX.Music.MusicInfo) => {
+  const targetMusicInfo = musicInfo ?? getListMusicSync(listId)[index]
+  if (targetMusicInfo && isUnavailableMediaLibraryMusic(targetMusicInfo)) {
+    showUnavailableMusicToast()
+    return
+  }
   void playList(listId, index)
 }
 export const handlePlayLater = (listId: SelectInfo['listId'], musicInfo: SelectInfo['musicInfo'], selectedList: SelectInfo['selectedList'], onCancelSelect: () => void) => {
+  if (hasUnavailableSelection(musicInfo, selectedList)) {
+    showUnavailableMusicToast()
+    return
+  }
   if (selectedList.length) {
     addTempPlayList(selectedList.map(s => ({ listId, musicInfo: s })))
     onCancelSelect()
@@ -25,6 +61,14 @@ export const handlePlayLater = (listId: SelectInfo['listId'], musicInfo: SelectI
 }
 
 export const handleRemove = (listId: SelectInfo['listId'], musicInfo: SelectInfo['musicInfo'], selectedList: SelectInfo['selectedList'], onCancelSelect: () => void) => {
+  if (isReadOnlyGeneratedList(listId)) {
+    showReadOnlyListToast()
+    return
+  }
+  if (hasUnavailableSelection(musicInfo, selectedList)) {
+    showUnavailableMusicToast()
+    return
+  }
   if (selectedList.length) {
     void confirmDialog({
       message: global.i18n.t('list_remove_music_multi_tip', { num: selectedList.length }),
@@ -40,6 +84,14 @@ export const handleRemove = (listId: SelectInfo['listId'], musicInfo: SelectInfo
 }
 
 export const handleUpdateMusicPosition = (position: number, listId: SelectInfo['listId'], musicInfo: SelectInfo['musicInfo'], selectedList: SelectInfo['selectedList'], onCancelSelect: () => void) => {
+  if (isReadOnlyGeneratedList(listId)) {
+    showReadOnlyListToast()
+    return
+  }
+  if (hasUnavailableSelection(musicInfo, selectedList)) {
+    showUnavailableMusicToast()
+    return
+  }
   if (selectedList.length) {
     void updateListMusicPosition(listId, position, selectedList.map(s => s.id))
     onCancelSelect()
@@ -50,6 +102,14 @@ export const handleUpdateMusicPosition = (position: number, listId: SelectInfo['
 }
 
 export const handleUpdateMusicInfo = (listId: SelectInfo['listId'], musicInfo: LX.Music.MusicInfoLocal, newInfo: Metadata) => {
+  if (isReadOnlyGeneratedList(listId)) {
+    showReadOnlyListToast()
+    return
+  }
+  if (isUnavailableMediaLibraryMusic(musicInfo)) {
+    showUnavailableMusicToast()
+    return
+  }
   void updateListMusics([
     {
       id: listId,
@@ -114,6 +174,10 @@ export const handleDislikeMusic = async(musicInfo: SelectInfo['musicInfo']) => {
 }
 
 export const handleToggleSource = async(listId: string, musicInfo: LX.Music.MusicInfo, toggleMusicInfo: LX.Music.MusicInfoOnline) => {
+  if (isUnavailableMediaLibraryMusic(musicInfo)) {
+    showUnavailableMusicToast()
+    return false
+  }
   const list = getListMusicSync(listId)
   const oldId = musicInfo.id
   let oldIdx = list.findIndex(m => m.id == oldId)

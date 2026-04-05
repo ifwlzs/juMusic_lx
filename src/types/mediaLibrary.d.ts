@@ -2,6 +2,10 @@ declare namespace LX {
   namespace MediaLibrary {
     type ProviderType = 'local' | 'webdav' | 'smb'
     type ConnectionScanStatus = 'idle' | 'running' | 'success' | 'failed'
+    type ImportRuleMode = 'account_all_only' | 'per_directory' | 'merged'
+    type BrowserNodeKind = 'directory' | 'track'
+    type ImportJobType = 'import_rule_sync' | 'delete_rule_rebuild'
+    type ImportJobStatus = 'queued' | 'running' | 'success' | 'failed' | 'cancelled'
 
     interface ConnectionCredential {
       host?: string
@@ -20,6 +24,67 @@ declare namespace LX {
       lastScanStatus?: ConnectionScanStatus
       lastScanSummary?: string
       listProjectionEnabled?: boolean
+    }
+
+    interface ImportSelectionBase {
+      selectionId: string
+      pathOrUri: string
+      displayName: string
+    }
+
+    interface ImportDirectorySelection extends ImportSelectionBase {
+      kind: 'directory'
+    }
+
+    interface ImportTrackSelection extends ImportSelectionBase {
+      kind: 'track'
+    }
+
+    type ImportSelection = ImportDirectorySelection | ImportTrackSelection
+
+    interface ImportRule {
+      ruleId: string
+      connectionId: string
+      name: string
+      mode: ImportRuleMode
+      directories: ImportDirectorySelection[]
+      tracks: ImportTrackSelection[]
+      generatedListIds?: string[]
+      lastSyncAt?: number | null
+      lastSyncStatus?: ConnectionScanStatus
+      lastSyncSummary?: string
+    }
+
+    interface ImportSnapshot {
+      ruleId: string
+      scannedAt: number | null
+      items: SourceItem[]
+    }
+
+    interface ImportJob {
+      jobId: string
+      type: ImportJobType
+      connectionId: string
+      ruleId?: string | null
+      status: ImportJobStatus
+      attempt: number
+      createdAt: number | null
+      startedAt?: number | null
+      finishedAt?: number | null
+      summary?: string
+      error?: string
+      payload?: {
+        previousRule?: ImportRule | null
+      } | null
+    }
+
+    interface BrowserNode {
+      nodeId: string
+      kind: BrowserNodeKind
+      name: string
+      pathOrUri: string
+      parentPathOrUri?: string
+      hasChildren?: boolean
     }
 
     interface SourceItem {

@@ -8,6 +8,14 @@ declare namespace LX {
       sourceListId?: string
       // position?: number
       locationUpdateTime: number | null
+      mediaSource?: {
+        generated: true
+        readOnly: true
+        connectionId: string
+        ruleId?: string
+        kind: 'account_all' | 'rule_directory' | 'rule_merged' | 'rule_singles'
+        sourcePathOrUri?: string
+      }
     }
 
     interface MyDefaultListInfo {

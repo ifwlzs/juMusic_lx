@@ -6,6 +6,7 @@ const path = require('node:path')
 const { createMediaLibraryRepository } = require('../../src/core/mediaLibrary/repository.js')
 const { resolvePlayableResource } = require('../../src/core/mediaLibrary/playbackResolver.js')
 const { upsertCacheEntry } = require('../../src/core/mediaLibrary/cache.js')
+const { buildMediaLibraryCacheFilePath } = require('../../src/core/mediaLibrary/cachePath.js')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
@@ -111,13 +112,28 @@ test('upsertCacheEntry 只替换当前 sourceItem 的缓存记录', async() => {
   ])
 })
 
+test('媒体库缓存文件路径使用 file URI 安全文件名', () => {
+  const cacheFilePath = buildMediaLibraryCacheFilePath(
+    '/cache/media-library',
+    'media_connection__1775397030580__/dav/tb/Music/%E2%96%93%E8%99%9A%E6%8B%9F%E6%AD%8C%E5%A7%AC%E2%96%93/GUMI%20-%20Binarization%202014.mp3',
+    'mp3',
+  )
+
+  assert.match(cacheFilePath, /^\/cache\/media-library\/media_[0-9a-f]+\.mp3$/)
+  assert.doesNotMatch(cacheFilePath, /%/)
+  assert.doesNotMatch(path.basename(cacheFilePath), /[\\/]/)
+})
+
 test('mediaLibrary 播放链路通过 credentialRef 解析远端凭据并优先读取本地歌词', () => {
   const content = readFile('src/core/music/mediaLibrary.ts')
   assert.match(content, /readLyric/)
   assert.match(content, /parseLyric/)
   assert.match(content, /resolveLocalPlayableFilePath/)
   assert.match(content, /resolveConnectionCredential/)
-  assert.match(content, /encodeURIComponent\(musicInfo\.meta\.mediaLibrary!\.sourceItemId\)/)
+  assert.match(content, /buildMediaLibraryCacheFilePath/)
+  assert.match(content, /buildWebdavHeaders|buildWebdavUrl/)
+  assert.doesNotMatch(content, /Buffer\.from\(`\$\{credential\.username:\$\{credential\.password \?\? ''\}\}`\)/)
+  assert.doesNotMatch(content, /encodeURIComponent\(musicInfo\.meta\.mediaLibrary!\.sourceItemId\)/)
   assert.doesNotMatch(content, /connection\.credentials\./)
 })
 

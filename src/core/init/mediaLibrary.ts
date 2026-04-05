@@ -1,5 +1,6 @@
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { seedMediaLibraryConnections } from '@/core/mediaLibrary/devSeed'
+import { startMediaLibraryJobQueue } from '@/core/mediaLibrary/jobQueue'
 import { bootLog } from '@/utils/bootLog'
 import { existsFile, externalStorageDirectoryPath, readFile } from '@/utils/fs'
 import { log } from '@/utils/log'
@@ -26,6 +27,7 @@ const loadDevSeedConnections = async() => {
 }
 
 export default async() => {
+  startMediaLibraryJobQueue()
   const connections = await loadDevSeedConnections()
   if (!connections.length) return
 

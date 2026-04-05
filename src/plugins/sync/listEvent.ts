@@ -3,13 +3,14 @@ import { getListMusics } from '@/core/list'
 import { userLists } from '@/utils/listManage'
 
 // 构建列表信息对象，用于统一字段位置顺序
-export const buildUserListInfoFull = ({ id, name, source, sourceListId, list, locationUpdateTime }: LX.List.UserListInfoFull) => {
+export const buildUserListInfoFull = ({ id, name, source, sourceListId, list, locationUpdateTime, mediaSource }: LX.List.UserListInfoFull) => {
   return {
     id,
     name,
     source,
     sourceListId,
     locationUpdateTime,
+    mediaSource,
     list,
   }
 }

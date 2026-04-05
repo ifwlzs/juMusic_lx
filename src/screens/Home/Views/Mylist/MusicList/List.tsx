@@ -14,6 +14,7 @@ import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
 import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { isUnavailableMediaLibraryMusic, showUnavailableMusicToast } from './listAction'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
@@ -57,6 +58,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const currentListIdRef = useRef('')
   const waitJumpListPositionRef = useRef(false)
   const rowInfo = useRef(getRowInfo())
+  const activeListId = useActiveListId()
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
   // console.log('render music list')
@@ -179,7 +181,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
 
   const activeIndex = usePlayIndex()
   const handlePlay = (index: number) => {
-    void playList(listState.activeListId, index)
+    void playList(activeListId, index)
   }
 
   const handleUpdateSelectedList = (newList: LX.List.ListMusics) => {
@@ -228,6 +230,10 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
       if (isMultiSelectModeRef.current) {
         handleSelect(item, index)
       } else {
+        if (isUnavailableMediaLibraryMusic(item)) {
+          showUnavailableMusicToast()
+          return
+        }
         handlePlay(index)
       }
     })
