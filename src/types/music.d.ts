@@ -34,6 +34,29 @@ declare namespace LX {
     interface MusicInfoMeta_local extends MusicInfoMetaBase {
       filePath: string
       ext: string
+      mediaLibrary?: {
+        connectionId: string
+        sourceItemId: string
+        aggregateSongId: string
+        providerType: LX.MediaLibrary.ProviderType
+        remotePathOrUri: string
+        versionToken: string
+        preferredSourceItemId?: string
+      }
+    }
+
+    interface MusicInfoMeta_remote_file extends MusicInfoMetaBase {
+      filePath?: string
+      ext?: string
+      mediaLibrary?: {
+        connectionId: string
+        sourceItemId: string
+        aggregateSongId: string
+        providerType: LX.MediaLibrary.ProviderType
+        remotePathOrUri: string
+        versionToken: string
+        preferredSourceItemId?: string
+      }
     }
 
 
@@ -48,6 +71,10 @@ declare namespace LX {
 
     interface MusicInfoLocal extends MusicInfoBase<'local'> {
       meta: MusicInfoMeta_local
+    }
+
+    interface MusicInfoRemoteFile extends MusicInfoBase<'webdav' | 'smb'> {
+      meta: MusicInfoMeta_remote_file
     }
 
     interface MusicInfo_online_common extends MusicInfoBase<'kw' | 'wy'> {
@@ -83,7 +110,7 @@ declare namespace LX {
     }
 
     type MusicInfoOnline = MusicInfo_online_common | MusicInfo_kg | MusicInfo_tx | MusicInfo_mg
-    type MusicInfo = MusicInfoOnline | MusicInfoLocal
+    type MusicInfo = MusicInfoOnline | MusicInfoLocal | MusicInfoRemoteFile
 
     interface LyricInfo {
       // 歌曲歌词

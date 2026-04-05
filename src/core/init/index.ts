@@ -7,6 +7,7 @@ import initPlayer from './player'
 import dataInit from './dataInit'
 import initSync from './sync'
 import initCommonState from './common'
+import initMediaLibrary from './mediaLibrary'
 import { initDeeplink } from './deeplink'
 import { setApiSource } from '@/core/apiSource'
 import commonActions from '@/store/common/action'
@@ -48,6 +49,8 @@ export default async() => {
   bootLog('Data inited.')
   await initCommonState(setting)
   bootLog('Common State inited.')
+  await initMediaLibrary()
+  bootLog('Media Library inited.')
 
   void initSync(setting)
   bootLog('Sync inited.')

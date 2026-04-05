@@ -23,7 +23,8 @@
     "build:theme": "node src/theme/themes/createThemes.js",
     "publish": "node publish",
     "release:prepare": "node scripts/release/prepare-release.js",
-    "test:release": "node --test tests/release/versioning.test.js"
+    "test:release": "node --test tests/release/versioning.test.js",
+    "test:media-library": "node --test tests/media-library"
   },
   "engines": {
     "node": ">= 18",
@@ -51,6 +52,7 @@
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-clipboard/clipboard": "^1.14.3",
     "@react-native-community/slider": "^4.5.7",
+    "fast-xml-parser": "^5.3.4",
     "he": "^1.2.0",
     "iconv-lite": "^0.7.2",
     "lrc-file-parser": "^2.4.1",

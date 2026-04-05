@@ -28,6 +28,7 @@ export interface ListMenuProps {
   onSync: (listInfo: LX.List.UserListInfo) => void
   onSelectLocalFile: (listInfo: LX.List.MyListInfo, index: number) => void
   onRemove: (listInfo: LX.List.UserListInfo) => void
+  onSourceLists: () => void
 }
 export interface ListMenuType {
   show: (selectInfo: SelectInfo, position: Position) => void
@@ -47,6 +48,7 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
   onSync,
   onSelectLocalFile,
   onRemove,
+  onSourceLists,
 }, ref) => {
   const t = useI18n()
   const menuRef = useRef<MenuType>(null)
@@ -88,6 +90,7 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
 
     setMenus([
       { action: 'new', label: t('list_create') },
+      { action: 'sourceLists', label: t('list_source_lists') },
       { action: 'rename', disabled: !rename, label: t('list_rename') },
       { action: 'sort', label: t('list_sort') },
       { action: 'duplicateMusic', label: t('lists__duplicate') },
@@ -105,6 +108,9 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
     switch (action) {
       case 'new':
         onNew(Math.max(selectInfo.index - 1, 0))
+        break
+      case 'sourceLists':
+        onSourceLists()
         break
       case 'rename':
         onRename(selectInfo.listInfo as LX.List.UserListInfo)
