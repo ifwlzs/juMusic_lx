@@ -1,10 +1,33 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { execFileSync } = require('node:child_process')
+const { execFileSync, spawnSync } = require('node:child_process')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 
+const repoRoot = path.resolve(__dirname, '../..')
 const versioningPath = path.resolve(__dirname, '../../scripts/release/versioning.js')
+const packScriptPath = path.resolve(__dirname, '../../scripts/pack-android-release.ps1')
+
+const createTempDir = prefix => fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+
+const writeFile = (filePath, content) => {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, content, 'utf8')
+}
+
+const runPowerShellScript = (scriptPath, args, env = {}, cwd = repoRoot) => spawnSync(
+  'powershell',
+  ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
+  {
+    cwd,
+    env: {
+      ...process.env,
+      ...env,
+    },
+    encoding: 'utf8',
+  },
+)
 
 test('release versioning module exists', () => {
   assert.equal(fs.existsSync(versioningPath), true)
@@ -112,11 +135,80 @@ test('release workflow restores gradlew execute permission on Linux runners', ()
 })
 
 test('local PowerShell packaging script parses without syntax errors', () => {
-  const scriptPath = path.resolve(__dirname, '../../scripts/pack-android-release.ps1')
-  const escapedPath = scriptPath.replace(/'/g, "''")
+  const escapedPath = packScriptPath.replace(/'/g, "''")
   execFileSync('powershell', [
     '-NoProfile',
     '-Command',
     `$errors = @(); [void][System.Management.Automation.Language.Parser]::ParseFile('${escapedPath}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { $_.Message }; exit 1 }`,
   ], { stdio: 'pipe' })
+})
+
+test('local PowerShell packaging script fails before npm when keystore.properties is missing', { concurrency: false }, () => {
+  const tempDir = createTempDir('jumusic-release-preflight-')
+  const fakeBinDir = path.join(tempDir, 'bin')
+  const fakeJavaHome = path.join(tempDir, 'jdk')
+  const npmLogPath = path.join(tempDir, 'npm.log')
+
+  fs.mkdirSync(path.join(fakeJavaHome, 'bin'), { recursive: true })
+  writeFile(path.join(fakeBinDir, 'nvm.cmd'), '@echo off\r\nexit /b 0\r\n')
+  writeFile(path.join(fakeBinDir, 'npm.cmd'), `@echo off
+>> "%NPM_LOG%" echo %*
+exit /b 0
+`)
+
+  const keystorePath = path.join(repoRoot, 'android', 'keystore.properties')
+  const backupPath = path.join(tempDir, 'keystore.properties.bak')
+  if (fs.existsSync(keystorePath)) fs.renameSync(keystorePath, backupPath)
+
+  try {
+    const result = runPowerShellScript(packScriptPath, ['-JavaHome', fakeJavaHome], {
+      PATH: `${fakeBinDir};${process.env.PATH}`,
+      NPM_LOG: npmLogPath,
+    })
+
+    assert.notEqual(result.status, 0)
+    assert.match(`${result.stdout}\n${result.stderr}`, /keystore\.properties/i)
+    assert.equal(fs.existsSync(npmLogPath), false)
+  } finally {
+    if (fs.existsSync(keystorePath)) fs.unlinkSync(keystorePath)
+    if (fs.existsSync(backupPath)) fs.renameSync(backupPath, keystorePath)
+  }
+})
+
+test('local PowerShell packaging script returns pack:android exit code without masking it with later output checks', { concurrency: false }, () => {
+  const tempDir = createTempDir('jumusic-release-pack-exit-')
+  const fakeBinDir = path.join(tempDir, 'bin')
+  const fakeJavaHome = path.join(tempDir, 'jdk')
+  const npmLogPath = path.join(tempDir, 'npm.log')
+  const keystorePath = path.join(repoRoot, 'android', 'keystore.properties')
+  const backupPath = path.join(tempDir, 'keystore.properties.bak')
+
+  fs.mkdirSync(path.join(fakeJavaHome, 'bin'), { recursive: true })
+  writeFile(path.join(fakeBinDir, 'nvm.cmd'), '@echo off\r\nexit /b 0\r\n')
+  writeFile(path.join(fakeBinDir, 'npm.cmd'), `@echo off
+>> "%NPM_LOG%" echo %*
+if /I "%~1"=="run" if /I "%~2"=="pack:android" exit /b 7
+exit /b 0
+`)
+  if (fs.existsSync(keystorePath)) fs.renameSync(keystorePath, backupPath)
+  writeFile(keystorePath, `storeFile=debug.keystore
+storePassword=android
+keyAlias=androiddebugkey
+keyPassword=android
+`)
+
+  try {
+    const result = runPowerShellScript(packScriptPath, ['-JavaHome', fakeJavaHome], {
+      PATH: `${fakeBinDir};${process.env.PATH}`,
+      NPM_LOG: npmLogPath,
+    })
+
+    assert.equal(result.status, 7, result.stderr || result.stdout)
+    assert.match(fs.readFileSync(npmLogPath, 'utf8'), /run release:prepare/)
+    assert.match(fs.readFileSync(npmLogPath, 'utf8'), /run pack:android/)
+    assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Cannot find path .*apk[\\/]+release/i)
+  } finally {
+    if (fs.existsSync(keystorePath)) fs.unlinkSync(keystorePath)
+    if (fs.existsSync(backupPath)) fs.renameSync(backupPath, keystorePath)
+  }
 })
