@@ -76,6 +76,13 @@ test('package.json exposes release helper scripts', () => {
   assert.equal(typeof packageJson.scripts['pack:android:release:local'], 'string')
 })
 
+test('test:release runs both versioning and windows shortcut regressions', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'))
+
+  assert.match(packageJson.scripts['test:release'], /tests\/release\/versioning\.test\.js/)
+  assert.match(packageJson.scripts['test:release'], /tests\/release\/windows-shortcuts\.test\.js/)
+})
+
 test('package.json release metadata points to the current GitHub repository', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'))
 
