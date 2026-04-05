@@ -11,14 +11,18 @@ test('mylist song rows use readable colors instead of washed-out grey helpers', 
   assert.match(file, /opacity: !isSupported \? 0\.5 : isUnavailable \? 0\.72 : 1/)
   assert.match(file, /<Text style=\{styles\.sn\} size=\{13\} color=\{theme\['c-font'\]\}>\{index \+ 1\}<\/Text>/)
   assert.match(file, /color=\{active \? theme\['c-primary-font'\] : theme\['c-font-label'\]\}/)
+  assert.match(file, /<Icon name="dots-vertical" style=\{\{ color: theme\['c-font'\] \}\} size=\{12\} \/>/)
   assert.doesNotMatch(file, /theme\['c-300'\]/)
   assert.doesNotMatch(file, /theme\['c-500'\]/)
   assert.doesNotMatch(file, /theme\['c-250'\]/)
+  assert.doesNotMatch(file, /theme\['c-350'\]/)
 })
 
 test('mylist sidebar list names stay normal for generated read-only lists', () => {
   const file = readFile('src/screens/Home/Views/Mylist/MyList/List.tsx')
 
   assert.match(file, /<Text numberOfLines=\{1\} color=\{active \? theme\['c-primary-font'\] : theme\['c-font'\]\}>\{item\.name\}<\/Text>/)
+  assert.match(file, /<Icon name="dots-vertical" color=\{theme\['c-font'\]\} size=\{12\} \/>/)
   assert.doesNotMatch(file, /mediaSource\?\.readOnly.*c-font-label/)
+  assert.doesNotMatch(file, /theme\['c-350'\]/)
 })

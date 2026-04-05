@@ -3,16 +3,31 @@ import {
   getListMusics as getListMusicsFromStore,
   // saveListMusics as saveListMusicsFromStore,
   // removeListMusics as removeListMusicsFromStore,
+  getListSortInfo as getListSortInfoFromStore,
   overwriteListPosition,
+  overwriteListSortInfo,
   overwriteListUpdateInfo,
   removeListPosition,
+  removeListSortInfo,
   removeListUpdateInfo,
+  peekListSortInfo,
 } from '@/utils/data'
 import { arrPush, arrPushByPosition, arrUnshift } from '@/utils/common'
 import { LIST_IDS } from '@/config/constant'
+import { applyGeneratedListSortPreference } from '@/utils/musicListSort'
 
 export const userLists: LX.List.UserListInfo[] = []
 export const allMusicList = new Map<string, LX.Music.MusicInfo[]>()
+
+const getUserListInfo = (id: string) => {
+  return userLists.find(item => item.id == id)
+}
+
+const applyListSortPreferenceSync = (listId: string, musicList: LX.Music.MusicInfo[]): LX.Music.MusicInfo[] => {
+  const listInfo = getUserListInfo(listId)
+  if (!listInfo) return musicList
+  return applyGeneratedListSortPreference(listInfo, musicList, peekListSortInfo(listId), global.i18n.locale)
+}
 
 export const setUserLists = (lists: LX.List.UserListInfo[]) => {
   userLists.splice(0, userLists.length, ...lists)
@@ -136,6 +151,7 @@ export const listDataOverwrite = ({ defaultList, loveList, userList, tempList }:
   const newIds = [LIST_IDS.DEFAULT, LIST_IDS.LOVE, ...userList.map(l => l.id)]
   if (tempList) newIds.push(LIST_IDS.TEMP)
   void overwriteListPosition(newIds)
+  void overwriteListSortInfo(newIds)
   void overwriteListUpdateInfo(newIds)
   return updatedListIds
 }
@@ -168,6 +184,7 @@ export const userListsRemove = (ids: string[]) => {
     if (!allMusicList.has(id)) continue
     removeMusicList(id)
     void removeListPosition(id)
+    void removeListSortInfo(id)
     void removeListUpdateInfo(id)
     changedIds.push(id)
   }
@@ -203,8 +220,12 @@ export const userListsUpdatePosition = (position: number, ids: string[]) => {
   setUserLists(newUserLists)
 }
 
-export const getListMusicSync = (id: string | null) => {
-  return id ? allMusicList.get(id) ?? [] : []
+export const getListMusicSync = (id: string | null): LX.Music.MusicInfo[] => {
+  if (!id) return []
+  const list = allMusicList.get(id) ?? []
+  const sortedList = applyListSortPreferenceSync(id, list)
+  if (sortedList !== list) allMusicList.set(id, sortedList)
+  return sortedList
 }
 
 /**
@@ -213,9 +234,17 @@ export const getListMusicSync = (id: string | null) => {
  */
 export const getListMusics = async(listId: string): Promise<LX.Music.MusicInfo[]> => {
   if (!listId) return []
-  if (allMusicList.has(listId)) return allMusicList.get(listId)!
-  const list = await getListMusicsFromStore(listId)
-  return setMusicList(listId, list)
+  let list = allMusicList.has(listId)
+    ? allMusicList.get(listId)!
+    : setMusicList(listId, await getListMusicsFromStore(listId))
+  const listInfo = getUserListInfo(listId)
+  if (!listInfo) return list
+  const sortInfo = await getListSortInfoFromStore(listId)
+  const sortedList = applyGeneratedListSortPreference(listInfo, list, sortInfo, global.i18n.locale)
+  if (sortedList !== list) {
+    list = setMusicList(listId, sortedList)
+  }
+  return list
 }
 
 export const listMusicOverwrite = async(listId: string, musicInfos: LX.Music.MusicInfo[]): Promise<string[]> => {

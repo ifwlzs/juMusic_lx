@@ -4,7 +4,6 @@ import { View, StyleSheet } from 'react-native'
 
 import { pop } from '@/navigation'
 import StatusBar from '@/components/common/StatusBar'
-import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import Text from '@/components/common/Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
@@ -14,19 +13,19 @@ import SettingPopup, { type SettingPopupType } from '../../components/SettingPop
 import { useStatusbarHeight } from '@/store/common/hook'
 import Btn from './Btn'
 import TimeoutExitBtn from './TimeoutExitBtn'
+import { playDetailPalette } from '../../palette'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
 
 const Title = () => {
-  const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
 
 
   return (
     <View style={styles.titleContent}>
-      <Text numberOfLines={1} style={styles.title}>{musicInfo.name}</Text>
-      <Text numberOfLines={1} style={styles.title} size={12} color={theme['c-font-label']}>{musicInfo.singer}</Text>
+      <Text numberOfLines={1} style={styles.title} color={playDetailPalette.PRIMARY_TEXT}>{musicInfo.name}</Text>
+      <Text numberOfLines={1} style={styles.title} size={12} color={playDetailPalette.SECONDARY_TEXT}>{musicInfo.singer}</Text>
     </View>
   )
 }

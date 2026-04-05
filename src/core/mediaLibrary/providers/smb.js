@@ -86,6 +86,7 @@ async function buildSmbScanItems(files, connection, readMetadata, skipped = 0) {
       album: metadata?.albumName || '',
       durationSec: metadata?.interval || 0,
       fileSize: file.size || 0,
+      modifiedTime: file.modifiedTime || 0,
       versionToken: buildSmbVersionToken({
         modifiedTime: file.modifiedTime || 0,
         fileSize: file.size || 0,

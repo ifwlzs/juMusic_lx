@@ -2,6 +2,7 @@ import { memo, useRef } from 'react'
 import TimeoutExitEditModal, { type TimeoutExitEditModalType, useTimeInfo } from '@/components/TimeoutExitEditModal'
 import { useTheme } from '@/store/theme/hook'
 import Btn from './Btn'
+import { playDetailPalette } from '../../palette'
 
 
 export default memo(() => {
@@ -16,7 +17,7 @@ export default memo(() => {
 
   return (
     <>
-      <Btn icon="music_time" color={timeInfo.active ? theme['c-primary-font-active'] : theme['c-font']} onPress={handleShow} />
+      <Btn icon="music_time" color={timeInfo.active ? theme['c-primary-font-active'] : playDetailPalette.SECONDARY_TEXT} onPress={handleShow} />
       <TimeoutExitEditModal ref={modalRef} timeInfo={timeInfo} />
     </>
   )

@@ -100,6 +100,7 @@ declare namespace LX {
       durationSec?: number
       mimeType?: string
       fileSize?: number
+      modifiedTime?: number | null
       versionToken: string
       lastSeenAt?: number | null
       scanStatus?: string

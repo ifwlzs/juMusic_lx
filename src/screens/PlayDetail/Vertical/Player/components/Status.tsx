@@ -2,6 +2,7 @@
 import { useStatusText } from '@/store/player/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { playDetailPalette } from '../../../palette'
 
 
 export default () => {
@@ -11,7 +12,7 @@ export default () => {
 
   // const status = playerStatus.isPlay ? text : playerStatus.statusText
 
-  return <Text style={styles.text} numberOfLines={1} size={13}>{statusText}</Text>
+  return <Text style={styles.text} numberOfLines={1} size={13} color={playDetailPalette.SECONDARY_TEXT}>{statusText}</Text>
 }
 
 const styles = createStyle({

@@ -94,6 +94,7 @@ async function buildLocalScanItems(files, connection, readMetadata, skipped = 0)
       album,
       durationSec,
       fileSize: file.size || 0,
+      modifiedTime: file.lastModified || 0,
       versionToken: buildLocalVersionToken({
         pathOrUri: file.path,
         fileSize: file.size,

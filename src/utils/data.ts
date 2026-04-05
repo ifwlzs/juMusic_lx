@@ -13,6 +13,7 @@ const playInfoStorageKey = storageDataPrefix.playInfo
 const userListKey = storageDataPrefix.userList
 const viewPrevStateKey = storageDataPrefix.viewPrevState
 const listScrollPositionKey = storageDataPrefix.listScrollPosition
+const listSortInfoKey = storageDataPrefix.listSortInfo
 const listUpdateInfoKey = storageDataPrefix.listUpdateInfo
 const ignoreVersionKey = storageDataPrefix.ignoreVersion
 const ignoreVersionFailTipTimeKey = storageDataPrefix.ignoreVersionFailTipTimeKey
@@ -35,6 +36,7 @@ const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
 
 let listPosition: LX.List.ListPositionInfo
 let listPrevSelectId: string
+let listSortInfo: LX.List.ListSortInfo
 let listUpdateInfo: LX.List.ListUpdateInfo
 
 let searchSetting: typeof DEFAULT_SETTING['search']
@@ -44,6 +46,9 @@ let searchHistoryList: string[]
 
 const saveListPositionThrottle = throttle(() => {
   void saveData(listScrollPositionKey, listPosition)
+}, 1000)
+const saveListSortInfoThrottle = throttle(() => {
+  void saveData(listSortInfoKey, listSortInfo)
 }, 1000)
 const saveSearchSettingThrottle = throttle(() => {
   void saveData(searchSettingKey, searchSetting)
@@ -99,6 +104,38 @@ export const overwriteListPosition = async(ids: string[]) => {
   }
   for (const id of removedIds) delete listPosition[id]
   saveListPositionThrottle()
+}
+
+const initListSortInfo = async() => {
+  // eslint-disable-next-line require-atomic-updates
+  listSortInfo ??= await getData(listSortInfoKey) ?? {}
+}
+export const getListSortInfo = async(id?: string) => {
+  await initListSortInfo()
+  return id ? listSortInfo[id] ?? null : { ...listSortInfo }
+}
+export const peekListSortInfo = (id: string) => {
+  return listSortInfo?.[id] ?? null
+}
+export const saveListSortInfo = async(id: string, info: LX.List.ListSortPreference) => {
+  await initListSortInfo()
+  listSortInfo[id] = info
+  saveListSortInfoThrottle()
+}
+export const removeListSortInfo = async(id: string) => {
+  await initListSortInfo()
+  delete listSortInfo[id]
+  saveListSortInfoThrottle()
+}
+export const overwriteListSortInfo = async(ids: string[]) => {
+  await initListSortInfo()
+  const removedIds = []
+  for (const id of Object.keys(listSortInfo)) {
+    if (ids.includes(id)) continue
+    removedIds.push(id)
+  }
+  for (const id of removedIds) delete listSortInfo[id]
+  saveListSortInfoThrottle()
 }
 
 const saveListPrevSelectIdThrottle = throttle(() => {

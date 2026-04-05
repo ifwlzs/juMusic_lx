@@ -61,6 +61,8 @@ function toMediaLibraryMusicInfo(item) {
         providerType: source,
         remotePathOrUri,
         versionToken: item.versionToken || '',
+        fileName: item.fileName || '',
+        modifiedTime: item.modifiedTime || 0,
         preferredSourceItemId: item.preferredSourceItemId,
       },
     },

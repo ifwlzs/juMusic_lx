@@ -162,6 +162,8 @@
   "list_sort_modal_by_random": "Random",
   "list_sort_modal_by_singer": "Artist",
   "list_sort_modal_by_source": "Music Service",
+  "list_sort_modal_by_update_time": "Updated Time",
+  "list_sort_modal_by_file_name": "File Name",
   "list_sort_modal_by_time": "Length",
   "list_sort_modal_by_type": "Sort Category",
   "list_sort_modal_by_up": "Ascending",

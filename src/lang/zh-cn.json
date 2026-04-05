@@ -162,6 +162,8 @@
   "list_sort_modal_by_random": "随机乱序",
   "list_sort_modal_by_singer": "艺术家",
   "list_sort_modal_by_source": "歌曲来源平台",
+  "list_sort_modal_by_update_time": "更新时间",
+  "list_sort_modal_by_file_name": "文件名",
   "list_sort_modal_by_time": "时长",
   "list_sort_modal_by_type": "排序类别",
   "list_sort_modal_by_up": "升序",

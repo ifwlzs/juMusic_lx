@@ -52,6 +52,13 @@ declare namespace LX {
 
     type SearchHistoryList = string[]
     type ListPositionInfo = Record<string, number>
+    type ListSortField = 'name' | 'singer' | 'album' | 'time' | 'source' | 'update_time' | 'file_name'
+    type ListSortType = 'up' | 'down' | 'random'
+    interface ListSortPreference {
+      field: ListSortField
+      type: ListSortType
+    }
+    type ListSortInfo = Record<string, ListSortPreference>
     type ListUpdateInfo = Record<string, {
       updateTime: number
       isAutoUpdate: boolean

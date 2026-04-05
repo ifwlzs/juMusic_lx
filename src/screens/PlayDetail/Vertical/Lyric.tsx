@@ -11,6 +11,7 @@ import { setSpText } from '@/utils/pixelRatio'
 import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
 import PlayLine, { type PlayLineType } from '../components/PlayLine'
+import { playDetailPalette } from '../palette'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -76,9 +77,9 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
       theme['c-primary-alpha-200'],
       1,
     ] as const : [
-      theme['c-350'],
-      theme['c-300'],
-      0.6,
+      playDetailPalette.SECONDARY_TEXT,
+      playDetailPalette.TERTIARY_TEXT,
+      0.72,
     ] as const
   }, [activeLine, lineNum, theme])
 

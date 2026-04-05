@@ -3,6 +3,7 @@ import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT as _HEADER_HEIGHT } from '@/config/constant'
+import { playDetailPalette } from '../../palette'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -13,7 +14,7 @@ export default ({ icon, color, onPress }: {
 }) => {
   return (
     <TouchableOpacity onPress={onPress} style={{ ...styles.button, width: HEADER_HEIGHT }}>
-      <Icon name={icon} color={color} size={18} />
+      <Icon name={icon} color={color ?? playDetailPalette.SECONDARY_TEXT} size={18} />
     </TouchableOpacity>
   )
 }

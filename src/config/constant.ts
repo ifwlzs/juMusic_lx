@@ -46,6 +46,7 @@ export const storageDataPrefix = {
   list: '@list__',
   listScrollPosition: '@list_scroll_position',
   listPrevSelectId: '@list_prev_select_id',
+  listSortInfo: '@list_sort_info',
 
   lyric: '@lyric__',
   musicUrl: '@music_url__',

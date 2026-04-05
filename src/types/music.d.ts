@@ -41,6 +41,8 @@ declare namespace LX {
         providerType: LX.MediaLibrary.ProviderType
         remotePathOrUri: string
         versionToken: string
+        fileName?: string
+        modifiedTime?: number | null
         preferredSourceItemId?: string
         unavailableReason?: 'connection_removed' | 'rule_removed'
       }
@@ -56,6 +58,8 @@ declare namespace LX {
         providerType: LX.MediaLibrary.ProviderType
         remotePathOrUri: string
         versionToken: string
+        fileName?: string
+        modifiedTime?: number | null
         preferredSourceItemId?: string
         unavailableReason?: 'connection_removed' | 'rule_removed'
       }

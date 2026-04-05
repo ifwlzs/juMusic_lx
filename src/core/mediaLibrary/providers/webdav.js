@@ -90,6 +90,7 @@ function buildWebdavScanResult(connection, entries = []) {
       pathOrUri,
       fileName,
       fileSize: item.fileSize ?? 0,
+      modifiedTime: item.modifiedTime || 0,
       versionToken,
       lastSeenAt,
       scanStatus,

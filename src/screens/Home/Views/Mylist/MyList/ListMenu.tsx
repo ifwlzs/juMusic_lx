@@ -84,7 +84,7 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
       default:
         userList = listInfo as LX.List.UserListInfo
         rename = !userList.mediaSource?.readOnly
-        sort = !userList.mediaSource?.readOnly
+        sort = !userList.mediaSource?.readOnly || !!userList.mediaSource?.generated
         duplicateMusic = !userList.mediaSource?.readOnly
         importList = !userList.mediaSource?.readOnly
         local_file &&= !userList.mediaSource?.readOnly

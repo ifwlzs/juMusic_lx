@@ -161,6 +161,8 @@
   "list_sort_modal_by_random": "隨機亂序",
   "list_sort_modal_by_singer": "演出者",
   "list_sort_modal_by_source": "音樂串流平台",
+  "list_sort_modal_by_update_time": "更新時間",
+  "list_sort_modal_by_file_name": "檔名",
   "list_sort_modal_by_time": "長度",
   "list_sort_modal_by_type": "排序類別",
   "list_sort_modal_by_up": "升序",
