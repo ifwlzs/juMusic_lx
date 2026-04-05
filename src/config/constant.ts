@@ -40,6 +40,7 @@ export enum NAV_SHEAR_NATIVE_IDS {
 export const storageDataPrefix = {
   setting: '@setting_v1',
   userList: '@user_list',
+  mediaLibrary: '@media_library__',
   viewPrevState: '@view_prev_state',
 
   list: '@list__',
