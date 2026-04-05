@@ -1,4 +1,6 @@
 import { updateListMusics } from '@/core/list'
+import { createAnalyticsRecorder } from '@/core/mediaLibrary/analytics'
+import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
 import { formatPlayTime2 } from '@/utils/common'
@@ -19,6 +21,12 @@ const delaySavePlayInfo = throttleBackgroundTimer(() => {
   })
 }, 2000)
 
+const analyticsRecorder = createAnalyticsRecorder({
+  async save(stats: LX.MediaLibrary.PlayStat) {
+    return await mediaLibraryRepository.mergePlayStat(stats)
+  },
+})
+
 export default () => {
   // const updateMusicInfo = useCommit('list', 'updateMusicInfo')
 
@@ -26,11 +34,34 @@ export default () => {
 
   let isScreenOn = true
 
+  const getAnalyticsMusicInfo = (): LX.Music.MusicInfo | null => {
+    const musicInfo = playerState.playMusicInfo.musicInfo
+    if (!musicInfo) return null
+    return 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+  }
+
+  const startAnalyticsSession = () => {
+    const musicInfo = getAnalyticsMusicInfo()
+    const mediaLibraryInfo = musicInfo?.meta.mediaLibrary
+    if (!musicInfo || !mediaLibraryInfo) return
+
+    analyticsRecorder.startSession({
+      aggregateSongId: mediaLibraryInfo.aggregateSongId,
+      sourceItemId: mediaLibraryInfo.sourceItemId,
+      durationSec: playerState.progress.maxPlayTime || 0,
+    })
+
+    if (playerState.progress.nowPlayTime > 0) {
+      analyticsRecorder.updateProgress(playerState.progress.nowPlayTime, false, true)
+    }
+  }
+
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
     void getPosition().then(position => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
+      analyticsRecorder.updateProgress(position, playerState.isPlay)
       if (!playerState.isPlay) return
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
@@ -74,6 +105,7 @@ export default () => {
     if (!playerState.musicInfo.id) return
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
+    analyticsRecorder.updateProgress(time, playerState.isPlay, true)
     void setCurrentTime(time)
 
     if (maxTime != null) setMaxplayTime(maxTime)
@@ -83,7 +115,9 @@ export default () => {
 
 
   const handlePlay = () => {
-    void getMaxTime()
+    void getMaxTime().then(() => {
+      startAnalyticsSession()
+    })
     // prevProgressStatus = 'normal'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     startUpdateTimeout()
@@ -96,6 +130,7 @@ export default () => {
   }
 
   const handleStop = () => {
+    void analyticsRecorder.finishSession()
     clearUpdateTimeout()
     setNowPlayTime(0)
     setMaxplayTime(0)
@@ -108,11 +143,13 @@ export default () => {
     // console.log('handleError')
     // prevProgressStatus = 'error'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
+    void analyticsRecorder.finishSession()
     clearUpdateTimeout()
   }
 
 
   const handleSetPlayInfo = () => {
+    void analyticsRecorder.finishSession()
     // restorePlayTime = playProgress.nowPlayTime
     // void setCurrentTime(playerState.progress.nowPlayTime)
     // setMaxplayTime(playProgress.maxPlayTime)
