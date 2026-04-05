@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, TextInput, View } from 'react-native'
+import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 
 export interface SourceConnectionDraft {
@@ -37,6 +38,7 @@ export default ({ visible, draft, onSubmit, onCancel }: {
   onSubmit: (draft: SourceConnectionDraft) => void
   onCancel: () => void
 }) => {
+  const t = useI18n()
   const [form, setForm] = useState<SourceConnectionDraft>(createEmptyDraft())
 
   useEffect(() => {
@@ -45,9 +47,22 @@ export default ({ visible, draft, onSubmit, onCancel }: {
 
   if (!visible) return null
 
+  const getProviderLabel = (providerType: SourceConnectionDraft['providerType']) => {
+    switch (providerType) {
+      case 'local':
+        return t('source_real_local')
+      case 'webdav':
+        return t('source_real_webdav')
+      case 'smb':
+        return t('source_real_smb')
+      default:
+        return providerType
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <Text>来源类型</Text>
+      <Text>{t('source_lists_form_provider_type')}</Text>
       <View style={styles.providerRow}>
         {(['local', 'webdav', 'smb'] as const).map(providerType => (
           <Pressable
@@ -57,12 +72,12 @@ export default ({ visible, draft, onSubmit, onCancel }: {
               setForm(prev => ({ ...prev, providerType }))
             }}
           >
-            <Text>{providerType}</Text>
+            <Text>{getProviderLabel(providerType)}</Text>
           </Pressable>
         ))}
       </View>
 
-      <Text>来源名称</Text>
+      <Text>{t('source_lists_form_display_name')}</Text>
       <TextInput
         style={styles.input}
         value={form.displayName}
@@ -71,7 +86,7 @@ export default ({ visible, draft, onSubmit, onCancel }: {
         }}
       />
 
-      <Text>根路径或 URI</Text>
+      <Text>{t('source_lists_form_root_path_or_uri')}</Text>
       <TextInput
         style={styles.input}
         value={form.rootPathOrUri}
@@ -82,7 +97,7 @@ export default ({ visible, draft, onSubmit, onCancel }: {
 
       {form.providerType !== 'local'
         ? <>
-            <Text>用户名</Text>
+            <Text>{t('source_lists_form_username')}</Text>
             <TextInput
               style={styles.input}
               value={form.credentials?.username ?? ''}
@@ -94,7 +109,7 @@ export default ({ visible, draft, onSubmit, onCancel }: {
               }}
             />
 
-            <Text>密码</Text>
+            <Text>{t('source_lists_form_password')}</Text>
             <TextInput
               style={styles.input}
               secureTextEntry={true}
@@ -111,7 +126,7 @@ export default ({ visible, draft, onSubmit, onCancel }: {
 
       {form.providerType === 'smb'
         ? <>
-            <Text>主机</Text>
+            <Text>{t('source_lists_form_host')}</Text>
             <TextInput
               style={styles.input}
               value={form.credentials?.host ?? ''}
@@ -123,7 +138,7 @@ export default ({ visible, draft, onSubmit, onCancel }: {
               }}
             />
 
-            <Text>共享名</Text>
+            <Text>{t('source_lists_form_share')}</Text>
             <TextInput
               style={styles.input}
               value={form.credentials?.share ?? ''}
@@ -139,10 +154,10 @@ export default ({ visible, draft, onSubmit, onCancel }: {
 
       <View style={styles.actionRow}>
         <Pressable style={styles.actionButton} onPress={() => { onSubmit(form) }}>
-          <Text>保存</Text>
+          <Text>{t('source_lists_form_save')}</Text>
         </Pressable>
         <Pressable style={styles.actionButton} onPress={onCancel}>
-          <Text>取消</Text>
+          <Text>{t('cancel')}</Text>
         </Pressable>
       </View>
     </View>

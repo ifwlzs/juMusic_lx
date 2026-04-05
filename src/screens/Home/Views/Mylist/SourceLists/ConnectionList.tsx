@@ -4,7 +4,6 @@ import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { buildAggregateListSummary, buildSourceListSummaries } from '@/core/mediaLibrary/sourceLists'
-import ConnectionForm, { type SourceConnectionDraft } from './ConnectionForm'
 import SourceMusicList from './SourceMusicList'
 
 interface SourceListSummary {
@@ -23,7 +22,6 @@ export default ({ onClose }: { onClose: () => void }) => {
   const [aggregateSongs, setAggregateSongs] = useState<LX.MediaLibrary.AggregateSong[]>([])
   const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null)
   const [activeTitle, setActiveTitle] = useState('')
-  const [formVisible, setFormVisible] = useState(false)
 
   const load = async() => {
     const nextConnections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
@@ -49,6 +47,21 @@ export default ({ onClose }: { onClose: () => void }) => {
     ]
   }, [aggregateSongs, connections, sourceItems, t])
 
+  const getProviderLabel = (providerType: string) => {
+    switch (providerType) {
+      case 'aggregate':
+        return t('source_lists_total_library_type')
+      case 'local':
+        return t('source_real_local')
+      case 'webdav':
+        return t('source_real_webdav')
+      case 'smb':
+        return t('source_real_smb')
+      default:
+        return providerType
+    }
+  }
+
   if (activeConnectionId) {
     return (
       <SourceMusicList
@@ -62,23 +75,6 @@ export default ({ onClose }: { onClose: () => void }) => {
     )
   }
 
-  const handleSubmit = async(draft: SourceConnectionDraft) => {
-    const nextConnections = [
-      ...connections,
-      {
-        connectionId: draft.connectionId ?? `conn_${Date.now()}`,
-        providerType: draft.providerType,
-        displayName: draft.displayName,
-        rootPathOrUri: draft.rootPathOrUri,
-        credentials: draft.credentials,
-        lastScanStatus: 'idle',
-      },
-    ]
-    await mediaLibraryRepository.saveConnections(nextConnections)
-    await load()
-    setFormVisible(false)
-  }
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -89,10 +85,6 @@ export default ({ onClose }: { onClose: () => void }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable style={styles.addButton} onPress={() => { setFormVisible(true) }}>
-          <Text>新增来源</Text>
-        </Pressable>
-
         {summaries.map(summary => (
           <Pressable
             key={summary.id}
@@ -103,19 +95,11 @@ export default ({ onClose }: { onClose: () => void }) => {
           >
             <View style={styles.item}>
               <Text>{summary.name}</Text>
-              <Text size={12}>{summary.providerType} · {summary.count} 首</Text>
+              <Text size={12}>{getProviderLabel(summary.providerType)} · {t('source_lists_song_count', { count: summary.count })}</Text>
             </View>
           </Pressable>
         ))}
       </ScrollView>
-
-      <ConnectionForm
-        visible={formVisible}
-        onSubmit={handleSubmit}
-        onCancel={() => {
-          setFormVisible(false)
-        }}
-      />
     </View>
   )
 }
@@ -139,15 +123,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingVertical: 8,
-  },
-  addButton: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   item: {
     paddingHorizontal: 16,

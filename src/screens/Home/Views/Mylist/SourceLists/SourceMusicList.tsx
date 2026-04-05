@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
+import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 import LibraryMusicList from '@/components/LibraryMusicList'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
@@ -11,6 +12,7 @@ export default ({ connectionId, title, onBack, onClose }: {
   onBack: () => void
   onClose: () => void
 }) => {
+  const t = useI18n()
   const [list, setList] = useState<LX.Music.MusicInfo[]>([])
 
   useEffect(() => {
@@ -32,11 +34,11 @@ export default ({ connectionId, title, onBack, onClose }: {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={onBack}>
-          <Text>返回</Text>
+          <Text>{t('back')}</Text>
         </Pressable>
         <Text numberOfLines={1} style={styles.title}>{title}</Text>
         <Pressable onPress={onClose}>
-          <Text>关闭</Text>
+          <Text>{t('close')}</Text>
         </Pressable>
       </View>
       <LibraryMusicList list={list} />
