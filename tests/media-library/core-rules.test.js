@@ -168,6 +168,39 @@ test('buildAggregateSongs 对多项重叠时长输入也保持稳定分组和 ag
   )
 })
 
+test('buildAggregateSongs 在稳定代表项未变时保持 aggregateSongId 不变', () => {
+  const baseSongs = buildAggregateSongs([
+    {
+      sourceItemId: 'local_1',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+  ])
+  const expandedSongs = buildAggregateSongs([
+    {
+      sourceItemId: 'local_1',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+    {
+      sourceItemId: 'dav_1',
+      providerType: 'webdav',
+      title: '七里香 ',
+      artist: '周杰伦',
+      durationSec: 299,
+    },
+  ])
+
+  assert.equal(baseSongs.length, 1)
+  assert.equal(expandedSongs.length, 1)
+  assert.equal(expandedSongs[0].preferredSourceItemId, 'local_1')
+  assert.equal(expandedSongs[0].aggregateSongId, baseSongs[0].aggregateSongId)
+})
+
 test('播放三分之一后只计一次完整播放', () => {
   const session = createPlaySession({ durationSec: 300 })
   updatePlaySession(session, { currentSec: 80, isPlaying: true })
@@ -206,6 +239,17 @@ test('显式标记 seek 时，较小的手动跳转也不累计已听时长', ()
   assert.equal(session.incrementCount, 0)
   assert.equal(session.shouldIncrementPlayCount, false)
   assert.equal(session.listenedSec, 10)
+})
+
+test('暂停时的显式 seek 在恢复播放后不会把跳过区间记入已听时长', () => {
+  const session = createPlaySession({ durationSec: 300 })
+  updatePlaySession(session, { currentSec: 40, isPlaying: true })
+  updatePlaySession(session, { currentSec: 90, isPlaying: false, isSeek: true })
+  updatePlaySession(session, { currentSec: 120, isPlaying: true })
+
+  assert.equal(session.listenedSec, 70)
+  assert.equal(session.incrementCount, 0)
+  assert.equal(session.shouldIncrementPlayCount, false)
 })
 
 test('normalizeText 清理空格并统一小写', () => {

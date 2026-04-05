@@ -9,11 +9,17 @@ function createPlaySession({ durationSec }) {
 }
 
 function updatePlaySession(session, { currentSec, isPlaying, isSeek = false }) {
+  if (isSeek) {
+    session.lastProgressSec = currentSec
+    session.shouldIncrementPlayCount = false
+    return session
+  }
+
   if (!isPlaying) return session
   const deltaSec = Math.max(0, currentSec - session.lastProgressSec)
   const seekThresholdSec = session.durationSec > 0 ? session.durationSec / 3 : Infinity
 
-  if (isSeek || deltaSec > seekThresholdSec) {
+  if (deltaSec > seekThresholdSec) {
     session.lastProgressSec = currentSec
     session.shouldIncrementPlayCount = false
     return session

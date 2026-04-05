@@ -54,20 +54,19 @@ function sortSourceItems(sourceItems) {
 }
 
 function buildAggregateSong(groupItems) {
-  const preferredItem = groupItems.find(item => item.providerType === 'local') || groupItems[0]
-  const anchorItem = groupItems[0]
+  const representativeItem = groupItems.find(item => item.providerType === 'local') || groupItems[0]
 
   return {
-    aggregateSongId: createAggregateSongId(anchorItem),
-    title: preferredItem.title || preferredItem.fileName || '',
-    artist: preferredItem.artist || '',
-    durationSec: anchorItem.durationSec || 0,
-    canonicalTitle: preferredItem.title || preferredItem.fileName || '',
-    canonicalArtist: preferredItem.artist || '',
-    canonicalAlbum: preferredItem.album || '',
-    canonicalDurationSec: anchorItem.durationSec || 0,
-    preferredSource: preferredItem.providerType,
-    preferredSourceItemId: preferredItem.sourceItemId,
+    aggregateSongId: createAggregateSongId(representativeItem),
+    title: representativeItem.title || representativeItem.fileName || '',
+    artist: representativeItem.artist || '',
+    durationSec: representativeItem.durationSec || 0,
+    canonicalTitle: representativeItem.title || representativeItem.fileName || '',
+    canonicalArtist: representativeItem.artist || '',
+    canonicalAlbum: representativeItem.album || '',
+    canonicalDurationSec: representativeItem.durationSec || 0,
+    preferredSource: representativeItem.providerType,
+    preferredSourceItemId: representativeItem.sourceItemId,
     sourceCount: groupItems.length,
     sourceItemIds: groupItems.map(item => item.sourceItemId),
   }
