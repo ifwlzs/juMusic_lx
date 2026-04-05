@@ -24,7 +24,7 @@
     "publish": "node publish",
     "release:prepare": "node scripts/release/prepare-release.js",
     "test:release": "node --test tests/release/versioning.test.js",
-    "test:media-library": "node --test tests/media-library/*.test.js"
+    "test:media-library": "node --test tests/media-library"
   },
   "engines": {
     "node": ">= 18",
