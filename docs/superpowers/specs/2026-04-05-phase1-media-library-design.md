@@ -1,131 +1,131 @@
-# Phase 1 Media Library Design
+# 一期媒体曲库设计
 
-Date: 2026-04-05
-Status: Approved for implementation planning
+日期：2026-04-05  
+状态：已确认，可进入实现规划
 
-## Summary
+## 概述
 
-Phase 1 adds a unified personal music library for `Local Folder`, `WebDAV`, and `SMB` sources. The app will scan selected folders into a local index, let users browse the library either as a unified deduplicated collection or by source, play tracks through an on-demand caching flow, and record basic playback analytics.
+一期目标是在现有项目中加入统一的个人音乐曲库能力，首批支持 `本地目录`、`WebDAV`、`SMB` 三类来源。应用需要把用户选定目录扫描进本地索引，支持“统一去重后的总曲库”和“按来源独立浏览”两种视图，并通过“播放时按需缓存”的方式完成远端文件播放，同时记录基础播放统计数据。
 
-This phase intentionally does not implement `OneDrive`, `Emby`, `Navidrome`, user-profile sync, or lyric timing calibration. Those capabilities must be supported by the architecture, but they are not part of the initial delivery scope.
+本期明确不实现 `OneDrive`、`Emby`、`Navidrome`、用户资料同步、歌词轴校准等能力，但架构需要为后续扩展预留接口，不把后续路线堵死。
 
-## Goals
+## 目标
 
-1. Support `Local Folder`, `WebDAV`, and `SMB` as first-class library sources.
-2. Allow users to select folders, scan audio files recursively, and build a persistent library index.
-3. Play indexed audio files with a cache-first playback resolver for remote sources.
-4. Invalidate cached media immediately when the remote file version changes.
-5. Record playback count, playback duration, and minimum necessary song information for later analytics or recommendation features.
-6. Extend the global search experience so personal-library sources appear as independent source tabs and rank ahead of online sources in aggregated search.
+1. 让 `本地目录`、`WebDAV`、`SMB` 成为正式的一等曲库来源。
+2. 支持用户选择目录，递归扫描音频文件，并建立可持久化的本地曲库索引。
+3. 支持基于本地索引的音频播放，对远端来源采用“缓存优先、播放时拉取”的解析流程。
+4. 当远端文件版本发生变化时，立即让旧缓存失效并删除。
+5. 记录播放次数、播放时长和最小必要歌曲信息，为后续统计或推荐能力打基础。
+6. 扩展全局搜索，让个人曲库来源以独立标签出现，并在综合搜索中排在现有在线源之前。
 
-## Non-Goals
+## 非目标
 
-1. Background auto-refresh, scheduled scans, or startup auto-scan.
-2. Full offline download management beyond playback-triggered caching.
-3. `OneDrive`, `Emby`, or `Navidrome` provider implementation.
-4. User-profile sync across local and remote.
-5. Lyric timing calibration, per-song lyric offset, or global lyric offset UI.
-6. Recommendation features, reports, or advanced playback analytics visualization.
+1. 不做后台自动刷新、定时扫描、启动自动扫描。
+2. 不做完整的离线下载管理，只做“播放触发缓存”。
+3. 不在一期实现 `OneDrive`、`Emby`、`Navidrome` 提供方。
+4. 不在一期实现用户资料的本地与远端同步。
+5. 不在一期实现歌词时间轴校准、单曲歌词偏移或全局歌词偏移 UI。
+6. 不在一期实现推荐系统、统计报表或复杂画像能力。
 
-## Current Project Audit
+## 当前项目审计结论
 
-### Reusable existing capabilities
+### 当前可复用能力
 
-1. Local import and metadata reading already exist and can be refactored into the new provider/index flow.
-2. Local playback already exists.
-3. Local lyric reading already exists, including MP3 embedded lyric support through the current metadata dependency path.
-4. Player-level URL caching and next-track warm-up already exist and can be reused as part of the playback pipeline.
-5. A sync framework already exists, but it currently covers other data domains and should not be repurposed for Phase 1 media indexing.
+1. 现有项目已经有本地导入和元数据读取基础，可以改造后接入新的来源与索引流程。
+2. 本地播放能力已存在。
+3. 本地歌词读取能力已存在，当前依赖链路已具备读取 MP3 内嵌歌词的基础能力。
+4. 播放器层已经有 URL 级缓存和下一首预热能力，可以作为新播放链路的一部分复用。
+5. 项目已有同步框架，但当前同步的是其他数据域，不适合直接拿来做一期的媒体索引。
 
-### Existing gaps
+### 当前缺口
 
-1. Local directory scan is not recursive today.
-2. `WebDAV`, `SMB`, `OneDrive`, `Emby`, and `Navidrome` source integration are not implemented in the current app.
-3. There is no business-layer cache version management that can invalidate stale remote media immediately.
-4. Playback analytics are not implemented.
-5. Global search is built around online providers and needs a source registry that can also expose indexed personal-library sources.
+1. 本地目录扫描当前不是递归扫描。
+2. `WebDAV`、`SMB`、`OneDrive`、`Emby`、`Navidrome` 来源接入都没有真正落地。
+3. 当前没有业务层缓存版本管理能力，无法正确处理“远端文件更新后旧缓存必须立刻失效”。
+4. 播放统计能力尚未实现。
+5. 全局搜索目前主要围绕在线源构建，需要扩展为同时支持本地索引来源。
 
-## Product Rules Confirmed For Phase 1
+## 一期已确认的产品规则
 
-1. Refresh behavior is manual only. The user must explicitly trigger scan or refresh.
-2. Default library mode is a unified library with deduplication, but a source-specific browsing mode must also exist.
-3. Unified-library deduplication uses a conservative rule: `title + artist + duration tolerance`.
-4. Remote playback is not direct-stream-first. The app should build the library from scans, then fetch and cache media when the user plays a track.
-5. When the remote version changes, the existing cache must be deleted immediately.
-6. Search must expose `Local`, `WebDAV`, and `SMB` as independent source tabs.
-7. In aggregated search, personal-library sources rank ahead of current online sources.
-8. Lyric timing calibration is deferred to Phase 2.
+1. 刷新策略为纯手动，用户显式触发扫描或刷新。
+2. 默认曲库视图为统一总曲库并做去重，同时必须提供按来源独立浏览模式。
+3. 统一总曲库的去重规则采用保守策略：`标题 + 歌手 + 时长容差`。
+4. 远端播放不是“直接在线播放优先”，而是“先建库，播放时拉取并缓存，再次播放优先命中缓存”。
+5. 一旦远端版本变化，旧缓存必须立刻删除。
+6. 搜索页必须增加 `本地`、`WebDAV`、`SMB` 三个独立来源标签。
+7. 在综合搜索中，个人曲库来源优先级高于现有在线源。
+8. 歌词轴校准和细调能力放到二期处理。
 
-## Architecture
+## 总体架构
 
-Phase 1 should add a dedicated media-library domain rather than mixing new behavior into unrelated online-source logic. The domain should consist of the following modules.
+一期不应该把新能力硬塞进现有在线音乐源逻辑，而应该新增一个独立的“媒体曲库域”。这个域由以下几个核心模块组成。
 
-### 1. Source Provider
+### 1. `Source Provider`
 
-Each provider implements one interface for a concrete source type:
+每种来源都实现统一的 Provider 接口，首批包括：
 
 1. `Local Folder`
 2. `WebDAV`
 3. `SMB`
 
-Each provider is responsible for:
+Provider 负责的事情只有：
 
-1. Validating a connection or folder root.
-2. Enumerating directories and files under the selected root.
-3. Returning basic file metadata required for indexing.
-4. Returning a stable item identity and a version token.
-5. Resolving a playable resource for the selected item.
+1. 校验连接或目录根路径是否合法。
+2. 枚举目录和文件。
+3. 返回建立索引所需的基础文件元信息。
+4. 返回稳定的文件身份标识和版本标识。
+5. 为指定文件提供可播放资源解析能力。
 
-Providers do not own deduplication, cache policy, analytics, or UI rules.
+Provider 不负责去重、缓存策略、播放统计或 UI 规则。
 
-### 2. Library Index
+### 2. `Library Index`
 
-The library index is the business-layer source of truth. It persists scan results, aggregate-library views, cache records, and playback analytics. It separates source-file identity from UI-friendly library aggregation.
+`Library Index` 是业务层的本地事实源，负责持久化扫描结果、聚合曲库视图、缓存记录和播放统计。它把“来源文件实例”和“总曲库展示实体”分离开，避免后续逻辑混乱。
 
-### 3. Playback Resolver
+### 3. `Playback Resolver`
 
-The playback resolver sits between the library index and the existing player. It decides whether playback should use:
+`Playback Resolver` 位于曲库索引和现有播放器之间。它决定一次播放到底应该使用：
 
-1. A directly readable local file.
-2. A valid cached file.
-3. A newly fetched remote file that is then cached.
+1. 可直接读取的本地文件；
+2. 已命中的有效缓存；
+3. 需要重新拉取并写入缓存的远端文件。
 
-The resolver must own cache validity checks before handing a resource to the current player layer.
+它必须在把资源交给现有播放器之前完成缓存有效性判断。
 
-### 4. Cache Manager
+### 4. `Cache Manager`
 
-The cache manager persists cache metadata, maps cache files to source items, validates version tokens, and deletes stale cache immediately when a source item changes version.
+`Cache Manager` 负责缓存记录、缓存文件路径映射、版本校验和失效删除。它不是单纯判断“有没有缓存”，而是要能回答“这个缓存是不是当前版本”。
 
-### 5. Play Analytics
+### 5. `Play Analytics`
 
-The analytics module records:
+`Play Analytics` 负责记录：
 
-1. Play count when playback exceeds one third of the track duration.
-2. Total listened duration.
-3. Minimum necessary track identity references for later aggregate reporting or recommendation features.
+1. 单曲播放超过三分之一时计一次完整播放；
+2. 累计播放时长；
+3. 后续统计或推荐所需的最小必要歌曲信息引用。
 
-### 6. Search Source Registry
+### 6. `Search Source Registry`
 
-Search should no longer assume that every source is an online API provider. A new registry layer must expose both:
+搜索层不能再默认假设所有来源都是在线 API。新增 `Search Source Registry` 后，搜索页可以同时接入：
 
-1. Online search providers.
-2. Indexed library providers backed by local data queries.
+1. 现有在线搜索来源；
+2. 基于本地索引的个人曲库来源。
 
-This keeps the search UI stable while allowing new source types to join later.
+这样未来新增来源时，不需要重写搜索页。
 
-## Data Model
+## 数据模型
 
-Phase 1 should not use a single flat songs table. It needs separate records for connection, source file instance, aggregate song, cache entry, and analytics.
+一期不应只靠一张“歌曲表”硬撑，而应拆成连接、来源文件实例、聚合歌曲、缓存记录和播放统计几类记录。
 
 ### `source_connection`
 
-Represents one configured source root, for example:
+表示一个具体的来源连接，例如：
 
-1. A selected local folder.
-2. A configured `WebDAV` root.
-3. A configured `SMB` share path.
+1. 一个本地目录；
+2. 一个 `WebDAV` 根路径；
+3. 一个 `SMB` 共享目录；
 
-Suggested fields:
+建议字段：
 
 1. `connection_id`
 2. `provider_type`
@@ -136,13 +136,13 @@ Suggested fields:
 7. `last_scan_status`
 8. `last_scan_summary`
 
-Sensitive credentials should not be stored in plain fields inside the index. The index stores references only.
+账号密码等敏感信息不直接明文放在索引表里，索引层只保存引用关系。
 
 ### `source_item`
 
-Represents one real file instance discovered from one source.
+表示某个来源下的一个真实文件实例。
 
-Suggested fields:
+建议字段：
 
 1. `source_item_id`
 2. `connection_id`
@@ -161,19 +161,19 @@ Suggested fields:
 15. `scan_status`
 16. `aggregate_song_id`
 
-`version_token` is the key field for cache invalidation.
+其中 `version_token` 是缓存失效规则的核心。
 
-Recommended version-token sources:
+各来源建议的版本标识来源如下：
 
-1. `Local Folder`: path plus file size plus modified time.
-2. `WebDAV`: `etag` first, then modified time plus file size.
-3. `SMB`: server modified time plus file size, with a provider-specific file identifier when available.
+1. `Local Folder`：路径 + 文件大小 + 修改时间。
+2. `WebDAV`：优先 `etag`，其次是修改时间 + 文件大小。
+3. `SMB`：优先服务器修改时间 + 文件大小，必要时补充来源侧文件标识。
 
 ### `aggregate_song`
 
-Represents a deduplicated entry in the unified library. Multiple `source_item` rows may link to one `aggregate_song`.
+表示统一总曲库里的聚合歌曲。一条 `aggregate_song` 可以关联多个 `source_item`。
 
-Suggested fields:
+建议字段：
 
 1. `aggregate_song_id`
 2. `canonical_title`
@@ -185,19 +185,19 @@ Suggested fields:
 8. `created_at`
 9. `updated_at`
 
-Deduplication rule for Phase 1:
+一期去重规则固定为：
 
-1. Match by normalized title.
-2. Match by normalized artist.
-3. Match by duration within a narrow tolerance, recommended at `+/-2 seconds`.
+1. 标题标准化后匹配；
+2. 歌手标准化后匹配；
+3. 时长落在较窄容差范围内，建议 `+/-2 秒`。
 
-If matching is uncertain, keep separate rows. False merge is worse than duplicate display.
+只要存在不确定性，就宁可不合并，也不要误把不同版本、翻唱或现场版并到一起。
 
 ### `media_cache`
 
-Represents cached playable media created by on-demand playback.
+表示播放过程中按需生成的缓存文件记录。
 
-Suggested fields:
+建议字段：
 
 1. `cache_id`
 2. `source_item_id`
@@ -208,13 +208,13 @@ Suggested fields:
 7. `created_at`
 8. `last_access_at`
 
-Cache is attached to `source_item`, not to `aggregate_song`. Cache validity is always determined by the concrete source file version.
+缓存必须挂在 `source_item` 上，而不是挂在 `aggregate_song` 上。缓存是否有效永远由具体来源文件实例的版本决定。
 
 ### `play_stats`
 
-Stores analytics per aggregate song, with a reference to the actual source item used most recently.
+表示按聚合歌曲维度统计的播放数据，同时保留最近一次实际播放来源的引用。
 
-Suggested fields:
+建议字段：
 
 1. `aggregate_song_id`
 2. `last_source_item_id`
@@ -222,240 +222,239 @@ Suggested fields:
 4. `play_duration_total_sec`
 5. `last_played_at`
 
-## Scan And Index Flow
+## 扫描与建库流程
 
-### Manual scan entry
+### 手动扫描入口
 
-Users explicitly trigger scan or refresh for a configured connection. Phase 1 does not run background or scheduled scans.
+用户主动触发某个来源的扫描或刷新，一期不做后台自动扫描。
 
-### Scan pipeline
+### 扫描主流程
 
-1. Validate the source connection or local root.
-2. Enumerate files recursively.
-3. Filter supported audio files.
-4. Read minimum required metadata.
-5. Build or update `source_item`.
-6. Match the item into an `aggregate_song` using the conservative deduplication rule.
-7. Persist scan results and scan summary.
+1. 校验来源连接或本地目录根路径。
+2. 递归枚举目录下文件。
+3. 过滤支持的音频文件。
+4. 读取最小必要元数据。
+5. 创建或更新 `source_item`。
+6. 按保守去重规则把它归并到某个 `aggregate_song`。
+7. 持久化扫描结果和扫描摘要。
 
-### Incremental update behavior
+### 增量更新行为
 
-During a rescan, when an already-known `source_item` is found again:
+当某次重扫再次遇到一个已存在的 `source_item` 时：
 
-1. Compare the new `version_token` with the stored token.
-2. If unchanged, update bookkeeping such as `last_seen_at`.
-3. If changed:
-   1. Delete the old cached file immediately.
-   2. Delete the corresponding `media_cache` row.
-   3. Update the `source_item` metadata and `version_token`.
-   4. Recompute aggregate-song fields if metadata changed.
+1. 先比较新的 `version_token` 和库中旧值。
+2. 如果未变化，只更新 `last_seen_at` 等基础信息。
+3. 如果发生变化：
+   1. 立即删除旧缓存文件；
+   2. 立即删除对应的 `media_cache` 记录；
+   3. 更新 `source_item` 的元数据和 `version_token`；
+   4. 如果歌曲信息变了，重新计算它在 `aggregate_song` 中的归属。
 
-If a remote refresh fails, existing indexed content should remain available. One failed refresh must not erase the library.
+如果某次远端刷新失败，旧索引内容必须保留，不能因为一次失败把整个来源清空。
 
-## Playback Resolution And Cache Policy
+## 播放解析与缓存策略
 
-Phase 1 playback is not designed as raw remote streaming. It uses indexed content plus playback-triggered caching.
+一期的播放路径不是“边搜边流”，而是“基于已索引的来源，播放时决定读本地、读缓存还是拉远端”。
 
-### Playback priority
+### 播放优先级
 
-When the user requests playback from the unified library, choose the resource in this order:
+当用户从统一总曲库点播时，资源选择顺序固定为：
 
-1. A directly readable local file from `Local Folder`.
-2. A valid cached file for the selected `WebDAV` or `SMB` source item.
-3. A remote `WebDAV` or `SMB` source item fetched on demand and then written into cache.
+1. `Local Folder` 中可直接读取的本地文件；
+2. 对应 `WebDAV` 或 `SMB` 来源下已命中的有效缓存；
+3. 需要实时拉取并写入缓存的远端文件。
 
-### Cache creation
+### 缓存创建规则
 
-1. Cache is created when a user actually plays a remote track.
-2. Full-library predownload is out of scope.
-3. Existing next-track warm-up can be retained as an optimization, but it must not change the business rules.
+1. 只有用户实际播放远端歌曲时才创建缓存。
+2. 不做全量预下载。
+3. 现有“下一首预热”能力可以保留，但只能作为优化，不能改变业务规则。
 
-### Cache validity
+### 缓存有效性判断
 
-1. Every cache record stores the `version_token` that was current when the cache was created.
-2. Playback must validate cache metadata before use.
-3. If the current source-item token no longer matches the cached token, the cache is stale.
+1. 每条缓存记录都必须保存创建时对应的 `version_token`。
+2. 播放前必须先校验缓存记录对应的版本是否仍然匹配。
+3. 如果当前 `source_item` 的版本和缓存记录里的版本不一致，则该缓存视为失效。
 
-### Cache invalidation
+### 缓存失效规则
 
-If a scan or playback-time validation detects that the remote version changed:
+只要扫描阶段或播放前校验阶段发现远端版本变化，就必须：
 
-1. Delete the cache file immediately.
-2. Remove or mark invalid the `media_cache` record immediately.
-3. Do not allow playback to continue using the stale file.
-4. Fetch the new version before playback can continue for that source item.
+1. 立即删除缓存文件；
+2. 立即删除 `media_cache` 记录；
+3. 不允许继续使用旧缓存播放；
+4. 只有拉取到新版本后，才能继续播放这个来源文件。
 
-This business rule cannot rely on the player-internal cache alone. Phase 1 needs its own cache index and invalidation policy.
+这条规则决定了一期不能只依赖播放器底层缓存，业务层必须有自己的缓存索引和失效策略。
 
-## Library Browsing
+## 曲库浏览设计
 
-Phase 1 exposes two library views:
+一期提供两种曲库浏览方式：
 
-1. Unified library view.
-2. Source-specific view.
+1. 统一总曲库视图；
+2. 按来源独立浏览视图。
 
-### Unified library view
+### 统一总曲库视图
 
-1. Default entry point for personal-library browsing.
-2. Shows deduplicated `aggregate_song` rows.
-3. Displays source markers or counts so the user can still understand where a song comes from.
+1. 作为个人曲库默认入口。
+2. 展示去重后的 `aggregate_song`。
+3. 需要显示来源标记或来源数量，让用户知道这首歌来自哪些来源。
 
-### Source-specific view
+### 按来源独立浏览视图
 
-1. Shows `source_item` rows for a chosen source connection or provider type.
-2. Does not apply aggregate deduplication rules.
-3. Is useful when the user wants to inspect one source independently.
+1. 展示指定来源下的 `source_item`。
+2. 不做聚合去重。
+3. 适合用户单独查看某个来源的扫描结果和文件状态。
 
-## Search Design
+## 搜索设计
 
-The global search page must be extended, not replaced.
+搜索页基于现有全局搜索能力扩展，而不是另起一套搜索页面。
 
-### Search sources
+### 搜索来源标签
 
-Add these source tabs as independent search sources:
+新增以下独立来源标签：
 
-1. `Local`
+1. `本地`
 2. `WebDAV`
 3. `SMB`
 
-Later sources such as `OneDrive` should fit the same pattern.
+后续如果增加 `OneDrive`，也按同样模式扩展成独立标签。
 
-### Search behavior
+### 搜索行为
 
-1. Personal-library source search queries the local library index only.
-2. Search does not trigger remote rescan.
-3. If a user has not scanned a source, that source has no searchable content yet.
-4. Source tabs remain independent. Local-folder results are not mixed into the `WebDAV` tab, and so on.
+1. 个人曲库来源搜索只查本地 `Library Index`，不在搜索时临时去远端重扫。
+2. 如果某个来源还没有扫描结果，该来源就没有可搜索内容。
+3. 各来源标签下结果相互独立，不在标签页内混排。
 
-### Aggregated search order
+### 综合搜索排序
 
-When the search view shows aggregated results, priority order is:
+当搜索页展示综合搜索结果时，优先级顺序为：
 
-1. `Local`
+1. `本地`
 2. `WebDAV`
 3. `SMB`
-4. Existing online sources
+4. 现有在线源
 
-This keeps personal-library results above online results by default.
+这样默认会把用户自己的个人曲库结果放在前面。
 
-### Search implementation boundary
+### 搜索实现边界
 
-The search UI should depend on the new search source registry rather than directly assuming online `musicSdk` providers. Online sources and indexed-library sources both expose a search interface, but the underlying implementation differs.
+搜索页上层应依赖 `Search Source Registry`，而不是继续直接假设所有来源都走 `musicSdk`。在线源和个人曲库来源都暴露统一搜索接口，但底层一个查远端 API，一个查本地索引。
 
-## Playback Analytics
+## 播放统计设计
 
-Phase 1 analytics exist to establish a trustworthy foundation for later features, not to deliver reporting UI.
+一期播放统计的目标是建立可靠数据底座，而不是先做报表页面。
 
-### Recorded data
+### 记录的数据
 
-1. Aggregate song identity reference.
-2. Last source-item reference.
-3. Play count.
-4. Total listened duration.
-5. Last played timestamp.
+1. 聚合歌曲标识引用；
+2. 最近实际播放来源标识引用；
+3. 播放次数；
+4. 累计播放时长；
+5. 最近播放时间。
 
-### Counting rule
+### 计数规则
 
-1. During one playback session, once accumulated listened time reaches at least one third of the track duration, increment `play_count` once.
-2. The same session must not increment `play_count` more than once.
-3. `play_duration_total_sec` accumulates actual listened time.
-4. Seeking must not grant an extra play count by itself.
-5. State changes such as stop, track change, app backgrounding, or playback end must flush session progress safely.
+1. 在同一播放会话内，只要累计已听时长达到歌曲总时长的三分之一，就给 `play_count` 加一。
+2. 同一播放会话最多只记一次完整播放。
+3. `play_duration_total_sec` 按实际听过的时长累计。
+4. 拖动进度条本身不能直接增加播放次数。
+5. 停止、切歌、播放结束、应用退后台等关键状态都需要及时落盘，避免统计丢失。
 
-## Error Handling
+## 异常处理
 
-### Scan failures
+### 扫描失败
 
-1. A single-file failure must not abort the entire scan.
-2. Scan results should distinguish success, skipped, and failed items.
-3. The connection should store a summary of the last scan result.
+1. 单个文件失败不能中断整个来源扫描。
+2. 扫描结果需要区分成功、跳过、失败。
+3. 连接记录里要保存最近一次扫描摘要。
 
-### Source refresh failures
+### 来源刷新失败
 
-1. If `WebDAV` or `SMB` refresh fails, keep the existing indexed content.
-2. Mark the refresh attempt as failed instead of clearing the source.
+1. `WebDAV` 或 `SMB` 刷新失败时，保留已有索引内容。
+2. 只把本次刷新标记为失败，不清空来源数据。
 
-### Playback failures
+### 播放失败
 
-1. If a local file is missing, try to resolve another valid source item for the aggregate song when possible.
-2. If cache is corrupt or missing, retry through the normal fetch path.
-3. If remote fetch still fails, surface a user-visible playback error.
+1. 如果本地文件丢失，优先尝试为同一 `aggregate_song` 重新选择其他可用来源。
+2. 如果缓存损坏或不存在，按正常远端拉取流程重试。
+3. 如果远端拉取仍失败，再向用户展示播放失败信息。
 
-### Cache deletion failures
+### 缓存删除失败
 
-1. If immediate cache deletion fails, mark the cache entry invalid at once.
-2. Invalid cache must never be selected for playback.
-3. Background cleanup can remove the orphaned file later.
+1. 如果立即删缓存文件失败，必须立刻把这条缓存标记为不可用。
+2. 被标记为不可用的缓存不能再参与播放选择。
+3. 后续可由清理任务补删残留文件。
 
-## Delivery Phases Inside Phase 1
+## 一期内部交付阶段
 
-Implementation should be staged internally in this order:
+对外是一整个一期交付，但内部实现建议拆为四个阶段推进。
 
-### Stage 1: Foundation
+### 阶段 1：基础层
 
-1. Source-provider abstraction.
-2. Library-index storage and repositories.
-3. New data model migration.
-4. Local-folder provider migration onto the new abstraction.
+1. 建立 `Source Provider` 抽象。
+2. 建立 `Library Index` 存储和仓储层。
+3. 完成数据模型迁移。
+4. 先把现有本地目录能力改造成走统一抽象。
 
-### Stage 2: Library ingestion
+### 阶段 2：曲库接入层
 
-1. Recursive scan for local folders.
-2. `WebDAV` provider implementation.
-3. `SMB` provider implementation.
-4. Manual scan and manual refresh flows.
-5. Unified and source-specific browse views.
+1. 完成本地目录递归扫描。
+2. 实现 `WebDAV` Provider。
+3. 实现 `SMB` Provider。
+4. 完成手动扫描和手动刷新链路。
+5. 完成统一总曲库与按来源浏览视图。
 
-### Stage 3: Playback and cache
+### 阶段 3：播放与缓存层
 
-1. Playback resolver.
-2. Cache manager.
-3. Immediate stale-cache invalidation.
-4. Integration with the existing player.
+1. 实现 `Playback Resolver`。
+2. 实现 `Cache Manager`。
+3. 接入远端版本变化后旧缓存立即失效和删除。
+4. 与现有播放器集成。
 
-### Stage 4: Search and analytics
+### 阶段 4：搜索与统计层
 
-1. Search source registry.
-2. `Local`, `WebDAV`, and `SMB` source tabs.
-3. Aggregated search ranking changes.
-4. Playback analytics persistence and event wiring.
+1. 实现 `Search Source Registry`。
+2. 增加 `本地`、`WebDAV`、`SMB` 三个搜索来源标签。
+3. 调整综合搜索结果排序。
+4. 接入播放统计持久化和事件链路。
 
-## Phase 2 Reservations
+## 二期预留项
 
-The following must remain out of Phase 1 scope but should be enabled by the design:
+以下能力明确不进入一期，但设计时要预留接口：
 
-1. `OneDrive` provider.
-2. `Emby` provider or bridge.
-3. `Navidrome` provider or bridge.
-4. User-profile sync between local and remote.
-5. Lyric timing calibration, offset persistence, and offset UI.
+1. `OneDrive` Provider。
+2. `Emby` 接入层或 Provider。
+3. `Navidrome` 接入层或 Provider。
+4. 用户资料本地与远端同步。
+5. 歌词时间偏移校准、偏移持久化和偏移设置入口。
 
-## Verification Strategy
+## 验证策略
 
-### Unit tests
+### 单元测试重点
 
-1. Deduplication rule using normalized title, artist, and duration tolerance.
-2. Version-token comparison and update detection.
-3. Cache invalidation when the source version changes.
-4. Play-count threshold logic and single-session counting guard.
+1. 标题、歌手、时长容差去重规则。
+2. `version_token` 比较和版本变化判定。
+3. 远端版本变化导致缓存立即失效和删除。
+4. 三分之一阈值播放计数和单会话只计一次的规则。
 
-### Integration tests
+### 集成测试重点
 
-1. Recursive local-folder scan.
-2. `WebDAV` scan into the index.
-3. `SMB` scan into the index.
-4. Remote playback with cache creation.
-5. Repeated playback with cache hit.
-6. Remote version change followed by immediate cache invalidation.
+1. 本地目录递归扫描。
+2. `WebDAV` 扫描入库。
+3. `SMB` 扫描入库。
+4. 远端播放时创建缓存。
+5. 再次播放时命中缓存。
+6. 远端版本变化后旧缓存立即失效。
 
-### Manual acceptance tests
+### 手工验收重点
 
-1. Same song from multiple sources appears once in unified view when it matches the conservative deduplication rule.
-2. Per-source view still shows the original source instances independently.
-3. Cached media remains playable when the source is temporarily unavailable.
-4. Failed refresh does not wipe a source from the library.
-5. Aggregated search surfaces personal-library results ahead of online sources.
+1. 同一首歌来自多个来源时，在统一总曲库里按保守规则只出现一条。
+2. 按来源浏览时仍能看到原始来源实例。
+3. 已缓存的歌曲在来源临时不可用时仍能正常播放。
+4. 一次刷新失败不会把来源数据误清空。
+5. 综合搜索里个人曲库结果默认排在在线源之前。
 
-## Implementation Recommendation
+## 实现建议
 
-Use one unified media-library domain for `Local Folder`, `WebDAV`, and `SMB`, with provider-specific adapters and a shared index. Do not bolt remote-file logic directly into current online music-source code paths, and do not depend solely on player-internal cache for business correctness.
+一期采用统一的媒体曲库域来承接 `本地目录`、`WebDAV`、`SMB`，通过 Provider 适配器接入来源，通过共享索引层统一管理数据。不要把远端文件逻辑继续塞进现有在线音乐源链路，也不要只依赖播放器底层缓存来保证业务正确性。
