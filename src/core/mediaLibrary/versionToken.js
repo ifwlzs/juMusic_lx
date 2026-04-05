@@ -8,6 +8,11 @@ function buildWebdavVersionToken({ etag, modifiedTime, fileSize }) {
   return `${modifiedTime}__${fileSize}`
 }
 
+function buildSmbVersionToken({ modifiedTime, fileSize, pathOrUri }) {
+  if (modifiedTime == null || fileSize == null) return ''
+  return `${modifiedTime}__${fileSize}__${pathOrUri || ''}`
+}
+
 function didVersionChange(prevToken, nextToken) {
   return Boolean(prevToken) && Boolean(nextToken) && prevToken !== nextToken
 }
@@ -15,5 +20,6 @@ function didVersionChange(prevToken, nextToken) {
 module.exports = {
   buildLocalVersionToken,
   buildWebdavVersionToken,
+  buildSmbVersionToken,
   didVersionChange,
 }
