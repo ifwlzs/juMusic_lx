@@ -114,6 +114,60 @@ test('buildAggregateSongs 对同一逻辑聚合在不同输入顺序下生成稳
   assert.equal(firstOrder[0].aggregateSongId, secondOrder[0].aggregateSongId)
 })
 
+test('buildAggregateSongs 对多项重叠时长输入也保持稳定分组和 aggregateSongId', () => {
+  const firstOrder = buildAggregateSongs([
+    {
+      sourceItemId: 'a_300',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+    {
+      sourceItemId: 'a_302',
+      providerType: 'webdav',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 302,
+    },
+    {
+      sourceItemId: 'a_304',
+      providerType: 'smb',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 304,
+    },
+  ])
+  const secondOrder = buildAggregateSongs([
+    {
+      sourceItemId: 'a_304',
+      providerType: 'smb',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 304,
+    },
+    {
+      sourceItemId: 'a_300',
+      providerType: 'local',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 300,
+    },
+    {
+      sourceItemId: 'a_302',
+      providerType: 'webdav',
+      title: '七里香',
+      artist: '周杰伦',
+      durationSec: 302,
+    },
+  ])
+
+  assert.deepEqual(
+    firstOrder.map(song => ({ id: song.aggregateSongId, count: song.sourceCount })),
+    secondOrder.map(song => ({ id: song.aggregateSongId, count: song.sourceCount })),
+  )
+})
+
 test('播放三分之一后只计一次完整播放', () => {
   const session = createPlaySession({ durationSec: 300 })
   updatePlaySession(session, { currentSec: 80, isPlaying: true })
@@ -133,6 +187,25 @@ test('播放进度的大幅前跳按 seek 处理而不是累计为已听时长',
 
   assert.equal(session.incrementCount, 0)
   assert.equal(session.shouldIncrementPlayCount, false)
+})
+
+test('显式标记 seek 时，前跳整整三分之一也不计入播放次数', () => {
+  const session = createPlaySession({ durationSec: 300 })
+  updatePlaySession(session, { currentSec: 100, isPlaying: true, isSeek: true })
+
+  assert.equal(session.incrementCount, 0)
+  assert.equal(session.shouldIncrementPlayCount, false)
+  assert.equal(session.listenedSec, 0)
+})
+
+test('显式标记 seek 时，较小的手动跳转也不累计已听时长', () => {
+  const session = createPlaySession({ durationSec: 90 })
+  updatePlaySession(session, { currentSec: 10, isPlaying: true })
+  updatePlaySession(session, { currentSec: 30, isPlaying: true, isSeek: true })
+
+  assert.equal(session.incrementCount, 0)
+  assert.equal(session.shouldIncrementPlayCount, false)
+  assert.equal(session.listenedSec, 10)
 })
 
 test('normalizeText 清理空格并统一小写', () => {

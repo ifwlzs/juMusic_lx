@@ -23,62 +23,70 @@ function createAggregateSongId(item) {
   ].join('__')
 }
 
-function defineDurationRange(aggregate, durationSec) {
-  Object.defineProperty(aggregate, '_durationMinSec', {
-    value: durationSec,
-    writable: true,
-    enumerable: false,
-  })
-  Object.defineProperty(aggregate, '_durationMaxSec', {
-    value: durationSec,
-    writable: true,
-    enumerable: false,
+function compareText(left, right) {
+  if (left < right) return -1
+  if (left > right) return 1
+  return 0
+}
+
+function sortSourceItems(sourceItems) {
+  return [...sourceItems].sort((left, right) => {
+    const titleCompare = compareText(
+      normalizeText(left.title || left.fileName || 'unknown'),
+      normalizeText(right.title || right.fileName || 'unknown'),
+    )
+    if (titleCompare) return titleCompare
+
+    const artistCompare = compareText(
+      normalizeText(left.artist || ''),
+      normalizeText(right.artist || ''),
+    )
+    if (artistCompare) return artistCompare
+
+    const durationCompare = (left.durationSec || 0) - (right.durationSec || 0)
+    if (durationCompare) return durationCompare
+
+    const providerCompare = compareText(left.providerType || '', right.providerType || '')
+    if (providerCompare) return providerCompare
+
+    return compareText(left.sourceItemId || '', right.sourceItemId || '')
   })
 }
 
-function updateAggregateDuration(aggregate, durationSec) {
-  aggregate._durationMinSec = Math.min(aggregate._durationMinSec, durationSec)
-  aggregate._durationMaxSec = Math.max(aggregate._durationMaxSec, durationSec)
-  aggregate.durationSec = (aggregate._durationMinSec + aggregate._durationMaxSec) / 2
-  aggregate.canonicalDurationSec = Math.round(aggregate.durationSec)
-  aggregate.aggregateSongId = createAggregateSongId(aggregate)
+function buildAggregateSong(groupItems) {
+  const preferredItem = groupItems.find(item => item.providerType === 'local') || groupItems[0]
+  const anchorItem = groupItems[0]
+
+  return {
+    aggregateSongId: createAggregateSongId(anchorItem),
+    title: preferredItem.title || preferredItem.fileName || '',
+    artist: preferredItem.artist || '',
+    durationSec: anchorItem.durationSec || 0,
+    canonicalTitle: preferredItem.title || preferredItem.fileName || '',
+    canonicalArtist: preferredItem.artist || '',
+    canonicalAlbum: preferredItem.album || '',
+    canonicalDurationSec: anchorItem.durationSec || 0,
+    preferredSource: preferredItem.providerType,
+    preferredSourceItemId: preferredItem.sourceItemId,
+    sourceCount: groupItems.length,
+    sourceItemIds: groupItems.map(item => item.sourceItemId),
+  }
 }
 
 function buildAggregateSongs(sourceItems) {
-  const aggregates = []
+  const sortedItems = sortSourceItems(sourceItems)
+  const groups = []
 
-  for (const item of sourceItems) {
-    const existing = aggregates.find(song => shouldMergeSongs(song, item))
-    if (existing) {
-      updateAggregateDuration(existing, item.durationSec || 0)
-      existing.sourceCount += 1
-      existing.sourceItemIds.push(item.sourceItemId)
-      if (item.providerType === 'local' && existing.preferredSource !== 'local') {
-        existing.preferredSource = 'local'
-        existing.preferredSourceItemId = item.sourceItemId
-      }
-      continue
+  for (const item of sortedItems) {
+    const currentGroup = groups[groups.length - 1]
+    if (currentGroup && shouldMergeSongs(currentGroup[0], item)) {
+      currentGroup.push(item)
+    } else {
+      groups.push([item])
     }
-
-    aggregates.push({
-      aggregateSongId: createAggregateSongId(item),
-      title: item.title || item.fileName || '',
-      artist: item.artist || '',
-      durationSec: item.durationSec || 0,
-      canonicalTitle: item.title || item.fileName || '',
-      canonicalArtist: item.artist || '',
-      canonicalAlbum: item.album || '',
-      canonicalDurationSec: item.durationSec || 0,
-      preferredSource: item.providerType,
-      preferredSourceItemId: item.sourceItemId,
-      sourceCount: 1,
-      sourceItemIds: [item.sourceItemId],
-    })
-
-    defineDurationRange(aggregates[aggregates.length - 1], item.durationSec || 0)
   }
 
-  return aggregates
+  return groups.map(buildAggregateSong)
 }
 
 module.exports = {
