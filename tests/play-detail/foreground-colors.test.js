@@ -66,3 +66,15 @@ test('play detail stops using gray helper tokens for primary foreground content'
   assert.doesNotMatch(playDetailFiles, /theme\['c-350'\]/)
   assert.doesNotMatch(playDetailFiles, /theme\['c-button-font'\]/)
 })
+
+test('play detail palette imports resolve from each folder depth correctly', () => {
+  const horizontalMoreBtn = readFile('src/screens/PlayDetail/Horizontal/MoreBtn/Btn.tsx')
+  const horizontalMoreTimeoutBtn = readFile('src/screens/PlayDetail/Horizontal/MoreBtn/TimeoutExitBtn.tsx')
+  const verticalMoreBtn = readFile('src/screens/PlayDetail/Vertical/Player/components/MoreBtn/Btn.tsx')
+  const verticalMoreTimeoutBtn = readFile('src/screens/PlayDetail/Vertical/Player/components/MoreBtn/TimeoutExitBtn.tsx')
+
+  assert.match(horizontalMoreBtn, /from '\.\.\/\.\.\/palette'/)
+  assert.match(horizontalMoreTimeoutBtn, /from '\.\.\/\.\.\/palette'/)
+  assert.match(verticalMoreBtn, /from '\.\.\/\.\.\/\.\.\/\.\.\/palette'/)
+  assert.match(verticalMoreTimeoutBtn, /from '\.\.\/\.\.\/\.\.\/\.\.\/palette'/)
+})

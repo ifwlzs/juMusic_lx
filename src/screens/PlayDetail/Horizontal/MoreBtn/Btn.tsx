@@ -2,7 +2,7 @@ import { TouchableOpacity } from 'react-native'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
-import { playDetailPalette } from '../../../palette'
+import { playDetailPalette } from '../../palette'
 
 export const BTN_WIDTH = scaleSizeW(32)
 export const BTN_ICON_SIZE = 22

@@ -2,7 +2,7 @@ import { memo, useRef } from 'react'
 import TimeoutExitEditModal, { type TimeoutExitEditModalType, useTimeInfo } from '@/components/TimeoutExitEditModal'
 import { useTheme } from '@/store/theme/hook'
 import Btn from './Btn'
-import { playDetailPalette } from '../../../palette'
+import { playDetailPalette } from '../../palette'
 
 
 export default memo(() => {
