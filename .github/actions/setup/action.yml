@@ -12,7 +12,7 @@ runs:
     - name: Setup Java Env
       uses: actions/setup-java@v4
       with:
-        distribution: 'microsoft'
+        distribution: 'temurin'
         java-version: '17'
         cache: gradle
 

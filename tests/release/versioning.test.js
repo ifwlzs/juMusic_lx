@@ -134,6 +134,25 @@ test('release workflow restores gradlew execute permission on Linux runners', ()
   assert.match(workflow, /chmod \+x gradlew/)
 })
 
+test('release workflow uses a no-daemon release build on CI', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
+
+  assert.match(workflow, /gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease/)
+})
+
+test('beta workflow uses a no-daemon release build on CI', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/beta-pack.yml'), 'utf8')
+
+  assert.match(workflow, /gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease/)
+})
+
+test('setup action uses temurin jdk for android builds', () => {
+  const setupAction = fs.readFileSync(path.resolve(__dirname, '../../.github/actions/setup/action.yml'), 'utf8')
+
+  assert.match(setupAction, /setup-java@v4/)
+  assert.match(setupAction, /distribution:\s*'temurin'/)
+})
+
 test('local PowerShell packaging script parses without syntax errors', () => {
   const escapedPath = packScriptPath.replace(/'/g, "''")
   execFileSync('powershell', [
