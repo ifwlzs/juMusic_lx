@@ -2,13 +2,11 @@ import { buildLyricInfo } from './utils'
 import { parseLyric } from './local'
 import { invalidateCache, upsertCacheEntry } from '@/core/mediaLibrary/cache'
 import { buildMediaLibraryCacheFilePath } from '@/core/mediaLibrary/cachePath'
-import { resolveConnectionCredential } from '@/core/mediaLibrary/credentials'
 import { resolvePlayableResource } from '@/core/mediaLibrary/playbackResolver'
+import { getMediaLibraryRuntimeRegistry } from '@/core/mediaLibrary/runtimeRegistry'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
-import { buildWebdavHeaders, buildWebdavUrl } from '@/core/mediaLibrary/webdav'
-import { mkdir, temporaryDirectoryPath, unlink, downloadFile } from '@/utils/fs'
+import { mkdir, temporaryDirectoryPath, unlink } from '@/utils/fs'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
-import { downloadSmbFile } from '@/utils/nativeModules/smb'
 
 const MEDIA_LIBRARY_CACHE_DIR = `${temporaryDirectoryPath}/media-library`
 const pendingPlayableFilePaths = new Map<string, Promise<string>>()
@@ -26,27 +24,19 @@ const downloadRemoteFile = async(musicInfo: LX.Music.MusicInfoRemoteFile, target
     .find(item => item.connectionId === musicInfo.meta.mediaLibrary!.connectionId)
   if (!connection) throw new Error('media library connection not found')
 
-  const credential = await resolveConnectionCredential(connection, mediaLibraryRepository) as LX.MediaLibrary.ConnectionCredential | null
-  const remotePathOrUri = musicInfo.meta.mediaLibrary!.remotePathOrUri
-
-  if (musicInfo.source == 'webdav') {
-    const remoteUrl = buildWebdavUrl(connection.rootPathOrUri, remotePathOrUri)
-    const headers = buildWebdavHeaders(credential)
-    await downloadFile(remoteUrl, targetPath, headers ? { headers } : {}).promise
-    return targetPath
+  const provider = getMediaLibraryRuntimeRegistry().get(musicInfo.source as LX.MediaLibrary.ProviderType)
+  if (!provider?.downloadToCache) {
+    throw new Error(`media library playback provider not supported: ${musicInfo.source}`)
   }
 
-  if (!credential?.host || !credential?.share) {
-    throw new Error('media library smb credential incomplete')
+  const sourceItem = {
+    providerType: musicInfo.meta.mediaLibrary!.providerType,
+    sourceItemId: musicInfo.meta.mediaLibrary!.sourceItemId,
+    versionToken: musicInfo.meta.mediaLibrary!.versionToken,
+    pathOrUri: musicInfo.meta.mediaLibrary!.remotePathOrUri,
   }
-  await downloadSmbFile({
-    host: credential.host,
-    share: credential.share,
-    username: credential.username,
-    password: credential.password,
-    remotePath: remotePathOrUri,
-    localPath: targetPath,
-  })
+  const downloadResult = await provider.downloadToCache(connection, sourceItem, targetPath)
+  if (downloadResult?.promise) await downloadResult.promise
   return targetPath
 }
 

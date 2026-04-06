@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { buildAggregateListSummary, buildSourceListSummaries } from '@/core/mediaLibrary/sourceLists'
 import SourceMusicList from './SourceMusicList'
@@ -17,6 +18,7 @@ interface SourceListSummary {
 
 export default ({ onClose }: { onClose: () => void }) => {
   const t = useI18n()
+  const theme = useTheme()
   const [connections, setConnections] = useState<LX.MediaLibrary.SourceConnection[]>([])
   const [sourceItems, setSourceItems] = useState<LX.MediaLibrary.SourceItem[]>([])
   const [aggregateSongs, setAggregateSongs] = useState<LX.MediaLibrary.AggregateSong[]>([])
@@ -95,7 +97,7 @@ export default ({ onClose }: { onClose: () => void }) => {
           >
             <View style={styles.item}>
               <Text>{summary.name}</Text>
-              <Text size={12}>{getProviderLabel(summary.providerType)} · {t('source_lists_song_count', { count: summary.count })}</Text>
+              <Text size={12} color={theme['c-font']}>{getProviderLabel(summary.providerType)} · {t('source_lists_song_count', { count: summary.count })}</Text>
             </View>
           </Pressable>
         ))}

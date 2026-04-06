@@ -27,6 +27,13 @@ test('Task 6 来源歌曲列表骨架不直接承担连接创建与凭据保存'
   assert.doesNotMatch(file, /saveConnections/)
 })
 
+test('来源列表为 provider 与数量文案显式使用深色正文而不是跟随浅辅助色', () => {
+  const file = readFile('src/screens/Home/Views/Mylist/SourceLists/ConnectionList.tsx')
+
+  assert.match(file, /useTheme/)
+  assert.match(file, /<Text size=\{12\} color=\{theme\['c-font'\]\}>/)
+})
+
 test('SourceLists 相关文案通过 i18n 提供而不是硬编码中文', () => {
   const connectionList = readFile('src/screens/Home/Views/Mylist/SourceLists/ConnectionList.tsx')
   const connectionForm = readFile('src/screens/Home/Views/Mylist/SourceLists/ConnectionForm.tsx')

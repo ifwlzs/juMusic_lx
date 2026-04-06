@@ -31,8 +31,9 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
 
   const isSelected = selectedList.includes(item)
   // console.log(item.name, selectedList, selectedList.includes(item))
-  const isSupported = useAssertApiSupport(item.source)
   const mediaLibrary = 'mediaLibrary' in item.meta ? item.meta.mediaLibrary : undefined
+  const apiSupported = useAssertApiSupport(item.source)
+  const isSupported = apiSupported || !!mediaLibrary
   const isUnavailable = !!mediaLibrary?.unavailableReason
   const moreButtonRef = useRef<TouchableOpacity>(null)
   const handleShowMenu = () => {
@@ -47,9 +48,10 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
 
   const singer = `${item.singer}${isShowAlbumName && item.meta.albumName ? ` · ${item.meta.albumName}` : ''}`
   const sourceBadge = String(mediaLibrary?.providerType ?? item.source).toUpperCase()
+  const sourceBadgeType = mediaLibrary?.providerType === 'webdav' ? 'secondary' : mediaLibrary?.providerType === 'smb' ? 'tertiary' : 'normal'
 
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: !isSupported ? 0.5 : isUnavailable ? 0.72 : 1 }}>
+    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: !isSupported ? 0.5 : isUnavailable ? 0.88 : 1 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
         {
           active
@@ -61,16 +63,16 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
           {/* </View> */}
           <View style={styles.listItemSingle}>
-            <Badge>{sourceBadge}</Badge>
+            <Badge type={sourceBadgeType}>{sourceBadge}</Badge>
             {isUnavailable ? <Badge>{t('media_music_unavailable')}</Badge> : null}
-            <Text style={styles.listItemSingleText} size={11} color={active ? theme['c-primary-font'] : theme['c-font-label']} numberOfLines={1}>
+            <Text style={styles.listItemSingleText} size={11} color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
               {singer}
             </Text>
           </View>
         </View>
         {
           isShowInterval ? (
-            <Text size={12} color={active ? theme['c-primary-font'] : theme['c-font-label']} numberOfLines={1}>{item.interval}</Text>
+            <Text size={12} color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.interval}</Text>
           ) : null
         }
       </TouchableOpacity>
@@ -139,7 +141,7 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 1,
     marginLeft: 4,
-    fontWeight: '300',
+    fontWeight: '400',
     // fontSize: 15,
   },
   // listItemBadge: {

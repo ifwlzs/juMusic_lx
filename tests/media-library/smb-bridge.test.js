@@ -6,7 +6,7 @@ const path = require('node:path')
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
 test('MainApplication 注册 SMB package', () => {
-  const content = readFile('android/app/src/main/java/cn/toside/music/mobile/MainApplication.java')
+  const content = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/MainApplication.java')
   assert.match(content, /SmbPackage/)
   assert.match(content, /packages\.add\(new SmbPackage\(\)\)/)
 })
@@ -17,7 +17,7 @@ test('app build.gradle 引入 SMBJ 依赖', () => {
 })
 
 test('SmbModule 下载实现避免使用 minSdk 21 不兼容的 transferTo', () => {
-  const content = readFile('android/app/src/main/java/cn/toside/music/mobile/smb/SmbModule.java')
+  const content = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/smb/SmbModule.java')
   assert.doesNotMatch(content, /transferTo\s*\(/)
 })
 

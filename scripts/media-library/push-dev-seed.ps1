@@ -13,7 +13,7 @@ param(
   [string]$CredentialRef = 'credential__conn_webdav_dev'
 )
 
-$targetDir = '/sdcard/Android/media/cn.toside.music.mobile'
+$targetDir = '/sdcard/Android/media/io.ifwlzs.jumusic.lx'
 $targetFile = "$targetDir/media-library-dev-seed.json"
 $tempFile = Join-Path $env:TEMP 'media-library-dev-seed.json'
 

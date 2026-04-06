@@ -108,9 +108,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "cn.toside.music.mobile"
+    namespace "io.ifwlzs.jumusic.lx"
     defaultConfig {
-        applicationId "cn.toside.music.mobile"
+        applicationId "io.ifwlzs.jumusic.lx"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode verCode
@@ -134,13 +134,20 @@ android {
                 keyPassword MYAPP_UPLOAD_KEY_PASSWORD
             } else {
                 def keystorePropertiesFile = rootProject.file("keystore.properties")
-                def keystoreProperties = new Properties()
-                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                if (keystorePropertiesFile.exists()) {
+                    def keystoreProperties = new Properties()
+                    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+                    storeFile file(keystoreProperties['storeFile'])
+                    storePassword keystoreProperties['storePassword']
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                } else {
+                    storeFile file('debug.keystore')
+                    storePassword 'android'
+                    keyAlias 'androiddebugkey'
+                    keyPassword 'android'
+                }
             }
         }
         debug {
@@ -193,6 +200,7 @@ dependencies {
     implementation("com.facebook.react:flipper-integration")
     // implementation "androidx.javascriptengine:javascriptengine:1.0.0-alpha07"
     // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation 'com.microsoft.identity.client:msal:6.2.0'
     implementation 'wang.harlon.quickjs:wrapper-android:2.4.0'
     implementation 'com.hierynomus:smbj:0.13.0'
 

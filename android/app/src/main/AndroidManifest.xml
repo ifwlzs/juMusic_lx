@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:tools="http://schemas.android.com/tools"
-  package="cn.toside.music.mobile">
+  xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 获取读写外置存储权限 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -88,6 +87,20 @@
           <data android:pathPattern=".*\\..*\\.lxmc" />
           <data android:pathPattern=".*\\..*\\..*\\.lxmc" />
           <data android:pathSuffix=".lxmc" tools:targetApi="s" />
+        </intent-filter>
+      </activity>
+
+      <activity
+        android:name="com.microsoft.identity.client.BrowserTabActivity"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.intent.action.VIEW" />
+          <category android:name="android.intent.category.DEFAULT" />
+          <category android:name="android.intent.category.BROWSABLE" />
+          <data
+            android:scheme="msauth"
+            android:host="io.ifwlzs.jumusic.lx"
+            android:path="/Xo8WBi6jzSxKDVR4drqm84yr9iU=" />
         </intent-filter>
       </activity>
 

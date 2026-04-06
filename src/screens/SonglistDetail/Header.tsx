@@ -90,7 +90,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
         <View style={{ flexDirection: 'column', flexGrow: 1, flexShrink: 1, paddingLeft: 5 }} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
           <Text size={14} numberOfLines={ 1 }>{detailInfo.name}</Text>
           <View style={{ flexGrow: 0, flexShrink: 1 }}>
-            <Text size={13} color={theme['c-font-label']} numberOfLines={ 4 }>{detailInfo.desc}</Text>
+            <Text size={13} color={theme['c-font']} numberOfLines={ 4 }>{detailInfo.desc}</Text>
           </View>
         </View>
       </View>

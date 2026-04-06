@@ -7,11 +7,13 @@ import DrawerLayoutFixed, { type DrawerLayoutFixedType } from '@/components/comm
 import { COMPONENT_IDS } from '@/config/constant'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import type { InitState as CommonState } from '@/store/common/state'
+import MediaSourceManagerModal, { type MediaSourceManagerModalType } from '../Setting/settings/Basic/MediaSourceManagerModal'
 
 const MAX_WIDTH = scaleSizeW(400)
 
 export default () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)
+  const modalRef = useRef<MediaSourceManagerModalType>(null)
   const theme = useTheme()
   // const [width, setWidth] = useState(0)
 
@@ -64,7 +66,8 @@ export default () => {
       drawerBackgroundColor={theme['c-content-background']}
       style={{ elevation: 1 }}
     >
-      <MusicList />
+      <MusicList onOpenMediaSourceManager={target => { modalRef.current?.show(target) }} />
+      <MediaSourceManagerModal ref={modalRef} />
     </DrawerLayoutFixed>
   )
 }

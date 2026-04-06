@@ -33,7 +33,7 @@ const Empty = () => {
 
   return (
     <View style={styles.noitem}>
-      <Text color={theme['c-font-label']}>{t('no_item')}</Text>
+      <Text color={theme['c-font']}>{t('no_item')}</Text>
     </View>
   )
 }
@@ -61,15 +61,15 @@ const ListItem = memo(({ info, index, onRemove, onPlay, selectedList, onPress }:
             {info.musicInfo.singer}
             {
               info.musicInfo.meta.albumName ? (
-                <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({info.musicInfo.meta.albumName})</Text>
+                <Text color={theme['c-font']} size={12} numberOfLines={1}> ({info.musicInfo.meta.albumName})</Text>
               ) : null
             }
           </Text>
         </View>
       </TouchableOpacity>
       <View style={styles.listItemLabel}>
-        <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{ info.musicInfo.source }</Text>
-        <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.musicInfo.interval}</Text>
+        <Text style={styles.listItemLabelText} size={13} color={theme['c-font']}>{ info.musicInfo.source }</Text>
+        <Text style={styles.listItemLabelText} size={13} color={theme['c-font']}>{info.musicInfo.interval}</Text>
       </View>
       <View style={styles.listItemBtns}>
         <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>

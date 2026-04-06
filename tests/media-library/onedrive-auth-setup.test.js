@@ -1,0 +1,71 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const readFile = filePath => {
+  const fullPath = path.resolve(__dirname, '../../', filePath)
+  return fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf8') : ''
+}
+
+test('android package and msal setup target io.ifwlzs.jumusic.lx debug registration', () => {
+  const buildGradle = readFile('android/app/build.gradle')
+  const manifest = readFile('android/app/src/main/AndroidManifest.xml')
+  const authConfig = readFile('android/app/src/main/res/raw/auth_config_single_account.json')
+  const mainApplication = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/MainApplication.java')
+
+  assert.match(buildGradle, /namespace "io\.ifwlzs\.jumusic\.lx"/)
+  assert.match(buildGradle, /applicationId "io\.ifwlzs\.jumusic\.lx"/)
+  assert.match(buildGradle, /com\.microsoft\.identity\.client:msal:/)
+  assert.match(buildGradle, /keystorePropertiesFile\.exists\(\)/)
+  assert.match(manifest, /com\.microsoft\.identity\.client\.BrowserTabActivity/)
+  assert.match(manifest, /android:host="io\.ifwlzs\.jumusic\.lx"/)
+  assert.match(manifest, /android:path="\/Xo8WBi6jzSxKDVR4drqm84yr9iU="/)
+  assert.match(authConfig, /"client_id":\s*"116da1c1-fc09-4a63-b44d-61f4ebad5e4f"/)
+  assert.match(authConfig, /"redirect_uri":\s*"msauth:\/\/io\.ifwlzs\.jumusic\.lx\/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D"/)
+  assert.match(authConfig, /"account_mode":\s*"SINGLE"/)
+  assert.match(authConfig, /"type":\s*"AzureADMultipleOrgs"/)
+  assert.match(mainApplication, /packages\.add\(new OneDriveAuthPackage\(\)\)/)
+})
+
+test('onedrive auth bridge exposes sign in, sign out, current account, and silent token helpers', () => {
+  const moduleFile = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/onedrive/OneDriveAuthModule.java')
+  const packageFile = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/onedrive/OneDriveAuthPackage.java')
+  const jsFile = readFile('src/utils/nativeModules/oneDriveAuth.ts')
+
+  assert.match(packageFile, /class OneDriveAuthPackage implements ReactPackage/)
+  assert.match(packageFile, /new OneDriveAuthModule\(reactContext\)/)
+  assert.match(moduleFile, /class OneDriveAuthModule extends ReactContextBaseJavaModule/)
+  assert.match(moduleFile, /createSingleAccountPublicClientApplication/)
+  assert.match(moduleFile, /public void signIn\(Promise promise\)/)
+  assert.match(moduleFile, /public void signOut\(Promise promise\)/)
+  assert.match(moduleFile, /public void getCurrentAccount\(Promise promise\)/)
+  assert.match(moduleFile, /public void getAccessToken\(Promise promise\)/)
+  assert.match(moduleFile, /acquireTokenSilentAsync|acquireTokenSilent/)
+  assert.match(moduleFile, /"User\.Read"/)
+  assert.match(moduleFile, /"Files\.Read\.All"/)
+  assert.doesNotMatch(moduleFile, /"offline_access"/)
+  assert.doesNotMatch(moduleFile, /"openid"/)
+  assert.doesNotMatch(moduleFile, /"profile"/)
+  assert.match(jsFile, /NativeModules/)
+  assert.match(jsFile, /OneDriveAuthModule/)
+  assert.match(jsFile, /export const signInOneDriveBusiness/)
+  assert.match(jsFile, /export const signOutOneDriveBusiness/)
+  assert.match(jsFile, /export const getOneDriveBusinessAccount/)
+  assert.match(jsFile, /export const getOneDriveBusinessAccessToken/)
+})
+
+test('media sources settings exposes an enterprise onedrive login entry with account status', () => {
+  const file = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSources.tsx')
+  const zhCnFile = readFile('src/lang/zh-cn.json')
+
+  assert.match(file, /getOneDriveBusinessAccount/)
+  assert.match(file, /signInOneDriveBusiness/)
+  assert.match(file, /signOutOneDriveBusiness/)
+  assert.match(file, /setting_media_sources_onedrive_title/)
+  assert.match(file, /setting_media_sources_onedrive_sign_in/)
+  assert.match(file, /setting_media_sources_onedrive_sign_out/)
+  assert.match(zhCnFile, /"setting_media_sources_onedrive_title":\s*"OneDrive 企业账号"/)
+  assert.match(zhCnFile, /"setting_media_sources_onedrive_sign_in":\s*"登录"/)
+  assert.match(zhCnFile, /"setting_media_sources_onedrive_sign_out":\s*"退出登录"/)
+})

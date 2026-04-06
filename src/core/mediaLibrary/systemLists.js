@@ -1,4 +1,5 @@
 const { isWithinDirectory, normalizeImportSelection, normalizePathOrUri } = require('./browse.js')
+const { resolveConnectionDisplayName, resolveRuleDisplayName } = require('./naming.js')
 const { toMediaLibraryMusicInfo } = require('./sourceLists.js')
 
 function dedupeSourceItems(items = []) {
@@ -80,7 +81,7 @@ function buildAccountAllList(connection, items) {
   return createGeneratedList({
     connection,
     items,
-    name: `${connection.displayName} · 全部媒体`,
+    name: `${resolveConnectionDisplayName(connection)} · 全部媒体`,
     kind: 'account_all',
   })
 }
@@ -89,7 +90,12 @@ function buildMergedRuleList(connection, rule, items) {
   return createGeneratedList({
     connection,
     items,
-    name: rule.name,
+    name: resolveRuleDisplayName({
+      providerType: connection.providerType,
+      ruleName: rule.name,
+      connectionDisplayName: connection.displayName,
+      selectedConnectionId: connection.connectionId,
+    }),
     kind: 'rule_merged',
     ruleId: rule.ruleId,
   })
@@ -115,7 +121,12 @@ function buildDirectoryRuleLists(connection, rule, snapshot) {
     generatedLists.push(createGeneratedList({
       connection,
       items: items.filter(item => trackPaths.has(normalizePathOrUri(item.pathOrUri))),
-      name: `${rule.name} · 散选歌曲`,
+      name: `${resolveRuleDisplayName({
+        providerType: connection.providerType,
+        ruleName: rule.name,
+        connectionDisplayName: connection.displayName,
+        selectedConnectionId: connection.connectionId,
+      })} · 散选歌曲`,
       kind: 'rule_singles',
       ruleId: rule.ruleId,
     }))

@@ -41,7 +41,7 @@ export const getMusicUrl = async({
     return getDownloadMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
   } else if (musicInfo.source == 'local') {
     return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
-  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb') {
+  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb' || musicInfo.source == 'onedrive') {
     return getMediaLibraryMusicUrl({
       musicInfo,
       isRefresh,
@@ -66,7 +66,7 @@ export const getPicPath = async({
     return getDownloadPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
   } else if (musicInfo.source == 'local') {
     return getLocalPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
-  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb') {
+  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb' || musicInfo.source == 'onedrive') {
     return getMediaLibraryPicUrl({
       musicInfo,
       isRefresh,
@@ -89,7 +89,7 @@ export const getLyricInfo = async({
     return getDownloadLyricInfo({ musicInfo, isRefresh, onToggleSource })
   } else if (musicInfo.source == 'local') {
     return getLocalLyricInfo({ musicInfo, isRefresh, onToggleSource })
-  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb') {
+  } else if (musicInfo.source == 'webdav' || musicInfo.source == 'smb' || musicInfo.source == 'onedrive') {
     return getMediaLibraryLyricInfo({
       musicInfo,
       isRefresh,

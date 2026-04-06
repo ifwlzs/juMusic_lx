@@ -1,3 +1,4 @@
+const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
 const { buildSmbVersionToken } = require('../versionToken.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
@@ -56,14 +57,14 @@ async function resolveSmbFile(listDirectory, connection, pathOrUri) {
   return entries.find(entry => !entry.isDirectory && entry.path === pathOrUri) || null
 }
 
-async function buildSmbScanItems(files, connection, readMetadata, skipped = 0) {
+async function buildSmbScanItems(files, connection, readMetadata, skipped = 0, metadataConcurrency = DEFAULT_CONCURRENCY) {
   const lastSeenAt = Date.now()
-  const items = await Promise.all(files.map(async(file) => {
+  const items = await mapWithConcurrency(files, metadataConcurrency, async file => {
     let metadata = null
     let scanStatus = 'success'
     let scanError = null
     try {
-      metadata = await readMetadata(file.path)
+      metadata = await readMetadata(file.path, connection, file)
       if (!metadata) {
         scanStatus = 'failed'
         scanError = new Error('metadata empty')
@@ -96,7 +97,7 @@ async function buildSmbScanItems(files, connection, readMetadata, skipped = 0) {
       scanStatus,
       scanError: scanError ? String(scanError?.message || scanError) : undefined,
     }
-  }))
+  })
   const success = items.filter(item => item.scanStatus !== 'failed').length
   const failed = items.length - success
   return {
@@ -110,7 +111,7 @@ async function buildSmbScanItems(files, connection, readMetadata, skipped = 0) {
   }
 }
 
-function createSmbProvider({ listDirectory, readMetadata, downloadFile }) {
+function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadataConcurrency = DEFAULT_CONCURRENCY }) {
   return {
     type: 'smb',
     async browseConnection(connection, pathOrUri = connection.rootPathOrUri) {
@@ -143,11 +144,11 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile }) {
       }
 
       const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
-      return buildSmbScanItems(dedupedFiles, connection, readMetadata, skipped)
+      return buildSmbScanItems(dedupedFiles, connection, readMetadata, skipped, metadataConcurrency)
     },
     async scanConnection(connection) {
       const { files, skipped } = await collectSmbFiles(listDirectory, connection.rootPathOrUri, connection)
-      return buildSmbScanItems(files, connection, readMetadata, skipped)
+      return buildSmbScanItems(files, connection, readMetadata, skipped, metadataConcurrency)
     },
     async downloadToCache(connection, sourceItem, savePath) {
       return downloadFile(connection, sourceItem.pathOrUri, savePath)

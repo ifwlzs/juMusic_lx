@@ -7,16 +7,12 @@ import Text from './Text'
 
 const styles = createStyle({
   text: {
-    // paddingLeft: 4,
-    // paddingRight: 4,
-    // borderRadius: 2,
-    // lineHeight: 12,
-    // marginTop: 2,
     marginRight: 5,
-    fontWeight: '400',
-    // marginRight: 5,
-    // marginBottom: 2,
-    // alignSelf: 'flex-start',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    fontWeight: '600',
     alignSelf: 'center',
   },
 })
@@ -28,26 +24,28 @@ export default memo(({ type = 'normal', children }: {
   children: string
 }) => {
   const theme = useTheme()
-  // console.log(visible)
   const colors = useMemo(() => {
-    const colors = { textColor: '' }
+    const colors = {
+      textColor: theme['c-badge-primary'],
+      borderColor: theme['c-badge-primary'],
+    }
     switch (type) {
       case 'normal':
-        // colors.bgColor = theme.primary
         colors.textColor = theme['c-badge-primary']
+        colors.borderColor = theme['c-badge-primary']
         break
       case 'secondary':
-        // colors.bgColor = theme.primary
         colors.textColor = theme['c-badge-secondary']
+        colors.borderColor = theme['c-badge-secondary']
         break
       case 'tertiary':
-        // colors.bgColor = theme.primary
         colors.textColor = theme['c-badge-tertiary']
+        colors.borderColor = theme['c-badge-tertiary']
         break
     }
     return colors
   }, [type, theme])
 
-  return <Text style={styles.text} size={9} color={colors.textColor}>{children}</Text>
+  return <Text style={{ ...styles.text, borderColor: colors.borderColor }} size={9} color={colors.textColor}>{children}</Text>
 })
 

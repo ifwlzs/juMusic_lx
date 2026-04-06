@@ -5,7 +5,7 @@ const path = require('node:path')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
-test('play detail foreground uses a shared near-white palette across text and icon surfaces', () => {
+test('play detail foreground uses a shared theme-driven palette across text and icon surfaces', () => {
   const paletteFile = readFile('src/screens/PlayDetail/palette.ts')
   const filesUsingPalette = [
     'src/screens/PlayDetail/Vertical/components/Header.tsx',
@@ -30,13 +30,31 @@ test('play detail foreground uses a shared near-white palette across text and ic
     'src/screens/PlayDetail/components/SettingPopup/settings/SettingLrcFontSize.tsx',
   ].map(readFile)
 
-  assert.match(paletteFile, /PRIMARY_TEXT:\s*'rgba\(255,\s*255,\s*255,\s*0\.96\)'/)
-  assert.match(paletteFile, /SECONDARY_TEXT:\s*'rgba\(255,\s*255,\s*255,\s*0\.78\)'/)
-  assert.match(paletteFile, /TERTIARY_TEXT:\s*'rgba\(255,\s*255,\s*255,\s*0\.62\)'/)
+  assert.match(paletteFile, /themeState\.theme\['c-primary-font'\]/)
+  assert.match(paletteFile, /themeState\.theme\['c-primary-font-active'\]/)
+  assert.match(paletteFile, /themeState\.theme\['c-primary-light-100'\]/)
+  assert.match(paletteFile, /themeState\.theme\['c-primary-light-200'\]/)
+  assert.match(paletteFile, /get PRIMARY_TEXT\(\)/)
+  assert.match(paletteFile, /get SECONDARY_TEXT\(\)/)
+  assert.match(paletteFile, /get TERTIARY_TEXT\(\)/)
+  assert.match(paletteFile, /get LYRIC_ACTIVE_TEXT\(\)/)
+  assert.match(paletteFile, /get LYRIC_ACTIVE_TRANSLATION_TEXT\(\)/)
 
   for (const file of filesUsingPalette) {
     assert.match(file, /playDetailPalette\./)
   }
+})
+
+test('play detail lyric current line uses lighter theme tones so it stands apart from non-active lines', () => {
+  const verticalLyric = readFile('src/screens/PlayDetail/Vertical/Lyric.tsx')
+  const horizontalLyric = readFile('src/screens/PlayDetail/Horizontal/Lyric.tsx')
+
+  assert.match(verticalLyric, /playDetailPalette\.LYRIC_ACTIVE_TEXT/)
+  assert.match(verticalLyric, /playDetailPalette\.LYRIC_ACTIVE_TRANSLATION_TEXT/)
+  assert.match(horizontalLyric, /playDetailPalette\.LYRIC_ACTIVE_TEXT/)
+  assert.match(horizontalLyric, /playDetailPalette\.LYRIC_ACTIVE_TRANSLATION_TEXT/)
+  assert.doesNotMatch(verticalLyric, /theme\['c-primary'\]/)
+  assert.doesNotMatch(horizontalLyric, /theme\['c-primary'\]/)
 })
 
 test('play detail stops using gray helper tokens for primary foreground content', () => {
@@ -77,4 +95,11 @@ test('play detail palette imports resolve from each folder depth correctly', () 
   assert.match(horizontalMoreTimeoutBtn, /from '\.\.\/\.\.\/palette'/)
   assert.match(verticalMoreBtn, /from '\.\.\/\.\.\/\.\.\/\.\.\/palette'/)
   assert.match(verticalMoreTimeoutBtn, /from '\.\.\/\.\.\/\.\.\/\.\.\/palette'/)
+})
+
+test('mini player title uses deep body text instead of gray helper text', () => {
+  const playerBarTitle = readFile('src/components/player/PlayerBar/components/Title.tsx')
+
+  assert.match(playerBarTitle, /<Text color=\{theme\['c-font'\]\} numberOfLines=\{1\}>\{title\}<\/Text>/)
+  assert.doesNotMatch(playerBarTitle, /theme\['c-font-label'\]/)
 })

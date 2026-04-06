@@ -4,7 +4,6 @@ import { View, FlatList, type FlatListProps, type LayoutChangeEvent, type Native
 import { type Line, useLrcPlay, useLrcSet } from '@/plugins/lyric'
 import { createStyle } from '@/utils/tools'
 // import { useComponentIds } from '@/store/common/hook'
-import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { AnimatedColorText } from '@/components/common/Text'
 import { setSpText } from '@/utils/pixelRatio'
@@ -64,7 +63,6 @@ interface LineProps {
   onLayout: (lineNum: number, height: number, width: number) => void
 }
 const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
-  const theme = useTheme()
   const lrcFontSize = useSettingValue('playDetail.vertical.style.lrcFontSize')
   const textAlign = useSettingValue('playDetail.style.align')
   const size = lrcFontSize / 10
@@ -73,15 +71,15 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
   const colors = useMemo(() => {
     const active = activeLine == lineNum
     return active ? [
-      theme['c-primary'],
-      theme['c-primary-alpha-200'],
+      playDetailPalette.LYRIC_ACTIVE_TEXT,
+      playDetailPalette.LYRIC_ACTIVE_TRANSLATION_TEXT,
       1,
     ] as const : [
       playDetailPalette.SECONDARY_TEXT,
       playDetailPalette.TERTIARY_TEXT,
       0.72,
     ] as const
-  }, [activeLine, lineNum, theme])
+  }, [activeLine, lineNum])
 
   const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
     onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width)

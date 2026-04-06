@@ -3,7 +3,10 @@ import { ScrollView, View } from 'react-native'
 
 import Button from '../../../components/Button'
 import Text from '@/components/common/Text'
+import { resolveConnectionDisplayName, resolveRuleDisplayName } from '@/core/mediaLibrary/naming'
 import { useI18n } from '@/lang'
+import { useTheme } from '@/store/theme/hook'
+import { dateFormat2 } from '@/utils'
 import { createStyle } from '@/utils/tools'
 
 export default memo(({
@@ -24,6 +27,7 @@ export default memo(({
   onDeleteRule: (rule: LX.MediaLibrary.ImportRule) => void
 }) => {
   const t = useI18n()
+  const theme = useTheme()
   const connectionRules = rules.filter(rule => rule.connectionId === connection.connectionId)
   const getStatusText = (rule: LX.MediaLibrary.ImportRule) => {
     const status = rule.lastSyncStatus ?? 'idle'
@@ -52,11 +56,16 @@ export default memo(({
         <Button onPress={onBack}>{t('back')}</Button>
         <Button onPress={onAddRule}>{t('media_source_add_rule')}</Button>
       </View>
-      <Text style={styles.title}>{connection.displayName}</Text>
+      <Text style={styles.title}>{resolveConnectionDisplayName(connection)}</Text>
       <ScrollView contentContainerStyle={styles.list}>
         {connectionRules.length ? connectionRules.map(rule => (
           <View key={rule.ruleId} style={styles.card}>
-            <Text>{rule.name}</Text>
+            <Text>{resolveRuleDisplayName({
+              providerType: connection.providerType,
+              ruleName: rule.name,
+              connectionDisplayName: connection.displayName,
+              selectedConnectionId: connection.connectionId,
+            })}</Text>
             <Text size={12} style={styles.meta}>{t(`media_source_mode_${rule.mode}`)}</Text>
             <Text size={12} style={styles.meta}>
               {t('media_source_selected_summary', {
@@ -64,7 +73,15 @@ export default memo(({
                 tracks: rule.tracks.length,
               })}
             </Text>
-            <Text size={12} style={styles.meta}>{getStatusText(rule)}</Text>
+            <Text size={12} style={styles.meta} color={theme['c-font']}>
+              {t('media_source_generated_list_count', { count: rule.generatedListIds?.length ?? 0 })}
+            </Text>
+            <Text size={12} style={styles.meta} color={theme['c-font']}>
+              {t('media_source_last_update', {
+                time: rule.lastSyncAt ? dateFormat2(rule.lastSyncAt) : t('media_source_never_updated'),
+              })}
+            </Text>
+            <Text size={12} style={styles.meta} color={theme['c-font']}>{getStatusText(rule)}</Text>
             <View style={styles.cardActions}>
               <Button onPress={() => { onEditRule(rule) }}>{t('media_source_edit_rule')}</Button>
               <Button onPress={() => { onUpdateRule(rule) }}>{t('media_source_update')}</Button>

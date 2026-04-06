@@ -1,4 +1,4 @@
-const CREDENTIAL_FIELDS = ['host', 'share', 'username', 'password']
+const CREDENTIAL_FIELDS = ['host', 'share', 'username', 'password', 'accountId', 'authority']
 
 function sanitizeCredential(credential = {}) {
   const nextCredential = {}

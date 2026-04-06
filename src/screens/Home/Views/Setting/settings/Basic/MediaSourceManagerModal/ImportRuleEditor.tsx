@@ -3,6 +3,7 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native'
 
 import Button from '../../../components/Button'
 import Text from '@/components/common/Text'
+import { removeImportSelection } from '@/core/mediaLibrary/ruleSelections'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
@@ -98,7 +99,16 @@ export default memo(({
       <ScrollView contentContainerStyle={styles.selectionList}>
         {selectedItems.length ? selectedItems.map(item => (
           <View key={item.selectionId} style={styles.selectionItem}>
-            <Text size={12}>{item.kindLabel}</Text>
+            <View style={styles.selectionHeader}>
+              <Text size={12}>{item.kindLabel}</Text>
+              <Pressable
+                onPress={() => {
+                  onChange(removeImportSelection(draft, item.selectionId) as MediaSourceRuleDraft)
+                }}
+              >
+                <Text size={12} color={theme['c-primary-font-active']}>{t('delete')}</Text>
+              </Pressable>
+            </View>
             <Text size={12} style={styles.selectionPath} numberOfLines={1}>{item.pathOrUri}</Text>
           </View>
         )) : <Text size={12}>{t('media_source_selection_empty')}</Text>}
@@ -157,6 +167,12 @@ const styles = createStyle({
     minWidth: 0,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  selectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minWidth: 0,
   },
   selectionPath: {
     marginTop: 4,

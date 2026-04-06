@@ -65,3 +65,13 @@ test('runtime registry sends PROPFIND without request body and wraps fetch failu
   assert.doesNotMatch(file, /body:\s*method === 'PROPFIND'/)
   assert.match(file, /webdav request .* failed/i)
 })
+
+test('runtime registry no longer stubs smb and webdav remote metadata reads as null', () => {
+  const file = readFile('src/core/mediaLibrary/runtimeRegistry.js')
+
+  assert.doesNotMatch(file, /const smbProvider = createSmbProvider\([\s\S]+?async readMetadata\(\)\s*\{\s*return null\s*\}/)
+  assert.doesNotMatch(file, /const webdavProvider = createWebdavProvider\([\s\S]+?async downloadFile\(\)\s*\{\s*return null\s*\}/)
+  assert.match(file, /temporaryDirectoryPath/)
+  assert.match(file, /downloadFile/)
+  assert.match(file, /readMetadata/)
+})

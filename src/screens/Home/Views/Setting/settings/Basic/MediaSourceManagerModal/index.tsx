@@ -13,7 +13,9 @@ import {
   updateUserListPosition,
 } from '@/core/list'
 import { normalizeImportSelection } from '@/core/mediaLibrary/browse'
+import { validateConnectionDraft } from '@/core/mediaLibrary/connectionValidation'
 import { createMediaLibraryListApi } from '@/core/mediaLibrary/listApi'
+import { resolveConnectionDisplayName, resolveRuleDisplayName } from '@/core/mediaLibrary/naming'
 import { enqueueDeleteImportRuleJob, enqueueImportRuleSyncJob } from '@/core/mediaLibrary/jobQueue'
 import {
   deleteMediaConnection,
@@ -31,8 +33,13 @@ import DirectoryBrowser from './DirectoryBrowser'
 
 type Page = 'accounts' | 'connection' | 'rules' | 'editor' | 'browser'
 
+export interface MediaSourceManagerShowOptions {
+  connectionId?: string | null
+  ruleId?: string | null
+}
+
 export interface MediaSourceManagerModalType {
-  show: () => void
+  show: (options?: MediaSourceManagerShowOptions) => void
 }
 
 function upsertById<T extends { connectionId?: string, ruleId?: string }>(items: T[], nextItem: T, key: 'connectionId' | 'ruleId') {
@@ -79,6 +86,10 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     ])
     setConnections(nextConnections)
     setRules(nextRules)
+    return {
+      connections: nextConnections,
+      rules: nextRules,
+    }
   }
 
   useEffect(() => {
@@ -91,18 +102,64 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     }
   }, [visible])
 
-  const showDialog = () => {
+  const applyShowOptions = ({
+    options,
+    nextConnections,
+    nextRules,
+  }: {
+    options?: MediaSourceManagerShowOptions
+    nextConnections: LX.MediaLibrary.SourceConnection[]
+    nextRules: LX.MediaLibrary.ImportRule[]
+  }) => {
+    const targetConnectionId = options?.connectionId ?? null
+    const targetRule = options?.ruleId
+      ? nextRules.find(rule => rule.ruleId === options.ruleId) ?? null
+      : null
+    const targetConnection = nextConnections.find(connection => {
+      return connection.connectionId === (targetRule?.connectionId ?? targetConnectionId)
+    }) ?? null
+
+    if (targetConnection) {
+      setSelectedConnectionId(targetConnection.connectionId)
+    } else {
+      setSelectedConnectionId(null)
+    }
+
+    if (targetRule && targetConnection) {
+      setRuleDraft({
+        ...createEmptyRuleDraft(targetConnection.connectionId),
+        ...targetRule,
+      } as MediaSourceRuleDraft)
+      setPage('editor')
+      return
+    }
+
+    if (targetConnection) {
+      setPage('rules')
+      return
+    }
+
+    setPage('accounts')
+  }
+
+  const showDialog = (options?: MediaSourceManagerShowOptions) => {
     dialogRef.current?.setVisible(true)
-    void loadData()
+    void loadData().then(({ connections, rules }) => {
+      applyShowOptions({
+        options,
+        nextConnections: connections,
+        nextRules: rules,
+      })
+    })
   }
 
   useImperativeHandle(ref, () => ({
-    show() {
-      if (visible) showDialog()
+    show(options) {
+      if (visible) showDialog(options)
       else {
         setVisible(true)
         requestAnimationFrame(() => {
-          showDialog()
+          showDialog(options)
         })
       }
     },
@@ -130,16 +187,20 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
 
     const nextDisplayName = draft.displayName.trim()
       ? draft.displayName
-      : draft.rootPathOrUri.trim()
-        ? draft.rootPathOrUri
-        : nextConnectionId
+      : resolveConnectionDisplayName({
+        providerType: draft.providerType,
+        displayName: draft.displayName,
+        rootPathOrUri: draft.providerType === 'onedrive' ? '/' : draft.rootPathOrUri,
+        credential,
+        connectionId: nextConnectionId,
+      })
 
     await mediaLibraryRepository.saveConnections(upsertById(prevConnections, {
       ...existingConnection,
       connectionId: nextConnectionId,
       providerType: draft.providerType,
       displayName: nextDisplayName,
-      rootPathOrUri: draft.rootPathOrUri,
+      rootPathOrUri: draft.providerType === 'onedrive' ? '/' : draft.rootPathOrUri,
       credentialRef,
     }, 'connectionId'))
 
@@ -149,17 +210,28 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     setPage('rules')
   }
 
+  const handleValidateConnection = async(draft: MediaSourceConnectionDraft) => {
+    await validateConnectionDraft(draft)
+  }
+
   const handleSaveRule = async() => {
     if (!selectedConnectionId || !currentConnection) return
     const prevRules = await mediaLibraryRepository.getImportRules() as LX.MediaLibrary.ImportRule[]
     const previousRule = prevRules.find(item => item.ruleId === ruleDraft.ruleId) ?? null
+    const connectionCredential = currentConnection.credentialRef
+      ? await mediaLibraryRepository.getCredential(currentConnection.credentialRef) as LX.MediaLibrary.ConnectionCredential | null
+      : null
     const nextRule = {
       ...ruleDraft,
       ruleId: ruleDraft.ruleId?.trim() ? ruleDraft.ruleId : `media_rule__${Date.now()}`,
       connectionId: selectedConnectionId,
-      name: ruleDraft.name.trim()
-        ? ruleDraft.name
-        : currentConnection?.displayName ?? selectedConnectionId,
+      name: resolveRuleDisplayName({
+        providerType: currentConnection.providerType,
+        ruleName: ruleDraft.name,
+        connectionDisplayName: currentConnection.displayName,
+        connectionCredential,
+        selectedConnectionId,
+      }),
       lastSyncStatus: 'running',
       lastSyncSummary: 'queued',
       ...normalizeImportSelection(ruleDraft),
@@ -179,6 +251,19 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
 
   const handleUpdateConnection = async(connection: LX.MediaLibrary.SourceConnection) => {
     try {
+      const connectionRules = rules.filter(rule => rule.connectionId === connection.connectionId)
+      if (connectionRules.length) {
+        await Promise.all(connectionRules.map(async rule => enqueueImportRuleSyncJob({
+          connectionId: connection.connectionId,
+          ruleId: rule.ruleId,
+          previousRule: rule,
+        })))
+        await loadData()
+        await onUpdated?.()
+        toast(t('media_source_job_queued'))
+        return
+      }
+
       await updateMediaConnection({
         connection,
         repository: mediaLibraryRepository,
@@ -315,6 +400,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
       {page === 'connection' ? (
         <ConnectionForm
           draft={connectionDraft}
+          onValidate={handleValidateConnection}
           onSubmit={draft => { void handleSaveConnection(draft) }}
           onCancel={() => { setPage(selectedConnectionId ? 'rules' : 'accounts') }}
         />

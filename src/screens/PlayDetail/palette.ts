@@ -1,5 +1,19 @@
+import themeState from '@/store/theme/state'
+
 export const playDetailPalette = {
-  PRIMARY_TEXT: 'rgba(255, 255, 255, 0.96)',
-  SECONDARY_TEXT: 'rgba(255, 255, 255, 0.78)',
-  TERTIARY_TEXT: 'rgba(255, 255, 255, 0.62)',
+  get PRIMARY_TEXT() {
+    return themeState.theme['c-primary-font']
+  },
+  get SECONDARY_TEXT() {
+    return themeState.theme['c-primary-font']
+  },
+  get TERTIARY_TEXT() {
+    return themeState.theme['c-primary-font-active']
+  },
+  get LYRIC_ACTIVE_TEXT() {
+    return themeState.theme['c-primary-light-100']
+  },
+  get LYRIC_ACTIVE_TRANSLATION_TEXT() {
+    return themeState.theme['c-primary-light-200']
+  },
 } as const

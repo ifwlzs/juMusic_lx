@@ -63,9 +63,9 @@ const Empty = ({ loading, error, onReload }: { loading: boolean, error: boolean,
     <View style={styles.noitem}>
       {
         error ? (
-          <Text onPress={onReload} color={theme['c-font-label']}>{label}</Text>
+          <Text onPress={onReload} color={theme['c-font']}>{label}</Text>
         ) : (
-          <Text color={theme['c-font-label']}>{label}</Text>
+          <Text color={theme['c-font']}>{label}</Text>
         )
       }
     </View>
@@ -91,15 +91,15 @@ const ListItem = memo(({ info, onPlay, onOpenDetail }: {
             {info.singer}
             {
               info.meta.albumName ? (
-                <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({info.meta.albumName})</Text>
+                <Text color={theme['c-font']} size={12} numberOfLines={1}> ({info.meta.albumName})</Text>
               ) : null
             }
           </Text>
         </View>
       </View>
       <View style={styles.listItemLabel}>
-        {/* <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{ info.source }</Text> */}
-        <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.interval}</Text>
+        {/* <Text style={styles.listItemLabelText} size={13} color={theme['c-font']}>{ info.source }</Text> */}
+        <Text style={styles.listItemLabelText} size={13} color={theme['c-font']}>{info.interval}</Text>
       </View>
       <View style={styles.listItemBtns}>
         <Button style={styles.listItemBtn} onPress={() => { onOpenDetail(info) }}>
@@ -181,7 +181,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
             {info.singer}
             {
               info.meta.albumName ? (
-                <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({info.meta.albumName})</Text>
+                <Text color={theme['c-font']} size={12} numberOfLines={1}> ({info.meta.albumName})</Text>
               ) : null
             }
           </Text>
@@ -204,7 +204,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
                   {toggleSource.singer}
                   {
                     toggleSource.meta.albumName ? (
-                      <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({toggleSource.meta.albumName})</Text>
+                      <Text color={theme['c-font']} size={12} numberOfLines={1}> ({toggleSource.meta.albumName})</Text>
                     ) : null
                   }
                 </Text>
@@ -240,7 +240,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
               {info.singer}
               {
                 info.meta.albumName ? (
-                  <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({info.meta.albumName})</Text>
+                  <Text color={theme['c-font']} size={12} numberOfLines={1}> ({info.meta.albumName})</Text>
                 ) : null
               }
             </Text>
@@ -263,7 +263,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
                     {toggleSource.singer}
                     {
                       toggleSource.meta.albumName ? (
-                        <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({toggleSource.meta.albumName})</Text>
+                        <Text color={theme['c-font']} size={12} numberOfLines={1}> ({toggleSource.meta.albumName})</Text>
                       ) : null
                     }
                   </Text>

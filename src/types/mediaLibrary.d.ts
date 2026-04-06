@@ -1,6 +1,6 @@
 declare namespace LX {
   namespace MediaLibrary {
-    type ProviderType = 'local' | 'webdav' | 'smb'
+    type ProviderType = 'local' | 'webdav' | 'smb' | 'onedrive'
     type ConnectionScanStatus = 'idle' | 'running' | 'success' | 'failed'
     type ImportRuleMode = 'account_all_only' | 'per_directory' | 'merged'
     type BrowserNodeKind = 'directory' | 'track'
@@ -12,6 +12,8 @@ declare namespace LX {
       share?: string
       username?: string
       password?: string
+      accountId?: string
+      authority?: string
     }
 
     interface SourceConnection {

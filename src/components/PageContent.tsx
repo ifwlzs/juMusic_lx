@@ -45,7 +45,7 @@ const backgroundConfigs: Record<BackgroundVariant, BackgroundConfig> = {
     tintThemeColorKey: 'c-primary-background-active',
     tintOpacity: 0.16,
     overlayStyle: {
-      backgroundColor: 'rgba(0, 0, 0, 0.1)',
+      backgroundColor: 'rgba(0, 0, 0, 0.43)',
     },
   },
 }

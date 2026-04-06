@@ -1,3 +1,4 @@
+const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
 const { parseMultiStatus } = require('./webdavXml.js')
 const { buildWebdavVersionToken } = require('../versionToken.js')
 
@@ -21,6 +22,10 @@ function getFileName(pathOrUri = '') {
   } catch (error) {
     return fileName
   }
+}
+
+function stripExtension(name = '') {
+  return String(name).replace(/\.[^.]+$/, '')
 }
 
 function normalizeHref(pathOrUri = '') {
@@ -68,46 +73,6 @@ function toBrowserNode(item) {
   }
 }
 
-function buildWebdavScanResult(connection, entries = []) {
-  const lastSeenAt = Date.now()
-  let skipped = 0
-  let failed = 0
-  const items = entries.map(item => {
-    const pathOrUri = item.href
-    const fileName = getFileName(pathOrUri)
-    if (!fileName || !isAudioFile(fileName)) {
-      skipped += 1
-      return null
-    }
-    const versionToken = buildWebdavVersionToken(item)
-    const scanStatus = versionToken ? 'success' : 'failed'
-    if (scanStatus === 'failed') failed += 1
-    return {
-      sourceItemId: `${connection.connectionId}__${pathOrUri}`,
-      connectionId: connection.connectionId,
-      providerType: 'webdav',
-      sourceUniqueKey: pathOrUri,
-      pathOrUri,
-      fileName,
-      fileSize: item.fileSize ?? 0,
-      modifiedTime: item.modifiedTime || 0,
-      versionToken,
-      lastSeenAt,
-      scanStatus,
-    }
-  }).filter(Boolean)
-  const success = items.length - failed
-  return {
-    complete: true,
-    items,
-    summary: {
-      success,
-      failed,
-      skipped,
-    },
-  }
-}
-
 async function requestPropfind(request, connection, pathOrUri, depth) {
   const xml = await request(connection, {
     method: 'PROPFIND',
@@ -123,7 +88,93 @@ async function resolveTrackEntry(request, connection, pathOrUri) {
   return entries.find(item => normalizeHref(item.href) === normalizedTarget) || null
 }
 
-function createWebdavProvider({ request, downloadFile }) {
+async function readRemoteMetadata({
+  connection,
+  item,
+  fileName,
+  downloadFile,
+  readMetadata,
+  createTempFilePath,
+  removeTempFile,
+}) {
+  if (!downloadFile || !readMetadata || !createTempFilePath) return null
+
+  const tempFilePath = createTempFilePath(fileName, item, connection)
+  if (!tempFilePath) return null
+
+  try {
+    const downloadResult = await downloadFile(connection, item.href, tempFilePath)
+    if (downloadResult?.promise) await downloadResult.promise
+    return await readMetadata(tempFilePath, connection, item)
+  } catch {
+    return null
+  } finally {
+    if (removeTempFile) {
+      try {
+        await removeTempFile(tempFilePath, connection, item)
+      } catch {}
+    }
+  }
+}
+
+async function buildWebdavScanResult(connection, entries = [], metadataHelpers = {}, metadataConcurrency = DEFAULT_CONCURRENCY) {
+  const lastSeenAt = Date.now()
+  let skipped = 0
+  let failed = 0
+  const items = (await mapWithConcurrency(entries, metadataConcurrency, async item => {
+    const pathOrUri = item.href
+    const fileName = getFileName(pathOrUri)
+    if (!fileName || !isAudioFile(fileName)) {
+      skipped += 1
+      return null
+    }
+    const metadata = await readRemoteMetadata({
+      connection,
+      item,
+      fileName,
+      ...metadataHelpers,
+    })
+    const versionToken = buildWebdavVersionToken(item)
+    const scanStatus = versionToken ? 'success' : 'failed'
+    if (scanStatus === 'failed') failed += 1
+    return {
+      sourceItemId: `${connection.connectionId}__${pathOrUri}`,
+      connectionId: connection.connectionId,
+      providerType: 'webdav',
+      sourceUniqueKey: pathOrUri,
+      pathOrUri,
+      fileName,
+      title: metadata?.name || stripExtension(fileName),
+      artist: metadata?.singer || '',
+      album: metadata?.albumName || '',
+      durationSec: metadata?.interval || 0,
+      fileSize: item.fileSize ?? 0,
+      modifiedTime: item.modifiedTime || 0,
+      versionToken,
+      lastSeenAt,
+      scanStatus,
+    }
+  })).filter(Boolean)
+  const success = items.length - failed
+  return {
+    complete: true,
+    items,
+    summary: {
+      success,
+      failed,
+      skipped,
+    },
+  }
+}
+
+function createWebdavProvider({
+  request,
+  downloadFile,
+  readMetadata,
+  createTempFilePath,
+  removeTempFile,
+  metadataConcurrency = DEFAULT_CONCURRENCY,
+}) {
   return {
     type: 'webdav',
     async browseConnection(connection, pathOrUri = connection.rootPathOrUri) {
@@ -144,11 +195,21 @@ function createWebdavProvider({ request, downloadFile }) {
         if (entry) entries.push(entry)
       }
       const dedupedEntries = [...new Map(entries.map(item => [normalizeHref(item.href), item])).values()]
-      return buildWebdavScanResult(connection, dedupedEntries)
+      return buildWebdavScanResult(connection, dedupedEntries, {
+        downloadFile,
+        readMetadata,
+        createTempFilePath,
+        removeTempFile,
+      }, metadataConcurrency)
     },
     async scanConnection(connection) {
       const entries = await requestPropfind(request, connection, connection.rootPathOrUri, 'infinity')
-      return buildWebdavScanResult(connection, entries)
+      return buildWebdavScanResult(connection, entries, {
+        downloadFile,
+        readMetadata,
+        createTempFilePath,
+        removeTempFile,
+      }, metadataConcurrency)
     },
     async downloadToCache(connection, sourceItem, savePath) {
       return downloadFile(connection, sourceItem.pathOrUri, savePath)

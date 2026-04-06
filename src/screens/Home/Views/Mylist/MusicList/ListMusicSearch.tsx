@@ -98,9 +98,9 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
       <Button style={styles.item} onPress={() => { onScrollToInfo(item) }} key={index}>
         <View style={styles.itemName}>
           <Text numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.subName} numberOfLines={1} size={12} color={theme['c-font-label']}>{item.singer} ({item.meta.albumName})</Text>
+          <Text style={styles.subName} numberOfLines={1} size={12} color={theme['c-font']}>{item.singer} ({item.meta.albumName})</Text>
         </View>
-        <Text style={styles.itemSource} size={12} color={theme['c-font-label']}>{item.source}</Text>
+        <Text style={styles.itemSource} size={12} color={theme['c-font']}>{item.source}</Text>
       </Button>
     )
   }

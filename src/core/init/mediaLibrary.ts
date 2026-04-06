@@ -5,7 +5,7 @@ import { bootLog } from '@/utils/bootLog'
 import { existsFile, externalStorageDirectoryPath, readFile } from '@/utils/fs'
 import { log } from '@/utils/log'
 
-const DEV_SEED_FILE_PATH = `${externalStorageDirectoryPath}/Android/media/cn.toside.music.mobile/media-library-dev-seed.json`
+const DEV_SEED_FILE_PATH = `${externalStorageDirectoryPath}/Android/media/io.ifwlzs.jumusic.lx/media-library-dev-seed.json`
 
 const loadDevSeedConnections = async() => {
   if (!__DEV__) return []

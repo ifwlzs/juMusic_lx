@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react'
+import { type MediaSourceManagerShowOptions } from '../../Setting/settings/Basic/MediaSourceManagerModal'
 
 import listState from '@/store/list/state'
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
@@ -17,7 +18,9 @@ import MetadataEditModal, { type MetadataEditType, type MetadataEditProps } from
 import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
 
 
-export default () => {
+export default ({ onOpenMediaSourceManager }: {
+  onOpenMediaSourceManager: (target: MediaSourceManagerShowOptions) => void
+}) => {
   // const t = useI18n()
   const activeListRef = useRef<ActiveListType>(null)
   const listMusicSearchRef = useRef<ListMusicSearchType>(null)
@@ -122,7 +125,12 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={{ zIndex: 2 }}>
-        <ActiveList ref={activeListRef} onShowSearchBar={handleShowSearch} onScrollToTop={hancelScrollToTop} />
+        <ActiveList
+          ref={activeListRef}
+          onShowSearchBar={handleShowSearch}
+          onScrollToTop={hancelScrollToTop}
+          onOpenMediaSourceManager={onOpenMediaSourceManager}
+        />
         <MultipleModeBar
           ref={multipleModeBarRef}
           onSwitchMode={hancelSwitchSelectMode}

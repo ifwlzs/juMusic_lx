@@ -45,6 +45,24 @@ const setRuleStatus = async(ruleId: string, status: LX.MediaLibrary.ConnectionSc
   }))
 }
 
+const replaceConnection = async(connectionId: string, updater: (connection: LX.MediaLibrary.SourceConnection) => LX.MediaLibrary.SourceConnection) => {
+  const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
+  const nextConnections = connections.map(connection => {
+    if (connection.connectionId !== connectionId) return connection
+    return updater(connection)
+  })
+  await mediaLibraryRepository.saveConnections(nextConnections)
+}
+
+const setConnectionStatus = async(connectionId: string, status: LX.MediaLibrary.ConnectionScanStatus, summary: string, scanAt?: number | null) => {
+  await replaceConnection(connectionId, connection => ({
+    ...connection,
+    lastScanStatus: status,
+    lastScanSummary: summary,
+    ...(scanAt !== undefined ? { lastScanAt: scanAt } : {}),
+  }))
+}
+
 let queue: ReturnType<typeof createMediaImportJobQueue> | null = null
 
 const getQueue = () => {
@@ -62,6 +80,7 @@ const getQueue = () => {
       if (!rule || !connection) return
 
       await setRuleStatus(rule.ruleId, 'running', 'running')
+      await setConnectionStatus(connection.connectionId, 'running', 'running')
       const result = await updateImportRule({
         connection,
         rule,
@@ -74,6 +93,7 @@ const getQueue = () => {
         ? `success: ${result.scanResult.summary.success ?? 0}, failed: ${result.scanResult.summary.failed ?? 0}, skipped: ${result.scanResult.summary.skipped ?? 0}`
         : 'success'
       await setRuleStatus(rule.ruleId, result.isComplete ? 'success' : 'failed', summary, Date.now())
+      await setConnectionStatus(connection.connectionId, result.isComplete ? 'success' : 'failed', summary, Date.now())
     },
     async runDeleteRuleJob(job: LX.MediaLibrary.ImportJob) {
       await deleteImportRule({
@@ -84,7 +104,9 @@ const getQueue = () => {
     },
     async onImportRuleJobFailed(job: LX.MediaLibrary.ImportJob, error: Error) {
       if (!job.ruleId) return
-      await setRuleStatus(job.ruleId, 'failed', String(error?.message || error || 'job failed'))
+      const message = String(error?.message || error || 'job failed')
+      await setRuleStatus(job.ruleId, 'failed', message)
+      await setConnectionStatus(job.connectionId, 'failed', message, Date.now())
     },
     async onDeleteRuleJobFailed(job: LX.MediaLibrary.ImportJob, error: Error) {
       if (!job.ruleId) return
@@ -109,6 +131,7 @@ export const enqueueImportRuleSyncJob = async({
   previousRule?: LX.MediaLibrary.ImportRule | null
 }) => {
   await setRuleStatus(ruleId, 'running', 'queued')
+  await setConnectionStatus(connectionId, 'running', 'queued')
   return getQueue().enqueueImportRuleJob({
     connectionId,
     ruleId,
