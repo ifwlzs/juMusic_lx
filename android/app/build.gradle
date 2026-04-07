@@ -6,6 +6,10 @@ import com.android.build.OutputFile
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.taskdefs.condition.Os
 import java.net.URLDecoder
+import java.net.URLEncoder
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.util.Base64
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -105,11 +109,68 @@ def applicationName = npmPackageJson["name"]
 def oneDriveClientId = '116da1c1-fc09-4a63-b44d-61f4ebad5e4f'
 def oneDriveRedirectHost = 'io.ifwlzs.jumusic.lx'
 def oneDriveDebugRedirectPath = '/Xo8WBi6jzSxKDVR4drqm84yr9iU='
-def oneDriveReleaseRedirectUriDefault = 'msauth://io.ifwlzs.jumusic.lx/huDKkJaLn3XaJZfD9txm3L%2B3uec%3D'
-def resolveOptionalBuildValue = { propertyName, fallbackValue ->
-    def candidate = project.findProperty(propertyName) ?: System.getenv(propertyName)
-    def normalized = candidate == null ? '' : candidate.toString().trim()
-    return normalized ? normalized : fallbackValue
+def resolveReleaseSigningConfig = {
+    if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+        return [
+            storeFile: file(MYAPP_UPLOAD_STORE_FILE),
+            storePassword: MYAPP_UPLOAD_STORE_PASSWORD,
+            keyAlias: MYAPP_UPLOAD_KEY_ALIAS,
+            keyPassword: MYAPP_UPLOAD_KEY_PASSWORD,
+        ]
+    }
+
+    def keystorePropertiesFile = rootProject.file("keystore.properties")
+    if (keystorePropertiesFile.exists()) {
+        def keystoreProperties = new Properties()
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+        return [
+            storeFile: file(keystoreProperties['storeFile']),
+            storePassword: keystoreProperties['storePassword'],
+            keyAlias: keystoreProperties['keyAlias'],
+            keyPassword: keystoreProperties['keyPassword'],
+        ]
+    }
+
+    return [
+        storeFile: file('debug.keystore'),
+        storePassword: 'android',
+        keyAlias: 'androiddebugkey',
+        keyPassword: 'android',
+    ]
+}
+def loadSigningKeyStore = { signingConfig ->
+    def candidateTypes = ['JKS', 'PKCS12']
+    Exception lastError = null
+
+    for (def keyStoreType : candidateTypes) {
+        try {
+            def keyStore = KeyStore.getInstance(keyStoreType)
+            new FileInputStream(signingConfig.storeFile).withCloseable { stream ->
+                keyStore.load(stream, signingConfig.storePassword.toString().toCharArray())
+            }
+            return keyStore
+        } catch (Exception error) {
+            lastError = error
+        }
+    }
+
+    throw new GradleException("Unable to load signing keystore: ${signingConfig.storeFile}", lastError)
+}
+def encodeSha1ToRedirectToken = { byte[] sha1Bytes ->
+    return Base64.getEncoder().encodeToString(sha1Bytes)
+}
+def deriveOneDriveReleaseRedirectUri = {
+    def signingConfig = resolveReleaseSigningConfig()
+    def keyStore = loadSigningKeyStore(signingConfig)
+    def certificate = keyStore.getCertificate(signingConfig.keyAlias.toString())
+    if (certificate == null) {
+        throw new GradleException("Signing certificate not found for alias: ${signingConfig.keyAlias}")
+    }
+
+    def sha1Bytes = MessageDigest.getInstance('SHA-1').digest(certificate.getEncoded())
+    def redirectToken = encodeSha1ToRedirectToken(sha1Bytes)
+    def encodedRedirectToken = URLEncoder.encode(redirectToken, 'UTF-8')
+    return "msauth://${oneDriveRedirectHost}/${encodedRedirectToken}"
 }
 def decodeOneDriveRedirectPath = { redirectUri ->
     def uriPrefix = "msauth://${oneDriveRedirectHost}/"
@@ -124,7 +185,8 @@ def renderOneDriveAuthConfig = { redirectUri ->
         .replace('__ONEDRIVE_CLIENT_ID__', oneDriveClientId)
         .replace('__ONEDRIVE_REDIRECT_URI__', redirectUri)
 }
-def oneDriveReleaseRedirectUri = resolveOptionalBuildValue('ONEDRIVE_RELEASE_REDIRECT_URI', oneDriveReleaseRedirectUriDefault)
+def releaseSigningConfigValues = resolveReleaseSigningConfig()
+def oneDriveReleaseRedirectUri = deriveOneDriveReleaseRedirectUri()
 def oneDriveReleaseRedirectPath = decodeOneDriveRedirectPath(oneDriveReleaseRedirectUri)
 def generatedReleaseOneDriveAuthConfigDir = file("${buildDir}/generated/onedrive/release/res")
 def generatedReleaseOneDriveAuthConfigFile = file("${generatedReleaseOneDriveAuthConfigDir}/raw/auth_config_single_account.json")
@@ -172,28 +234,10 @@ android {
     }
     signingConfigs {
         release {
-            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
-                storeFile file(MYAPP_UPLOAD_STORE_FILE)
-                storePassword MYAPP_UPLOAD_STORE_PASSWORD
-                keyAlias MYAPP_UPLOAD_KEY_ALIAS
-                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
-            } else {
-                def keystorePropertiesFile = rootProject.file("keystore.properties")
-                if (keystorePropertiesFile.exists()) {
-                    def keystoreProperties = new Properties()
-                    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-
-                    storeFile file(keystoreProperties['storeFile'])
-                    storePassword keystoreProperties['storePassword']
-                    keyAlias keystoreProperties['keyAlias']
-                    keyPassword keystoreProperties['keyPassword']
-                } else {
-                    storeFile file('debug.keystore')
-                    storePassword 'android'
-                    keyAlias 'androiddebugkey'
-                    keyPassword 'android'
-                }
-            }
+            storeFile releaseSigningConfigValues.storeFile
+            storePassword releaseSigningConfigValues.storePassword
+            keyAlias releaseSigningConfigValues.keyAlias
+            keyPassword releaseSigningConfigValues.keyPassword
         }
         debug {
             storeFile file('debug.keystore')
