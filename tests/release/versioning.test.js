@@ -134,6 +134,15 @@ test('release workflow restores gradlew execute permission on Linux runners', ()
   assert.match(workflow, /chmod \+x gradlew/)
 })
 
+test('release workflow uses changelog body, disables generated notes, and sets a Chinese release title', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
+
+  assert.match(workflow, /body_path:\s*\.\/publish\/changeLog\.md/)
+  assert.match(workflow, /generate_release_notes:\s*false/)
+  assert.match(workflow, /name:\s*juMusic 安卓版 v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}/)
+  assert.match(workflow, /### 安装包 MD5/)
+})
+
 test('release workflow uses a no-daemon release build on CI', () => {
   const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
 

@@ -1,4 +1,4 @@
-name: Release Android
+name: Android 发版
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   release:
-    name: Build and Release
+    name: 构建并发布
     if: github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]'))
     runs-on: ubuntu-latest
     env:
@@ -62,9 +62,9 @@ jobs:
           ./gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease -PMYAPP_UPLOAD_STORE_FILE='${{ secrets.KEYSTORE_STORE_FILE }}' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}'
           rm -f app/${{ secrets.KEYSTORE_STORE_FILE }}
 
-      - name: Generate file MD5
+      - name: 生成安装包 MD5
         run: |
-          echo -e '\n### File MD5\n```' >> ./publish/changeLog.md
+          echo -e '\n### 安装包 MD5\n```' >> ./publish/changeLog.md
           (
             cd android/app/build/outputs/apk/release
             md5sum *.apk
@@ -96,7 +96,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: juMusic 安卓版 v${{ env.PACKAGE_VERSION }}
           body_path: ./publish/changeLog.md
+          generate_release_notes: false
           prerelease: false
           draft: false
           tag_name: v${{ env.PACKAGE_VERSION }}
