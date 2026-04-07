@@ -59,7 +59,7 @@ jobs:
           cd android
           chmod +x gradlew
           echo ${{ secrets.KEYSTORE_STORE_FILE_BASE64 }} | base64 --decode > app/${{ secrets.KEYSTORE_STORE_FILE }}
-          ./gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease -PMYAPP_UPLOAD_STORE_FILE='${{ secrets.KEYSTORE_STORE_FILE }}' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}' -PONEDRIVE_RELEASE_REDIRECT_URI='${{ secrets.ONEDRIVE_RELEASE_REDIRECT_URI }}'
+          ./gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease -PMYAPP_UPLOAD_STORE_FILE='${{ secrets.KEYSTORE_STORE_FILE }}' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}'
           rm -f app/${{ secrets.KEYSTORE_STORE_FILE }}
 
       - name: 生成安装包 MD5
