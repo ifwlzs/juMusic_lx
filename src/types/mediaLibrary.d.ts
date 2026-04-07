@@ -68,6 +68,7 @@ declare namespace LX {
     interface ImportSnapshot {
       ruleId: string
       scannedAt: number | null
+      isComplete?: boolean
       items: SourceItem[]
     }
 

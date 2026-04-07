@@ -202,6 +202,7 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
         ruleId,
         scannedAt: snapshot.scannedAt ?? null,
         items: Array.isArray(snapshot.items) ? [...snapshot.items] : [],
+        ...(snapshot.isComplete === false ? { isComplete: false } : {}),
       } : null)
     },
     async removeImportSnapshots(ruleIds = []) {

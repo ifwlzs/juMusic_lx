@@ -33,6 +33,35 @@ function buildRemovedIds(previousItems = [], nextItems = []) {
     .map(item => item.sourceItemId)
 }
 
+function buildSourceItemResumeKey(item = {}) {
+  return item.sourceUniqueKey || item.pathOrUri || ''
+}
+
+function buildSourceItemLookup(items = []) {
+  const map = new Map()
+  for (const item of items) {
+    const key = buildSourceItemResumeKey(item)
+    if (!key) continue
+    map.set(key, item)
+  }
+  return map
+}
+
+function toSyncCandidateMetadata(item = {}) {
+  return {
+    title: item.title || '',
+    artist: item.artist || '',
+    album: item.album || '',
+    durationSec: item.durationSec || 0,
+  }
+}
+
+function isReusableCommittedItem(sourceItem, candidate) {
+  if (!sourceItem || !candidate?.sourceStableKey) return false
+  if (buildSourceItemResumeKey(sourceItem) !== candidate.sourceStableKey) return false
+  return String(sourceItem.versionToken || '') === String(candidate.versionToken || '')
+}
+
 function upsertRule(rules = [], nextRule) {
   let matched = false
   const nextRules = rules.map(rule => {
@@ -181,6 +210,7 @@ async function runRemoteStreamingSync({
     scannedAt: null,
     items: [],
   }
+  const previousItemsByKey = buildSourceItemLookup(previousSnapshot.items)
   let enumerateResult = {
     complete: true,
     items: [],
@@ -191,6 +221,21 @@ async function runRemoteStreamingSync({
   let generatedLists = []
   let connectionSourceItems = []
   let aggregateSongs = []
+  let committer = null
+
+  const persistCheckpoint = async(currentCommittedItems = committedItems) => {
+    const checkpointItems = mergeSourceItems(previousSnapshot.items, dedupeSourceItems(currentCommittedItems))
+    await recomputeVisibleState(checkpointItems, { persistFinalState: false })
+    if (typeof repository.saveImportSnapshot === 'function') {
+      await repository.saveImportSnapshot(rule.ruleId, {
+        ruleId: rule.ruleId,
+        scannedAt: previousSnapshot.scannedAt ?? null,
+        items: checkpointItems,
+        isComplete: false,
+      })
+    }
+    return checkpointItems
+  }
 
   const assertJobCanContinue = async() => {
     await jobControl?.heartbeat?.()
@@ -266,15 +311,27 @@ async function runRemoteStreamingSync({
 
     enumerateResult = await provider.enumerateSelection(connection, normalizeImportSelection(rule))
     discoveredCandidates = enumerateResult.items || []
+    let readyCount = 0
+    let degradedCount = 0
+    let failedCount = 0
+
     for (const candidate of discoveredCandidates) {
+      const reusableItem = previousItemsByKey.get(candidate.sourceStableKey)
+      const isReusable = isReusableCommittedItem(reusableItem, candidate)
+      if (isReusable) {
+        if (reusableItem.scanStatus === 'degraded') degradedCount += 1
+        else readyCount += 1
+      }
       candidateStates.set(candidate.sourceStableKey, {
         ...candidate,
-        hydrateState: 'discovered',
-        attempts: 0,
+        hydrateState: isReusable ? 'committed' : 'discovered',
+        attempts: isReusable ? 0 : 0,
         lastError: '',
-        metadata: null,
+        metadata: isReusable ? toSyncCandidateMetadata(reusableItem) : null,
       })
     }
+
+    const resumedCommittedCount = readyCount + degradedCount
 
     await upsertSyncRun(repository, {
       runId,
@@ -287,9 +344,9 @@ async function runRemoteStreamingSync({
       startedAt: scanAt,
       finishedAt: null,
       discoveredCount: discoveredCandidates.length,
-      readyCount: 0,
-      degradedCount: 0,
-      committedCount: 0,
+      readyCount,
+      degradedCount,
+      committedCount: resumedCommittedCount,
       failedCount: 0,
     })
 
@@ -300,11 +357,11 @@ async function runRemoteStreamingSync({
     await notifications?.showSyncProgress({
       connectionName: connection.displayName,
       phase: 'hydrate',
-      committedCount: 0,
+      committedCount: resumedCommittedCount,
       totalCount: discoveredCandidates.length,
     })
 
-    const committer = createReadyBatchCommitter({
+    committer = createReadyBatchCommitter({
       ...batchCommitterOptions,
       onFlush: async(batch) => {
         committedItems.push(...batch)
@@ -314,15 +371,20 @@ async function runRemoteStreamingSync({
           committedCount: committedItems.length,
           totalCount: discoveredCandidates.length,
         })
+        await persistCheckpoint(committedItems)
       },
     })
 
-    let readyCount = 0
-    let degradedCount = 0
-    let failedCount = 0
-
     for (const candidate of discoveredCandidates) {
       await assertJobCanContinue()
+      const reusableItem = previousItemsByKey.get(candidate.sourceStableKey)
+      if (isReusableCommittedItem(reusableItem, candidate)) {
+        await committer.push({
+          ...reusableItem,
+          lastSeenAt: scanAt,
+        })
+        continue
+      }
       let classification = { state: 'hydrating' }
       let lastError = ''
       let lastMetadata = null
@@ -400,6 +462,7 @@ async function runRemoteStreamingSync({
         ruleId: rule.ruleId,
         scannedAt: scanAt,
         items: nextItems,
+        isComplete: true,
       })
     }
     if (typeof repository.saveSyncCandidates === 'function') {
@@ -450,6 +513,11 @@ async function runRemoteStreamingSync({
       nextItems,
     }
   } catch (error) {
+    if (committer) {
+      try {
+        await committer.flush()
+      } catch {}
+    }
     if (error?.code === 'MEDIA_IMPORT_JOB_PAUSED') {
       await upsertSyncRun(repository, {
         runId,
