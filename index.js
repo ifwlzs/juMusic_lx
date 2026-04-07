@@ -2,6 +2,7 @@
  * @format
  */
 import './shim'
+import './src/core/mediaLibrary/registerBackgroundTask'
 import './src/app'
 // import './test'
 // import '@/utils/errorHandle'

@@ -16,6 +16,7 @@ import { createMediaLibraryListApi } from './listApi'
 import { getMediaLibraryRuntimeRegistry } from './runtimeRegistry'
 import { createMediaLibrarySyncNotifications } from './syncNotifications'
 import { mediaLibraryRepository } from './storage'
+const { startBackgroundSync } = require('../../utils/nativeModules/mediaLibrarySyncService.js')
 
 const listApi = createMediaLibraryListApi({
   createUserList,
@@ -68,6 +69,15 @@ const setConnectionStatus = async(connectionId: string, status: LX.MediaLibrary.
 let queue: ReturnType<typeof createMediaImportJobQueue> | null = null
 const syncNotifications = createMediaLibrarySyncNotifications()
 
+const maybeStartBackgroundSync = async(connection?: LX.MediaLibrary.SourceConnection | null) => {
+  if (!connection || connection.providerType === 'local') return false
+  try {
+    return await startBackgroundSync()
+  } catch {
+    return false
+  }
+}
+
 const getQueue = () => {
   if (queue) return queue
 
@@ -82,6 +92,7 @@ const getQueue = () => {
       const connection = connections.find(item => item.connectionId === job.connectionId)
       if (!rule || !connection) return
 
+      await maybeStartBackgroundSync(connection)
       await setRuleStatus(rule.ruleId, 'running', 'running')
       await setConnectionStatus(connection.connectionId, 'running', 'running')
       const result = await updateImportRule({
@@ -122,8 +133,10 @@ const getQueue = () => {
   return queue
 }
 
+export const ensureMediaLibraryJobQueue = () => getQueue().ensureProcessing()
+
 export const startMediaLibraryJobQueue = () => {
-  void getQueue().ensureProcessing()
+  void ensureMediaLibraryJobQueue()
 }
 
 export const enqueueImportRuleSyncJob = async({
@@ -137,6 +150,9 @@ export const enqueueImportRuleSyncJob = async({
   previousRule?: LX.MediaLibrary.ImportRule | null
   triggerSource?: LX.MediaLibrary.SyncTriggerSource
 }) => {
+  const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
+  const connection = connections.find(item => item.connectionId === connectionId)
+  await maybeStartBackgroundSync(connection)
   await setRuleStatus(ruleId, 'running', 'queued')
   await setConnectionStatus(connectionId, 'running', 'queued')
   return getQueue().enqueueImportRuleJob({
