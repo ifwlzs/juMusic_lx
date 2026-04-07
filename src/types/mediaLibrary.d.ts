@@ -128,6 +128,7 @@ declare namespace LX {
       fileSize?: number
       modifiedTime?: number | null
       hydrateState: SyncCandidateState
+      metadataHints?: SyncCandidateMetadata | null
       metadataLevelReached?: number
       attempts?: number
       lastError?: string

@@ -204,6 +204,47 @@ test('createWebdavProvider 在可下载并读取 metadata 时填充标题、歌�
   ])
 })
 
+test('createWebdavProvider streamEnumerateSelection streams candidates before hydration', async() => {
+  const xml = `<?xml version="1.0"?>
+  <d:multistatus xmlns:d="DAV:">
+    <d:response>
+      <d:href>/music/</d:href>
+      <d:propstat><d:prop><d:getetag>"root"</d:getetag></d:prop></d:propstat>
+    </d:response>
+    <d:response>
+      <d:href>/music/test.mp3</d:href>
+      <d:propstat>
+        <d:prop>
+          <d:getetag>"abc"</d:getetag>
+          <d:getlastmodified>Sat, 05 Apr 2026 10:00:00 GMT</d:getlastmodified>
+          <d:getcontentlength>321</d:getcontentlength>
+        </d:prop>
+      </d:propstat>
+    </d:response>
+  </d:multistatus>`
+
+  const batches = []
+  const provider = createWebdavProvider({
+    async request() { return xml },
+    async downloadFile() {},
+    async readMetadata() { return null },
+  })
+
+  const result = await provider.streamEnumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music/', displayName: 'music' }],
+    tracks: [],
+  }, async batch => {
+    batches.push(batch)
+  })
+
+  assert.equal(batches.length, 1)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0].pathOrUri, '/music/test.mp3')
+})
+
 test('createWebdavProvider enumerateSelection stays lightweight and avoids metadata downloads', async() => {
   let downloadCount = 0
   let metadataCount = 0

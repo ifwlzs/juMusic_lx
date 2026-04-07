@@ -14,6 +14,13 @@ function stripExtension(name = '') {
   return String(name).replace(/\.[^.]+$/, '')
 }
 
+async function emitBatches(items, onBatch, batchSize = 10) {
+  if (typeof onBatch !== 'function') return
+  for (let index = 0; index < items.length; index += batchSize) {
+    await onBatch(items.slice(index, index + batchSize))
+  }
+}
+
 function getParentPath(pathOrUri = '') {
   const normalized = String(pathOrUri || '').replace(/\/+$/, '')
   const index = normalized.lastIndexOf('/')
@@ -156,7 +163,7 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadata
         .filter(entry => entry.isDirectory || isAudioFile(entry.name))
         .map(toBrowserNode)
     },
-    async enumerateSelection(connection, selection = {}) {
+    async streamEnumerateSelection(connection, selection = {}, onBatch) {
       const files = []
 
       for (const directory of selection.directories || []) {
@@ -170,10 +177,16 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadata
       }
 
       const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
-      return {
-        complete: true,
-        items: dedupedFiles.map(file => toCandidate(connection, file)),
-      }
+      const items = dedupedFiles.map(file => toCandidate(connection, file))
+      await emitBatches(items, onBatch)
+      return { complete: true, items }
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const streamed = []
+      await this.streamEnumerateSelection(connection, selection, async batch => {
+        streamed.push(...batch)
+      })
+      return { complete: true, items: streamed }
     },
     async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
       return hydrateCandidateMetadata(connection, candidate, attempt, readMetadata)

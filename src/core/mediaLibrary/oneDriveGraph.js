@@ -28,9 +28,11 @@ function buildDriveItemUrl(pathOrUri = '') {
 
 function buildChildrenUrl(pathOrUri = '') {
   const encodedPath = encodeGraphPath(pathOrUri)
-  return encodedPath
+  const baseUrl = encodedPath
     ? `${GRAPH_BASE_URL}/me/drive/root:${encodedPath}:/children`
     : `${GRAPH_BASE_URL}/me/drive/root/children`
+
+  return `${baseUrl}?$select=name,size,file,folder,parentReference,eTag,lastModifiedDateTime,audio`
 }
 
 async function requestGraphJson(requestUrl, accessToken, fetchImpl) {

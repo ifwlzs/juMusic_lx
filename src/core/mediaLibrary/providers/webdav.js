@@ -28,6 +28,13 @@ function stripExtension(name = '') {
   return String(name).replace(/\.[^.]+$/, '')
 }
 
+async function emitBatches(items, onBatch, batchSize = 10) {
+  if (typeof onBatch !== 'function') return
+  for (let index = 0; index < items.length; index += batchSize) {
+    await onBatch(items.slice(index, index + batchSize))
+  }
+}
+
 function normalizeHref(pathOrUri = '') {
   const normalized = String(pathOrUri || '').split('?')[0]
   if (!normalized) return ''
@@ -224,7 +231,7 @@ function createWebdavProvider({
         .filter(item => isDirectoryHref(item.href) || isAudioFile(getFileName(item.href)))
         .map(toBrowserNode)
     },
-    async enumerateSelection(connection, selection = {}) {
+    async streamEnumerateSelection(connection, selection = {}, onBatch) {
       const entries = []
       for (const directory of selection.directories || []) {
         entries.push(...await requestPropfind(request, connection, directory.pathOrUri, 'infinity'))
@@ -235,13 +242,19 @@ function createWebdavProvider({
       }
 
       const dedupedEntries = [...new Map(entries.map(item => [normalizeHref(item.href), item])).values()]
-      return {
-        complete: true,
-        items: dedupedEntries
-          .filter(item => !isDirectoryHref(item.href))
-          .filter(item => isAudioFile(getFileName(item.href)))
-          .map(item => toCandidate(connection, item)),
-      }
+      const items = dedupedEntries
+        .filter(item => !isDirectoryHref(item.href))
+        .filter(item => isAudioFile(getFileName(item.href)))
+        .map(item => toCandidate(connection, item))
+      await emitBatches(items, onBatch)
+      return { complete: true, items }
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const streamed = []
+      await this.streamEnumerateSelection(connection, selection, async batch => {
+        streamed.push(...batch)
+      })
+      return { complete: true, items: streamed }
     },
     async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
       return hydrateCandidateMetadata(connection, candidate, attempt, {
