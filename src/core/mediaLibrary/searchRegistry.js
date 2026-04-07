@@ -1,6 +1,6 @@
 const { normalizeText } = require('./normalize.js')
 
-const LIBRARY_SOURCES = ['local', 'webdav', 'smb']
+const LIBRARY_SOURCES = ['local', 'webdav', 'smb', 'onedrive']
 const LIBRARY_SOURCE_SET = new Set(LIBRARY_SOURCES)
 const SOURCE_PRIORITY = new Map(LIBRARY_SOURCES.map((source, index) => [source, index]))
 

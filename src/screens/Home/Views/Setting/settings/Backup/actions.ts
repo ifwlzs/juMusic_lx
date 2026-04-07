@@ -1,9 +1,11 @@
 import { LIST_IDS } from '@/config/constant'
 import { createList, getListMusics, overwriteList, overwriteListFull, overwriteListMusics } from '@/core/list'
+import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@/utils'
 import { log } from '@/utils/log'
 import { confirmDialog, handleReadFile, handleSaveFile, showImportTip, toast } from '@/utils/tools'
 import listState from '@/store/list/state'
+import { createMediaSourceBackupPayload, restoreMediaSourceBackupPayload } from './mediaSourceBackup'
 
 
 const getAllLists = async() => {
@@ -121,7 +123,8 @@ const showConfirm = async() => {
     bgClose: false,
   })
 }
-const importPlayList = async(path: string) => {
+
+const readBackupFile = async(path: string) => {
   let configData: any
   try {
     configData = await handleReadFile(path)
@@ -129,6 +132,11 @@ const importPlayList = async(path: string) => {
     log.error(error.stack)
     throw error
   }
+  return configData
+}
+
+const importPlayList = async(path: string) => {
+  const configData = await readBackupFile(path)
 
   switch (configData.type) {
     case 'defautlList': // 兼容0.6.2及以前版本的列表数据
@@ -157,6 +165,10 @@ const importPlayList = async(path: string) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       await importNewListData(configData.playList)
       break
+    case 'allData_v3':
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      showImportTip(configData.type)
+      return true
     case 'playListPart':
       configData.data.list = filterMusicList((configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map(m => toNewMusicInfo(m)))
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
@@ -173,7 +185,6 @@ const importPlayList = async(path: string) => {
 }
 
 export const handleImportList = (path: string) => {
-  console.log(path)
   toast(global.i18n.t('setting_backup_part_import_list_tip_unzip'))
   void importPlayList(path).then((skipTip) => {
     if (skipTip) return
@@ -200,6 +211,72 @@ const exportAllList = async(path: string) => {
 export const handleExportList = (path: string) => {
   toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
   void exportAllList(path).then(() => {
+    toast(global.i18n.t('setting_backup_part_export_list_tip_success'))
+  }).catch((err: any) => {
+    log.error(err.message)
+    toast(global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string))
+  })
+}
+
+const importAllData = async(path: string) => {
+  const configData = await readBackupFile(path)
+
+  switch (configData.type) {
+    case 'allData':
+      if (!await showConfirm()) return true
+      if (configData.defaultList) {
+        await overwriteListMusics(LIST_IDS.DEFAULT, filterMusicList((configData.defaultList as LX.List.MyDefaultListInfoFull).list.map(m => toNewMusicInfo(m))))
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        await importOldListData(configData.playList)
+      }
+      break
+    case 'allData_v2':
+      if (!await showConfirm()) return true
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      await importNewListData(configData.playList)
+      break
+    case 'allData_v3':
+      if (!await showConfirm()) return true
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      await importNewListData(configData.playList)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      await restoreMediaSourceBackupPayload(mediaLibraryRepository, configData.mediaSource)
+      break
+    default:
+      showImportTip(configData.type)
+      return true
+  }
+}
+
+const exportAllData = async(path: string) => {
+  const data = JSON.parse(JSON.stringify({
+    type: 'allData_v3',
+    playList: await getAllLists(),
+    mediaSource: await createMediaSourceBackupPayload(mediaLibraryRepository),
+  }))
+
+  try {
+    await handleSaveFile(path + '/lx_all_data.lxmc', data)
+  } catch (error: any) {
+    log.error(error.stack)
+  }
+}
+
+export const handleImportAllData = (path: string) => {
+  toast(global.i18n.t('setting_backup_part_import_list_tip_unzip'))
+  void importAllData(path).then((skipTip) => {
+    if (skipTip) return
+    toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
+  }).catch((err) => {
+    log.error(err)
+    toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
+  })
+}
+
+export const handleExportAllData = (path: string) => {
+  toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
+  void exportAllData(path).then(() => {
     toast(global.i18n.t('setting_backup_part_export_list_tip_success'))
   }).catch((err: any) => {
     log.error(err.message)

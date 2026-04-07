@@ -1,5 +1,5 @@
 import pako from 'pako'
-import { Buffer } from 'buffer'
+import { Buffer } from '@craftzdog/react-native-buffer'
 import { toMD5 } from '../utils'
 import { httpFetch } from '../../request'
 

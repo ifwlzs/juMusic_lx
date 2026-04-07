@@ -101,6 +101,11 @@ def npmPackageJson = getNpmPackageJson()
 def verCode = npmPackageJson["versionCode"]
 def verName = npmPackageJson["version"]
 def applicationName = npmPackageJson["name"]
+def oneDriveDebugRedirectPath = '/Xo8WBi6jzSxKDVR4drqm84yr9iU='
+// Phase 1 still uses the debug keystore for development and release validation.
+// When a real release keystore is introduced, update this redirect together with
+// android/app/src/release/res/raw/auth_config_single_account.json.
+def oneDriveReleaseRedirectPath = oneDriveDebugRedirectPath
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -160,11 +165,12 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            manifestPlaceholders = [oneDriveRedirectPath: oneDriveDebugRedirectPath]
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            manifestPlaceholders = [oneDriveRedirectPath: oneDriveReleaseRedirectPath]
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
 

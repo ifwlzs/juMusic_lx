@@ -23,12 +23,13 @@ const getSourcePriority = (source: LX.Music.MusicInfo['source']) => {
     case 'local': return 0
     case 'webdav': return 1
     case 'smb': return 2
+    case 'onedrive': return 3
     default: return 99
   }
 }
 
 const normalizeSearchItem = (item: LX.Music.MusicInfo) => {
-  if (item.source == 'local' || item.source == 'webdav' || item.source == 'smb') return item
+  if (item.source == 'local' || item.source == 'webdav' || item.source == 'smb' || item.source == 'onedrive') return item
   return toNewMusicInfo(item)
 }
 

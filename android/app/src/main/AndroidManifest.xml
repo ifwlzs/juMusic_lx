@@ -100,7 +100,7 @@
           <data
             android:scheme="msauth"
             android:host="io.ifwlzs.jumusic.lx"
-            android:path="/Xo8WBi6jzSxKDVR4drqm84yr9iU=" />
+            android:path="${oneDriveRedirectPath}" />
         </intent-filter>
       </activity>
 
