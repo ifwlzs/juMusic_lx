@@ -349,6 +349,80 @@ test('onedrive provider enumerateSelection stays lightweight and does not read m
   assert.equal(metadataCount, 0)
 })
 
+test('onedrive provider enumerateSelection dedupes overlapping directories across streamed batches', async() => {
+  const provider = createOneDriveProvider({
+    async listChildren(_connection, pathOrUri) {
+      switch (pathOrUri) {
+        case '/Albums':
+          return {
+            items: [
+              {
+                id: 'nested_dir',
+                name: 'Disc 1',
+                folder: { childCount: 1 },
+                size: 0,
+                eTag: '"dir_nested"',
+                parentReference: { path: '/drive/root:/Albums' },
+              },
+              {
+                id: 'album_track',
+                name: 'intro.mp3',
+                file: { mimeType: 'audio/mpeg' },
+                size: 101,
+                eTag: '"track_intro"',
+                parentReference: { path: '/drive/root:/Albums' },
+                lastModifiedDateTime: '2026-04-06T10:00:00Z',
+              },
+            ],
+            nextLink: null,
+          }
+        case '/Albums/Disc 1':
+          return {
+            items: [
+              {
+                id: 'nested_track',
+                name: 'theme.flac',
+                file: { mimeType: 'audio/flac' },
+                size: 202,
+                eTag: '"track_theme"',
+                parentReference: { path: '/drive/root:/Albums/Disc 1' },
+                lastModifiedDateTime: '2026-04-06T11:00:00Z',
+              },
+            ],
+            nextLink: null,
+          }
+        default:
+          return {
+            items: [],
+            nextLink: null,
+          }
+      }
+    },
+    async getItemByPath() {
+      return null
+    },
+    async downloadFile() {
+      return null
+    },
+    async readMetadata() {
+      return null
+    },
+  })
+
+  const result = await provider.enumerateSelection(createConnection(), normalizeImportSelection({
+    directories: [
+      { selectionId: 'dir_1', kind: 'directory', pathOrUri: '/Albums', displayName: 'Albums' },
+      { selectionId: 'dir_2', kind: 'directory', pathOrUri: '/Albums/Disc 1', displayName: 'Disc 1' },
+    ],
+    tracks: [],
+  }))
+
+  assert.deepEqual(result.items.map(item => item.pathOrUri), [
+    '/Albums/intro.mp3',
+    '/Albums/Disc 1/theme.flac',
+  ])
+})
+
 test('onedrive provider hydrateCandidate reads metadata for a lightweight candidate', async() => {
   const calls = []
   const provider = createOneDriveProvider({

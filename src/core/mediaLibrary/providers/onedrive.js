@@ -222,6 +222,16 @@ function dedupeItems(items = []) {
   return [...new Map(items.map(item => [buildPathOrUri(item), item])).values()]
 }
 
+function dedupeCandidates(candidates = [], seenKeys = new Set()) {
+  return candidates.filter(candidate => {
+    const key = candidate?.sourceStableKey || candidate?.pathOrUri || ''
+    if (!key) return true
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
+    return true
+  })
+}
+
 function createOneDriveProvider({
   listChildren,
   getItemByPath,
@@ -241,16 +251,25 @@ function createOneDriveProvider({
     },
     async streamEnumerateSelection(connection, selection = {}, onBatch) {
       const items = []
+      const seenKeys = new Set()
       for (const directory of selection.directories || []) {
         const batchItems = await collectDirectoryTracks(listChildren, connection, directory.pathOrUri)
-        const candidates = dedupeItems(batchItems).map(item => toCandidate(connection, item))
+        const candidates = dedupeCandidates(
+          dedupeItems(batchItems).map(item => toCandidate(connection, item)),
+          seenKeys
+        )
+        if (!candidates.length) continue
         items.push(...candidates)
         await emitBatches(candidates, onBatch)
       }
       for (const track of selection.tracks || []) {
         const entry = await getItemByPath(connection, track.pathOrUri)
         if (entry?.file && isAudioFile(entry.name)) {
-          const candidates = dedupeItems([entry]).map(item => toCandidate(connection, item))
+          const candidates = dedupeCandidates(
+            dedupeItems([entry]).map(item => toCandidate(connection, item)),
+            seenKeys
+          )
+          if (!candidates.length) continue
           items.push(...candidates)
           await emitBatches(candidates, onBatch)
         }

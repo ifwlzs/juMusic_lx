@@ -52,6 +52,7 @@ test('remote providers expose enumerateSelection hydrateCandidate and downloadTo
   })
 
   for (const provider of [oneDriveProvider, webdavProvider, smbProvider]) {
+    assert.equal(typeof provider.streamEnumerateSelection, 'function')
     assert.equal(typeof provider.enumerateSelection, 'function')
     assert.equal(typeof provider.hydrateCandidate, 'function')
     assert.equal(typeof provider.downloadToCache, 'function')
