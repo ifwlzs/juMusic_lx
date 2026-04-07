@@ -65,21 +65,29 @@ interface LineProps {
 const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
   const lrcFontSize = useSettingValue('playDetail.vertical.style.lrcFontSize')
   const textAlign = useSettingValue('playDetail.style.align')
+  const isShowLyricTranslation = useSettingValue('player.isShowLyricTranslation')
+  const isShowLyricRoma = useSettingValue('player.isShowLyricRoma')
   const size = lrcFontSize / 10
   const lineHeight = setSpText(size) * 1.3
 
   const colors = useMemo(() => {
     const active = activeLine == lineNum
-    return active ? [
-      playDetailPalette.LYRIC_ACTIVE_TEXT,
-      playDetailPalette.LYRIC_ACTIVE_TRANSLATION_TEXT,
-      1,
-    ] as const : [
-      playDetailPalette.SECONDARY_TEXT,
-      playDetailPalette.TERTIARY_TEXT,
-      0.72,
-    ] as const
-  }, [activeLine, lineNum])
+    const getExtendedLyricColor = (index: number) => {
+      if (isShowLyricTranslation && index == 0) {
+        return active ? playDetailPalette.LYRIC_ACTIVE_TRANSLATION_TEXT : playDetailPalette.LYRIC_TRANSLATION_TEXT
+      }
+      if (isShowLyricRoma) {
+        return active ? playDetailPalette.LYRIC_ACTIVE_ROMA_TEXT : playDetailPalette.LYRIC_ROMA_TEXT
+      }
+      return active ? playDetailPalette.LYRIC_ACTIVE_TRANSLATION_TEXT : playDetailPalette.LYRIC_TRANSLATION_TEXT
+    }
+
+    return {
+      main: active ? playDetailPalette.LYRIC_ACTIVE_TEXT : playDetailPalette.LYRIC_INACTIVE_TEXT,
+      opacity: active ? 1 : 0.72,
+      getExtendedLyricColor,
+    } as const
+  }, [activeLine, isShowLyricRoma, isShowLyricTranslation, lineNum])
 
   const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
     onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width)
@@ -94,14 +102,14 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
         ...styles.lineText,
         textAlign,
         lineHeight,
-      }} textBreakStrategy="simple" color={colors[0]} opacity={colors[2]} size={size}>{line.text}</AnimatedColorText>
+      }} textBreakStrategy="simple" color={colors.main} opacity={colors.opacity} size={size}>{line.text}</AnimatedColorText>
       {
         line.extendedLyrics.map((lrc, index) => {
           return (<AnimatedColorText style={{
             ...styles.lineTranslationText,
             textAlign,
             lineHeight: lineHeight * 0.8,
-          }} textBreakStrategy="simple" key={index} color={colors[1]} opacity={colors[2]} size={size * 0.8}>{lrc}</AnimatedColorText>)
+          }} textBreakStrategy="simple" key={index} color={colors.getExtendedLyricColor(index)} opacity={colors.opacity} size={size * 0.8}>{lrc}</AnimatedColorText>)
         })
       }
     </View>

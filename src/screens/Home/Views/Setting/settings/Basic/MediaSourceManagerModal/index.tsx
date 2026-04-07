@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { Alert } from 'react-native'
 
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import {
@@ -126,10 +127,11 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     }
 
     if (targetRule && targetConnection) {
-      setRuleDraft({
+      const nextDraft: MediaSourceRuleDraft = {
         ...createEmptyRuleDraft(targetConnection.connectionId),
         ...targetRule,
-      } as MediaSourceRuleDraft)
+      }
+      setRuleDraft(nextDraft)
       setPage('editor')
       return
     }
@@ -168,6 +170,63 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
   const currentConnection = useMemo(() => {
     return connections.find(item => item.connectionId === selectedConnectionId) ?? null
   }, [connections, selectedConnectionId])
+
+  const chooseSyncConflictMode = async() => {
+    return await new Promise<LX.MediaLibrary.ImportJobConflictMode | null>(resolve => {
+      let handled = false
+      Alert.alert(
+        t('media_source_conflict_title'),
+        t('media_source_conflict_message'),
+        [
+          {
+            text: t('dialog_cancel'),
+            style: 'cancel',
+            onPress() {
+              handled = true
+              resolve(null)
+            },
+          },
+          {
+            text: t('media_source_conflict_continue'),
+            onPress() {
+              handled = true
+              resolve('continue_previous')
+            },
+          },
+          {
+            text: t('media_source_conflict_current_first'),
+            onPress() {
+              handled = true
+              resolve('current_first')
+            },
+          },
+        ],
+        {
+          cancelable: true,
+          onDismiss() {
+            if (!handled) resolve(null)
+          },
+        },
+      )
+    })
+  }
+
+  const resolveImportConflictMode = async(connectionId: string) => {
+    const allConnections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
+    const targetConnection = allConnections.find(item => item.connectionId === connectionId)
+    if (!targetConnection || targetConnection.providerType === 'local') return 'continue_previous' as const
+
+    const connectionMap = new Map(allConnections.map(item => [item.connectionId, item]))
+    const jobs = await mediaLibraryRepository.getImportJobs() as LX.MediaLibrary.ImportJob[]
+    const hasRunningRemoteJob = jobs.some(job => {
+      if (job.type === 'import_rule_sync' && job.status === 'running') {
+        return connectionMap.get(job.connectionId)?.providerType !== 'local'
+      }
+      return false
+    })
+    if (!hasRunningRemoteJob) return 'continue_previous' as const
+    return await chooseSyncConflictMode()
+  }
 
   const handleSaveConnection = async(draft: MediaSourceConnectionDraft) => {
     const prevConnections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
@@ -216,6 +275,8 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
 
   const handleSaveRule = async() => {
     if (!selectedConnectionId || !currentConnection) return
+    const conflictMode = await resolveImportConflictMode(currentConnection.connectionId)
+    if (!conflictMode) return
     const prevRules = await mediaLibraryRepository.getImportRules() as LX.MediaLibrary.ImportRule[]
     const previousRule = prevRules.find(item => item.ruleId === ruleDraft.ruleId) ?? null
     const connectionCredential = currentConnection.credentialRef
@@ -241,6 +302,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
       connectionId: currentConnection.connectionId,
       ruleId: nextRule.ruleId,
       previousRule,
+      conflictMode,
     })
     await loadData()
     await onUpdated?.()
@@ -253,10 +315,13 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     try {
       const connectionRules = rules.filter(rule => rule.connectionId === connection.connectionId)
       if (connectionRules.length) {
+        const conflictMode = await resolveImportConflictMode(connection.connectionId)
+        if (!conflictMode) return
         await Promise.all(connectionRules.map(async rule => enqueueImportRuleSyncJob({
           connectionId: connection.connectionId,
           ruleId: rule.ruleId,
           previousRule: rule,
+          conflictMode,
         })))
         await loadData()
         await onUpdated?.()
@@ -306,10 +371,13 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
   const handleUpdateRule = async(rule: LX.MediaLibrary.ImportRule) => {
     if (!currentConnection) return
     try {
+      const conflictMode = await resolveImportConflictMode(currentConnection.connectionId)
+      if (!conflictMode) return
       await enqueueImportRuleSyncJob({
         connectionId: currentConnection.connectionId,
         ruleId: rule.ruleId,
         previousRule: rule,
+        conflictMode,
       })
       await loadData()
       await onUpdated?.()

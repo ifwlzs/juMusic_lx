@@ -202,6 +202,7 @@ async function syncImportRule({
   skipMissingRemoval = false,
   triggerSource = 'manual',
   notifications = null,
+  jobControl = null,
 }) {
   const provider = registry?.get?.(connection.providerType)
   if (connection.providerType !== 'local' && provider?.enumerateSelection && provider?.hydrateCandidate) {
@@ -214,6 +215,7 @@ async function syncImportRule({
       now,
       triggerSource,
       notifications,
+      jobControl,
     })
   }
 
@@ -325,6 +327,7 @@ async function updateImportRule({
   now = () => Date.now(),
   triggerSource = 'manual',
   notifications = null,
+  jobControl = null,
 }) {
   const priorRule = previousRule || (
     typeof repository.getImportRules === 'function'
@@ -347,6 +350,7 @@ async function updateImportRule({
     skipMissingRemoval: selectionChanged,
     triggerSource,
     notifications,
+    jobControl,
   })
 
   if (!selectionChanged || !result.isComplete) return result

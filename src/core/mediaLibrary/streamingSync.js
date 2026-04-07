@@ -150,6 +150,12 @@ function toSyncSnapshot(ruleId, items = [], capturedAt) {
   }
 }
 
+function createMediaImportJobPausedError() {
+  const error = new Error('media import job paused')
+  error.code = 'MEDIA_IMPORT_JOB_PAUSED'
+  return error
+}
+
 async function runRemoteStreamingSync({
   connection,
   rule,
@@ -161,6 +167,7 @@ async function runRemoteStreamingSync({
   triggerSource = 'manual',
   maxHydrateAttempts = 3,
   batchCommitterOptions = null,
+  jobControl = null,
 }) {
   const provider = registry.get(connection.providerType)
   if (!provider?.enumerateSelection || !provider?.hydrateCandidate) {
@@ -184,6 +191,11 @@ async function runRemoteStreamingSync({
   let generatedLists = []
   let connectionSourceItems = []
   let aggregateSongs = []
+
+  const assertJobCanContinue = async() => {
+    await jobControl?.heartbeat?.()
+    if (await jobControl?.isPauseRequested?.()) throw createMediaImportJobPausedError()
+  }
 
   const recomputeVisibleState = async(currentItems, { persistFinalState = false } = {}) => {
     const currentSnapshot = {
@@ -244,6 +256,7 @@ async function runRemoteStreamingSync({
   }
 
   try {
+    await assertJobCanContinue()
     await notifications?.showSyncProgress({
       connectionName: connection.displayName,
       phase: 'enumerate',
@@ -295,7 +308,6 @@ async function runRemoteStreamingSync({
       ...batchCommitterOptions,
       onFlush: async(batch) => {
         committedItems.push(...batch)
-        await recomputeVisibleState(mergeSourceItems(previousSnapshot.items, committedItems))
         await notifications?.showSyncProgress({
           connectionName: connection.displayName,
           phase: 'commit',
@@ -310,12 +322,14 @@ async function runRemoteStreamingSync({
     let failedCount = 0
 
     for (const candidate of discoveredCandidates) {
+      await assertJobCanContinue()
       let classification = { state: 'hydrating' }
       let lastError = ''
       let lastMetadata = null
       let metadataLevelReached = candidate.metadataLevelReached || 0
 
       for (let attempt = 1; attempt <= maxHydrateAttempts; attempt += 1) {
+        await assertJobCanContinue()
         try {
           const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
           lastMetadata = hydrated?.metadata || null
@@ -363,6 +377,7 @@ async function runRemoteStreamingSync({
     }
 
     await committer.flush()
+    await assertJobCanContinue()
 
     const nextItems = dedupeSourceItems(committedItems)
     const removedIds = enumerateResult.complete === false ? [] : buildRemovedIds(previousSnapshot.items, nextItems)
@@ -435,6 +450,26 @@ async function runRemoteStreamingSync({
       nextItems,
     }
   } catch (error) {
+    if (error?.code === 'MEDIA_IMPORT_JOB_PAUSED') {
+      await upsertSyncRun(repository, {
+        runId,
+        providerType: connection.providerType,
+        connectionId: connection.connectionId,
+        ruleId: rule.ruleId,
+        triggerSource,
+        phase: 'hydrate',
+        status: 'paused',
+        startedAt: scanAt,
+        finishedAt: now(),
+        discoveredCount: candidateStates.size,
+        readyCount: committedItems.length,
+        degradedCount: 0,
+        committedCount: committedItems.length,
+        failedCount: 0,
+      })
+      throw error
+    }
+
     await upsertSyncRun(repository, {
       runId,
       providerType: connection.providerType,
@@ -460,5 +495,6 @@ async function runRemoteStreamingSync({
 }
 
 module.exports = {
+  createMediaImportJobPausedError,
   runRemoteStreamingSync,
 }

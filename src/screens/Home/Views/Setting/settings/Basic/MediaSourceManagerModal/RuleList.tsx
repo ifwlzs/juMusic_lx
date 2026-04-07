@@ -38,6 +38,8 @@ export default memo(({
           return t('media_source_sync_summary_queued')
         case 'running':
           return t('media_source_sync_summary_running')
+        case 'paused':
+          return t('media_source_sync_summary_paused')
         case 'deleting':
           return t('media_source_sync_summary_deleting')
         case 'success':

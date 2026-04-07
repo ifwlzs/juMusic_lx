@@ -156,6 +156,7 @@ export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duratio
 
 export const setPlay = async() => TrackPlayer.play()
 export const getPosition = async() => TrackPlayer.getPosition()
+export const getBufferedPosition = async() => TrackPlayer.getBufferedPosition()
 export const getDuration = async() => TrackPlayer.getDuration()
 export const setStop = async() => {
   await TrackPlayer.stop()

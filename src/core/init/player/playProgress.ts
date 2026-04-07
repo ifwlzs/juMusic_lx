@@ -1,8 +1,10 @@
 import { updateListMusics } from '@/core/list'
 import { createAnalyticsRecorder } from '@/core/mediaLibrary/analytics'
+import { resolvePendingSeekState, shouldWaitForRemoteSeek } from '@/core/mediaLibrary/pendingSeek'
+import { setStatusText } from '@/core/player/playStatus'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
-import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
+import { getBufferedPosition, setCurrentTime, getDuration, getPosition, setPause, setPlay } from '@/plugins/player'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -31,6 +33,10 @@ export default () => {
   // const updateMusicInfo = useCommit('list', 'updateMusicInfo')
 
   let updateTimeout: number | null = null
+  let pendingSeekTime: number | null = null
+  let pendingSeekStartedAt: number | null = null
+  let pendingSeekRequestId = 0
+  let resumeAfterPendingSeek = false
 
   let isScreenOn = true
 
@@ -38,6 +44,24 @@ export default () => {
     const musicInfo = playerState.playMusicInfo.musicInfo
     if (!musicInfo) return null
     return 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+  }
+
+  const getPendingSeekStatusText = () => global.i18n.t('player__buffering')
+
+  const clearPendingSeekState = ({ clearStatusText = false } = {}) => {
+    pendingSeekTime = null
+    pendingSeekStartedAt = null
+    resumeAfterPendingSeek = false
+    if (clearStatusText && playerState.statusText == getPendingSeekStatusText()) setStatusText('')
+  }
+
+  const commitPendingSeek = async(targetTime: number) => {
+    const shouldResume = resumeAfterPendingSeek
+    clearPendingSeekState({ clearStatusText: true })
+    await setCurrentTime(targetTime)
+    setNowPlayTime(targetTime)
+    analyticsRecorder.updateProgress(targetTime, playerState.isPlay, true)
+    if (shouldResume) await setPlay()
   }
 
   const startAnalyticsSession = () => {
@@ -58,8 +82,32 @@ export default () => {
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
-    void getPosition().then(position => {
-      if (!position || id != playerState.musicInfo.id) return
+    void getPosition().then(async position => {
+      if (id != playerState.musicInfo.id) return
+
+      if (pendingSeekTime != null) {
+        const bufferedPosition = await getBufferedPosition().catch(() => 0)
+        if (id != playerState.musicInfo.id) return
+
+        const pendingSeekState = resolvePendingSeekState({
+          pendingSeekTime,
+          bufferedPosition,
+          waitStartedAt: pendingSeekStartedAt,
+          now: Date.now(),
+        })
+        if ((pendingSeekState.type == 'commit' || pendingSeekState.type == 'fallback') && pendingSeekState.targetTime != null) {
+          await commitPendingSeek(pendingSeekState.targetTime)
+          return
+        }
+        if (pendingSeekState.type == 'wait' && pendingSeekState.targetTime != null) {
+          setNowPlayTime(pendingSeekState.targetTime)
+          analyticsRecorder.updateProgress(pendingSeekState.targetTime, playerState.isPlay, true)
+          setStatusText(getPendingSeekStatusText())
+          return
+        }
+      }
+
+      if (position == null || Number.isNaN(position) || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
       analyticsRecorder.updateProgress(position, playerState.isPlay)
       if (!playerState.isPlay) return
@@ -103,12 +151,37 @@ export default () => {
 
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
+    const requestId = ++pendingSeekRequestId
+    const musicId = playerState.musicInfo.id
+    const musicInfo = getAnalyticsMusicInfo()
+    const duration = maxTime ?? playerState.progress.maxPlayTime
+    const shouldResumePlayback = playerState.isPlay || resumeAfterPendingSeek
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
     analyticsRecorder.updateProgress(time, playerState.isPlay, true)
-    void setCurrentTime(time)
-
     if (maxTime != null) setMaxplayTime(maxTime)
+    void (async() => {
+      const bufferedPosition = await getBufferedPosition().catch(() => duration)
+      if (requestId != pendingSeekRequestId || musicId != playerState.musicInfo.id) return
+
+      if (shouldWaitForRemoteSeek({
+        musicInfo,
+        targetTime: time,
+        bufferedPosition,
+        duration,
+      })) {
+        pendingSeekTime = time
+        pendingSeekStartedAt = Date.now()
+        resumeAfterPendingSeek = shouldResumePlayback
+        setStatusText(getPendingSeekStatusText())
+        if (playerState.isPlay) await setPause()
+        return
+      }
+
+      clearPendingSeekState({ clearStatusText: true })
+      await setCurrentTime(time)
+      if (shouldResumePlayback && !playerState.isPlay) await setPlay()
+    })()
 
     // if (!isPlay) audio.play()
   }
@@ -126,11 +199,16 @@ export default () => {
     // prevProgressStatus = 'paused'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     // clearBufferTimeout()
+    if (pendingSeekTime != null) {
+      startUpdateTimeout()
+      return
+    }
     clearUpdateTimeout()
   }
 
   const handleStop = () => {
     void analyticsRecorder.finishSession()
+    clearPendingSeekState({ clearStatusText: true })
     clearUpdateTimeout()
     setNowPlayTime(0)
     setMaxplayTime(0)
@@ -144,12 +222,14 @@ export default () => {
     // prevProgressStatus = 'error'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     void analyticsRecorder.finishSession()
+    clearPendingSeekState()
     clearUpdateTimeout()
   }
 
 
   const handleSetPlayInfo = () => {
     void analyticsRecorder.finishSession()
+    clearPendingSeekState({ clearStatusText: true })
     // restorePlayTime = playProgress.nowPlayTime
     // void setCurrentTime(playerState.progress.nowPlayTime)
     // setMaxplayTime(playProgress.maxPlayTime)
