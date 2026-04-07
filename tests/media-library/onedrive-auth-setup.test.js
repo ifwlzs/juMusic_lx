@@ -8,23 +8,34 @@ const readFile = filePath => {
   return fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf8') : ''
 }
 
-test('android package and msal setup target io.ifwlzs.jumusic.lx debug registration', () => {
+test('android package and msal setup target io.ifwlzs.jumusic.lx debug and release registrations', () => {
   const buildGradle = readFile('android/app/build.gradle')
   const manifest = readFile('android/app/src/main/AndroidManifest.xml')
-  const authConfig = readFile('android/app/src/main/res/raw/auth_config_single_account.json')
+  const debugAuthConfig = readFile('android/app/src/debug/res/raw/auth_config_single_account.json')
+  const releaseAuthConfig = readFile('android/app/src/release/res/raw/auth_config_single_account.json')
   const mainApplication = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/MainApplication.java')
 
   assert.match(buildGradle, /namespace "io\.ifwlzs\.jumusic\.lx"/)
   assert.match(buildGradle, /applicationId "io\.ifwlzs\.jumusic\.lx"/)
   assert.match(buildGradle, /com\.microsoft\.identity\.client:msal:/)
   assert.match(buildGradle, /keystorePropertiesFile\.exists\(\)/)
+  assert.match(buildGradle, /def oneDriveDebugRedirectPath = '\/Xo8WBi6jzSxKDVR4drqm84yr9iU='/)
+  assert.match(buildGradle, /def oneDriveReleaseRedirectPath = oneDriveDebugRedirectPath/)
+  assert.match(buildGradle, /debug\s*\{[\s\S]*?manifestPlaceholders = \[oneDriveRedirectPath: oneDriveDebugRedirectPath\]/)
+  assert.match(buildGradle, /release\s*\{[\s\S]*?manifestPlaceholders = \[oneDriveRedirectPath: oneDriveReleaseRedirectPath\]/)
+  assert.doesNotMatch(buildGradle, /release\s*\{[\s\S]*?manifestPlaceholders = \[oneDriveRedirectPath: '\/huDKkJaLn3XaJZfD9txm3L\+3uec='\]/)
   assert.match(manifest, /com\.microsoft\.identity\.client\.BrowserTabActivity/)
   assert.match(manifest, /android:host="io\.ifwlzs\.jumusic\.lx"/)
-  assert.match(manifest, /android:path="\/Xo8WBi6jzSxKDVR4drqm84yr9iU="/)
-  assert.match(authConfig, /"client_id":\s*"116da1c1-fc09-4a63-b44d-61f4ebad5e4f"/)
-  assert.match(authConfig, /"redirect_uri":\s*"msauth:\/\/io\.ifwlzs\.jumusic\.lx\/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D"/)
-  assert.match(authConfig, /"account_mode":\s*"SINGLE"/)
-  assert.match(authConfig, /"type":\s*"AzureADMultipleOrgs"/)
+  assert.match(manifest, /android:path="\$\{oneDriveRedirectPath\}"/)
+  assert.match(debugAuthConfig, /"client_id":\s*"116da1c1-fc09-4a63-b44d-61f4ebad5e4f"/)
+  assert.match(debugAuthConfig, /"redirect_uri":\s*"msauth:\/\/io\.ifwlzs\.jumusic\.lx\/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D"/)
+  assert.match(debugAuthConfig, /"account_mode":\s*"SINGLE"/)
+  assert.match(debugAuthConfig, /"type":\s*"AzureADMultipleOrgs"/)
+  assert.match(releaseAuthConfig, /"client_id":\s*"116da1c1-fc09-4a63-b44d-61f4ebad5e4f"/)
+  assert.match(releaseAuthConfig, /"redirect_uri":\s*"msauth:\/\/io\.ifwlzs\.jumusic\.lx\/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D"/)
+  assert.doesNotMatch(releaseAuthConfig, /huDKkJaLn3XaJZfD9txm3L%2B3uec%3D/)
+  assert.match(releaseAuthConfig, /"account_mode":\s*"SINGLE"/)
+  assert.match(releaseAuthConfig, /"type":\s*"AzureADMultipleOrgs"/)
   assert.match(mainApplication, /packages\.add\(new OneDriveAuthPackage\(\)\)/)
 })
 

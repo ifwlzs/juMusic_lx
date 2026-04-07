@@ -1,5 +1,5 @@
 import { httpGet } from '@/utils/request'
-import { author, name } from '../../package.json'
+import { name, repository } from '../../package.json'
 import { downloadFile, stopDownload, temporaryDirectoryPath } from '@/utils/fs'
 import { getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
@@ -11,16 +11,33 @@ const abis = [
   'x86',
   'universal',
 ]
+const DEFAULT_REPO_OWNER = 'ifwlzs'
+const DEFAULT_REPO_NAME = 'juMusic_lx'
+const DEFAULT_VERSION_INFO_URL = 'https://raw.githubusercontent.com/ifwlzs/juMusic_lx/main/publish/version.json'
+const DEFAULT_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/ifwlzs/juMusic_lx/releases/download'
 
+const resolveGitHubRepoInfo = () => {
+  const normalizedUrl = String(repository.url ?? '')
+    .replace(/^git\+/, '')
+    .replace(/\.git$/, '')
+  const match = normalizedUrl.match(/github\.com\/([^/]+)\/([^/]+)/i)
+
+  if (!match) return { owner: DEFAULT_REPO_OWNER, repo: DEFAULT_REPO_NAME }
+  return {
+    owner: match[1],
+    repo: match[2],
+  }
+}
+
+const { owner: repoOwner, repo: repoName } = resolveGitHubRepoInfo()
+const versionInfoUrl = repoOwner && repoName
+  ? `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/publish/version.json`
+  : DEFAULT_VERSION_INFO_URL
+const releaseDownloadBaseUrl = repoOwner && repoName
+  ? `https://github.com/${repoOwner}/${repoName}/releases/download`
+  : DEFAULT_RELEASE_DOWNLOAD_BASE_URL
 const address = [
-  [`https://raw.githubusercontent.com/${author.name}/${name}/master/publish/version.json`, 'direct'],
-  ['https://registry.npmjs.org/lx-music-mobile-version-info/latest', 'npm'],
-  [`https://cdn.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  [`https://fastly.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  [`https://gcore.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  ['https://registry.npmmirror.com/lx-music-mobile-version-info/latest', 'npm'],
-  ['https://gitee.com/lyswhut/lx-music-mobile-versions/raw/master/version.json', 'direct'],
-  ['http://cdn.stsky.cn/lx-music/mobile/version.json', 'direct'],
+  versionInfoUrl,
 ]
 
 
@@ -45,26 +62,9 @@ const getDirectInfo = async(url) => {
   })
 }
 
-const getNpmPkgInfo = async(url) => {
-  return request(url).then(json => {
-    if (!json.versionInfo) throw new Error('failed')
-    const info = JSON.parse(json.versionInfo)
-    if (info.version == null) throw new Error('failed')
-    return info
-  })
-}
-
 export const getVersionInfo = async(index = 0) => {
-  const [url, source] = address[index]
-  let promise
-  switch (source) {
-    case 'direct':
-      promise = getDirectInfo(url)
-      break
-    case 'npm':
-      promise = getNpmPkgInfo(url)
-      break
-  }
+  const url = address[index]
+  const promise = getDirectInfo(url)
 
   return promise.catch(async(err) => {
     index++
@@ -86,7 +86,7 @@ let apkSavePath
 
 export const downloadNewVersion = async(version, onDownload = noop) => {
   const abi = await getTargetAbi()
-  const url = `https://github.com/${author.name}/${name}/releases/download/v${version}/${name}-v${version}-${abi}.apk`
+  const url = `${releaseDownloadBaseUrl}/v${version}/${name}-v${version}-${abi}.apk`
   let savePath = temporaryDirectoryPath + '/lx-music-mobile.apk'
 
   if (downloadJobId) stopDownload(downloadJobId)

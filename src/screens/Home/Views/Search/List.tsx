@@ -40,7 +40,7 @@ export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
     },
   }), [])
 
-  const isLibraryMusicSource = listType == 'music' && ['local', 'webdav', 'smb', 'all'].includes(activeSource as string)
+  const isLibraryMusicSource = listType == 'music' && ['local', 'webdav', 'smb', 'onedrive', 'all'].includes(activeSource as string)
 
   if (showBlankView) return <BlankView ref={blankViewRef} onSearch={onSearch} />
   if (isLibraryMusicSource) return <LibraryMusicList ref={listRef} />

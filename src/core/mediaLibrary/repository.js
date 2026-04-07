@@ -185,6 +185,9 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
       if (!ruleId) throw new Error('ruleId is required')
       await storage.set(keys.syncSnapshot(ruleId), snapshot ? sanitizeSyncSnapshot(snapshot) : null)
     },
+    async removeSyncSnapshots(ruleIds = []) {
+      await Promise.all(ruleIds.filter(Boolean).map(ruleId => storage.remove(keys.syncSnapshot(ruleId))))
+    },
     async getImportSnapshot(ruleId) {
       if (!ruleId) return null
       return await storage.get(keys.importSnapshot(ruleId)) || null
@@ -221,6 +224,9 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
     },
     async saveSourceItems(connectionId, items) {
       await storage.set(keys.sourceItems(connectionId), items)
+    },
+    async removeSourceItems(connectionIds = []) {
+      await Promise.all(connectionIds.filter(Boolean).map(connectionId => storage.remove(keys.sourceItems(connectionId))))
     },
     async getAggregateSongs() {
       return await storage.get(keys.aggregateSongs()) || []
