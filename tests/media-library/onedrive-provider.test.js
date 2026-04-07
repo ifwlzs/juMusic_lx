@@ -97,6 +97,7 @@ test('onedrive streamEnumerateSelection emits candidate metadata hints from Grap
           name: 'song_1.mp3',
           file: {},
           audio: {
+            title: 'Actual Title',
             artist: 'artist_1',
             album: 'album_1',
             duration: 181000,
@@ -120,7 +121,7 @@ test('onedrive streamEnumerateSelection emits candidate metadata hints from Grap
 
   assert.equal(batches.length, 1)
   assert.deepEqual(batches[0][0].metadataHints, {
-    title: 'song_1',
+    title: 'Actual Title',
     artist: 'artist_1',
     album: 'album_1',
     durationSec: 181,

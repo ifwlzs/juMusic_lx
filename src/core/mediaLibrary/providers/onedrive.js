@@ -124,7 +124,7 @@ function buildVersionToken(item, pathOrUri) {
 
 function toMetadataHints(fileName, item = {}) {
   return {
-    title: stripExtension(fileName),
+    title: item.audio?.title || stripExtension(fileName),
     artist: item.audio?.artist || '',
     album: item.audio?.album || '',
     durationSec: item.audio?.duration ? Math.round(item.audio.duration / 1000) : 0,
