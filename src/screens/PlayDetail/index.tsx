@@ -8,9 +8,26 @@ import PageContent from '@/components/PageContent'
 import StatusBar from '@/components/common/StatusBar'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
+import { useSetting } from '@/store/setting/hook'
+import { useTheme } from '@/store/theme/hook'
 
 export default ({ componentId }: { componentId: string }) => {
   const isHorizontalMode = useHorizontalMode()
+  const setting = useSetting()
+  const theme = useTheme()
+  const paletteVersion = [
+    theme.isDark ? 'dark' : 'light',
+    setting['theme.playDetail.light.primary'],
+    setting['theme.playDetail.dark.primary'],
+    setting['theme.playDetail.light.lyricActive'],
+    setting['theme.playDetail.dark.lyricActive'],
+    setting['theme.playDetail.light.lyricInactive'],
+    setting['theme.playDetail.dark.lyricInactive'],
+    setting['theme.playDetail.light.lyricTranslation'],
+    setting['theme.playDetail.dark.lyricTranslation'],
+    setting['theme.playDetail.light.lyricRoma'],
+    setting['theme.playDetail.dark.lyricRoma'],
+  ].join('|')
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.playDetail, componentId)
@@ -19,11 +36,11 @@ export default ({ componentId }: { componentId: string }) => {
 
   return (
     <PageContent backgroundVariant="playDetailEmby">
-      <StatusBar />
+      <StatusBar forceLightContent />
       {
         isHorizontalMode
-          ? <Horizontal componentId={componentId} />
-          : <Vertical componentId={componentId} />
+          ? <Horizontal key={`horizontal:${paletteVersion}`} componentId={componentId} />
+          : <Vertical key={`vertical:${paletteVersion}`} componentId={componentId} />
       }
     </PageContent>
   )

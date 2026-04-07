@@ -63,7 +63,10 @@ export default memo(({
   const getStatusText = (connection: LX.MediaLibrary.SourceConnection) => {
     const status = connection.lastScanStatus ?? 'idle'
     const statusLabel = t(`media_source_sync_state_${status}`)
-    return connection.lastScanSummary ? `${statusLabel} · ${connection.lastScanSummary}` : statusLabel
+    const summary = connection.lastScanSummary === 'paused'
+      ? t('media_source_sync_summary_paused')
+      : connection.lastScanSummary
+    return summary ? `${statusLabel} · ${summary}` : statusLabel
   }
 
   return (

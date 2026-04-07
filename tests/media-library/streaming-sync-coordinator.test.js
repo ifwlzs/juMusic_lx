@@ -65,7 +65,7 @@ function createCandidate(index) {
   }
 }
 
-test('runRemoteStreamingSync keeps old list entries until final reconcile and commits new songs in batches', async() => {
+test('runRemoteStreamingSync keeps the last successful visible snapshot until the new scan completes', async() => {
   const connection = createConnection()
   const rule = createRule()
   const events = []
@@ -168,16 +168,19 @@ test('runRemoteStreamingSync keeps old list entries until final reconcile and co
       let value = 1000
       return () => ++value
     })(),
+    batchCommitterOptions: {
+      maxBatchSize: 1,
+      schedule(_delay, run) {
+        return setTimeout(run, 0)
+      },
+    },
   })
 
-  assert.equal(events[0][0], 'reconcile')
-  assert.ok(events[0][1].includes('missing_song_id'))
-  assert.equal(events[0][1].length, 11)
+  const reconcileEvents = events.filter(event => event[0] === 'reconcile')
+  assert.equal(reconcileEvents.length, 1)
+  assert.equal(reconcileEvents[0][1].includes('missing_song_id'), false)
+  assert.equal(reconcileEvents[0][1].length, 12)
   assert.deepEqual(events.at(-1), ['removeMissingSongs', ['missing_song_id']])
-
-  const lastReconcile = events.filter(event => event[0] === 'reconcile').at(-1)
-  assert.equal(lastReconcile[1].includes('missing_song_id'), false)
-  assert.equal(lastReconcile[1].length, 12)
 
   assert.deepEqual(result.removedIds, ['missing_song_id'])
   assert.equal(result.nextItems.length, 12)
@@ -190,4 +193,112 @@ test('runRemoteStreamingSync keeps old list entries until final reconcile and co
   assert.equal(saved.syncCandidates.items.length, 12)
   assert.equal(saved.syncSnapshot.ruleId, 'rule_1')
   assert.equal(saved.syncSnapshot.snapshot.items.length, 12)
+})
+
+test('runRemoteStreamingSync throws a paused error before publishing a partial visible state when pause is requested', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  const events = []
+  const saved = {
+    snapshot: null,
+    sourceItems: null,
+    aggregateSongs: null,
+  }
+  let hydrateCount = 0
+
+  await assert.rejects(async() => {
+    await runRemoteStreamingSync({
+      connection,
+      rule,
+      repository: {
+        async getImportSnapshot() {
+          return {
+            ruleId: 'rule_1',
+            scannedAt: 1,
+            items: [
+              createSourceItem({
+                sourceItemId: 'existing_song_id',
+                pathOrUri: '/Albums/existing.mp3',
+                title: 'existing',
+                versionToken: 'old',
+              }),
+            ],
+          }
+        },
+        async saveImportSnapshot(ruleId, snapshot) {
+          saved.snapshot = { ruleId, snapshot }
+        },
+        async getImportRules() {
+          return [rule]
+        },
+        async saveImportRules() {},
+        async getConnections() {
+          return [connection]
+        },
+        async saveSourceItems(connectionId, items) {
+          saved.sourceItems = { connectionId, items }
+        },
+        async getAllSourceItems() {
+          return []
+        },
+        async saveAggregateSongs(items) {
+          saved.aggregateSongs = items
+        },
+        async getSyncRuns() {
+          return []
+        },
+        async saveSyncRuns() {},
+        async saveSyncCandidates() {},
+        async saveSyncSnapshot() {},
+      },
+      registry: {
+        get() {
+          return {
+            async enumerateSelection() {
+              return {
+                complete: true,
+                items: [createCandidate(1), createCandidate(2), createCandidate(3)],
+              }
+            },
+            async hydrateCandidate(_connection, candidate) {
+              hydrateCount += 1
+              return {
+                candidate,
+                metadata: {
+                  title: candidate.fileName.replace(/\.[^.]+$/, ''),
+                  artist: 'artist',
+                  album: 'album',
+                  durationSec: 180,
+                },
+                metadataLevelReached: 1,
+              }
+            },
+          }
+        },
+      },
+      listApi: {
+        async reconcileGeneratedLists(generatedLists) {
+          const accountAll = generatedLists.find(item => item.listInfo.mediaSource.kind === 'account_all')
+          events.push(['reconcile', accountAll?.list.map(item => item.id) || []])
+        },
+        async removeMissingSongs(ids) {
+          events.push(['removeMissingSongs', ids])
+        },
+      },
+      jobControl: {
+        async isPauseRequested() {
+          return hydrateCount >= 1
+        },
+        async heartbeat() {},
+      },
+      batchCommitterOptions: {
+        maxBatchSize: 1,
+      },
+    })
+  }, error => error?.code === 'MEDIA_IMPORT_JOB_PAUSED')
+
+  assert.deepEqual(events, [])
+  assert.equal(saved.snapshot, null)
+  assert.equal(saved.sourceItems, null)
+  assert.equal(saved.aggregateSongs, null)
 })

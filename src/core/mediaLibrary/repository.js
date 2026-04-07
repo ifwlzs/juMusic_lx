@@ -54,6 +54,10 @@ function sanitizeImportJob(job = {}) {
     finishedAt: job.finishedAt ?? null,
     summary: job.summary ?? '',
     error: job.error ?? '',
+    runtimeOwnerId: job.runtimeOwnerId ?? null,
+    heartbeatAt: job.heartbeatAt ?? null,
+    pauseRequestedAt: job.pauseRequestedAt ?? null,
+    resumeAfterJobId: job.resumeAfterJobId ?? null,
     payload: job.payload ?? null,
   }
 }

@@ -1,15 +1,16 @@
 declare namespace LX {
   namespace MediaLibrary {
     type ProviderType = 'local' | 'webdav' | 'smb' | 'onedrive'
-    type ConnectionScanStatus = 'idle' | 'running' | 'success' | 'failed'
+    type ConnectionScanStatus = 'idle' | 'running' | 'paused' | 'success' | 'failed'
     type ImportRuleMode = 'account_all_only' | 'per_directory' | 'merged'
     type BrowserNodeKind = 'directory' | 'track'
     type ImportJobType = 'import_rule_sync' | 'delete_rule_rebuild'
-    type ImportJobStatus = 'queued' | 'running' | 'success' | 'failed' | 'cancelled'
+    type ImportJobStatus = 'queued' | 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
+    type ImportJobConflictMode = 'continue_previous' | 'current_first'
     type SyncTriggerSource = 'manual' | 'auto'
     type AutoSyncTrigger = 'boot' | 'media_sources_page'
     type SyncPhase = 'enumerate' | 'hydrate' | 'commit' | 'reconcile_delete'
-    type SyncRunStatus = 'queued' | 'running' | 'success' | 'failed'
+    type SyncRunStatus = 'queued' | 'running' | 'paused' | 'success' | 'failed'
     type SyncCandidateState = 'discovered' | 'hydrating' | 'ready' | 'degraded' | 'committed' | 'dropped'
     type CacheOrigin = 'play' | 'prefetch'
     type PrefetchState = 'queued' | 'running' | 'ready' | 'failed'
@@ -82,6 +83,10 @@ declare namespace LX {
       finishedAt?: number | null
       summary?: string
       error?: string
+      runtimeOwnerId?: string | null
+      heartbeatAt?: number | null
+      pauseRequestedAt?: number | null
+      resumeAfterJobId?: string | null
       payload?: {
         previousRule?: ImportRule | null
         triggerSource?: SyncTriggerSource

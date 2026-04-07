@@ -53,7 +53,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <PageContent>
-      <StatusBar />
+      <StatusBar forceLightContent />
       <View style={{ ...styles.container, paddingTop: statusBarHeight }}>
         <View style={styles.left}>
           <Header />

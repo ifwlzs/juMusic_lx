@@ -60,6 +60,7 @@ export {
   setPlay,
   setCurrentTime,
   getDuration,
+  getBufferedPosition,
   setStop,
   resetPlay,
   getPosition,

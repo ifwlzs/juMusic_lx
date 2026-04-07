@@ -83,7 +83,7 @@ const getQueue = () => {
 
   queue = createMediaImportJobQueue({
     repository: mediaLibraryRepository,
-    async runImportRuleJob(job: LX.MediaLibrary.ImportJob) {
+    async runImportRuleJob(job: LX.MediaLibrary.ImportJob, jobControl) {
       const [rules, connections] = await Promise.all([
         mediaLibraryRepository.getImportRules() as Promise<LX.MediaLibrary.ImportRule[]>,
         mediaLibraryRepository.getConnections() as Promise<LX.MediaLibrary.SourceConnection[]>,
@@ -104,6 +104,7 @@ const getQueue = () => {
         listApi,
         triggerSource: job.payload?.triggerSource ?? 'manual',
         notifications: syncNotifications,
+        jobControl,
       })
       const summary = result?.scanResult?.summary
         ? `success: ${result.scanResult.summary.success ?? 0}, failed: ${result.scanResult.summary.failed ?? 0}, skipped: ${result.scanResult.summary.skipped ?? 0}`
@@ -123,6 +124,11 @@ const getQueue = () => {
       const message = String(error?.message || error || 'job failed')
       await setRuleStatus(job.ruleId, 'failed', message)
       await setConnectionStatus(job.connectionId, 'failed', message, Date.now())
+    },
+    async onImportRuleJobPaused(job: LX.MediaLibrary.ImportJob) {
+      if (!job.ruleId) return
+      await setRuleStatus(job.ruleId, 'paused', 'paused', Date.now())
+      await setConnectionStatus(job.connectionId, 'paused', 'paused', Date.now())
     },
     async onDeleteRuleJobFailed(job: LX.MediaLibrary.ImportJob, error: Error) {
       if (!job.ruleId) return
@@ -144,11 +150,13 @@ export const enqueueImportRuleSyncJob = async({
   ruleId,
   previousRule = null,
   triggerSource = 'manual',
+  conflictMode = 'continue_previous',
 }: {
   connectionId: string
   ruleId: string
   previousRule?: LX.MediaLibrary.ImportRule | null
   triggerSource?: LX.MediaLibrary.SyncTriggerSource
+  conflictMode?: LX.MediaLibrary.ImportJobConflictMode
 }) => {
   const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
   const connection = connections.find(item => item.connectionId === connectionId)
@@ -162,6 +170,7 @@ export const enqueueImportRuleSyncJob = async({
       previousRule,
       triggerSource,
     },
+    conflictMode,
   })
 }
 

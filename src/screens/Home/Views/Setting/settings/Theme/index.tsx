@@ -6,6 +6,7 @@ import IsAutoTheme from './IsAutoTheme'
 import IsHideBgDark from './IsHideBgDark'
 import IsDynamicBg from './IsDynamicBg'
 import IsFontShadow from './IsFontShadow'
+import CustomColors from './CustomColors'
 // import { useI18n } from '@/lang/i18n'
 
 export default memo(() => {
@@ -16,6 +17,7 @@ export default memo(() => {
       <IsHideBgDark />
       <IsDynamicBg />
       <IsFontShadow />
+      <CustomColors />
     </>
   )
 })

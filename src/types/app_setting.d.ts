@@ -92,6 +92,56 @@ declare global {
       'theme.darkId': string
 
       /**
+       * 播放页亮色主题主色
+       */
+      'theme.playDetail.light.primary': string
+
+      /**
+       * 播放页亮色主题当前行歌词颜色
+       */
+      'theme.playDetail.light.lyricActive': string
+
+      /**
+       * 播放页亮色主题未播放歌词颜色
+       */
+      'theme.playDetail.light.lyricInactive': string
+
+      /**
+       * 播放页亮色主题翻译歌词颜色
+       */
+      'theme.playDetail.light.lyricTranslation': string
+
+      /**
+       * 播放页亮色主题罗马音颜色
+       */
+      'theme.playDetail.light.lyricRoma': string
+
+      /**
+       * 播放页暗色主题主色
+       */
+      'theme.playDetail.dark.primary': string
+
+      /**
+       * 播放页暗色主题当前行歌词颜色
+       */
+      'theme.playDetail.dark.lyricActive': string
+
+      /**
+       * 播放页暗色主题未播放歌词颜色
+       */
+      'theme.playDetail.dark.lyricInactive': string
+
+      /**
+       * 播放页暗色主题翻译歌词颜色
+       */
+      'theme.playDetail.dark.lyricTranslation': string
+
+      /**
+       * 播放页暗色主题罗马音颜色
+       */
+      'theme.playDetail.dark.lyricRoma': string
+
+      /**
        * 隐藏黑色主题背景
        */
       'theme.hideBgDark': boolean
