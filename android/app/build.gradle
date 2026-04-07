@@ -5,6 +5,7 @@ apply plugin: "com.facebook.react"
 import com.android.build.OutputFile
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.taskdefs.condition.Os
+import java.net.URLDecoder
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -101,11 +102,44 @@ def npmPackageJson = getNpmPackageJson()
 def verCode = npmPackageJson["versionCode"]
 def verName = npmPackageJson["version"]
 def applicationName = npmPackageJson["name"]
+def oneDriveClientId = '116da1c1-fc09-4a63-b44d-61f4ebad5e4f'
+def oneDriveRedirectHost = 'io.ifwlzs.jumusic.lx'
 def oneDriveDebugRedirectPath = '/Xo8WBi6jzSxKDVR4drqm84yr9iU='
-// Phase 1 still uses the debug keystore for development and release validation.
-// When a real release keystore is introduced, update this redirect together with
-// android/app/src/release/res/raw/auth_config_single_account.json.
-def oneDriveReleaseRedirectPath = oneDriveDebugRedirectPath
+def oneDriveReleaseRedirectUriDefault = 'msauth://io.ifwlzs.jumusic.lx/huDKkJaLn3XaJZfD9txm3L%2B3uec%3D'
+def resolveOptionalBuildValue = { propertyName, fallbackValue ->
+    def candidate = project.findProperty(propertyName) ?: System.getenv(propertyName)
+    def normalized = candidate == null ? '' : candidate.toString().trim()
+    return normalized ? normalized : fallbackValue
+}
+def decodeOneDriveRedirectPath = { redirectUri ->
+    def uriPrefix = "msauth://${oneDriveRedirectHost}/"
+    if (!redirectUri.startsWith(uriPrefix)) {
+        throw new GradleException("Invalid OneDrive redirect URI: ${redirectUri}")
+    }
+    return '/' + URLDecoder.decode(redirectUri.substring(uriPrefix.length()), 'UTF-8')
+}
+def renderOneDriveAuthConfig = { redirectUri ->
+    file("${projectDir}/msal/auth_config_single_account.template.json")
+        .getText('UTF-8')
+        .replace('__ONEDRIVE_CLIENT_ID__', oneDriveClientId)
+        .replace('__ONEDRIVE_REDIRECT_URI__', redirectUri)
+}
+def oneDriveReleaseRedirectUri = resolveOptionalBuildValue('ONEDRIVE_RELEASE_REDIRECT_URI', oneDriveReleaseRedirectUriDefault)
+def oneDriveReleaseRedirectPath = decodeOneDriveRedirectPath(oneDriveReleaseRedirectUri)
+def generatedReleaseOneDriveAuthConfigDir = file("${buildDir}/generated/onedrive/release/res")
+def generatedReleaseOneDriveAuthConfigFile = file("${generatedReleaseOneDriveAuthConfigDir}/raw/auth_config_single_account.json")
+
+tasks.register('generateReleaseOneDriveAuthConfig') {
+    inputs.file(file("${projectDir}/msal/auth_config_single_account.template.json"))
+    inputs.property('oneDriveClientId', oneDriveClientId)
+    inputs.property('oneDriveReleaseRedirectUri', oneDriveReleaseRedirectUri)
+    outputs.file(generatedReleaseOneDriveAuthConfigFile)
+
+    doLast {
+        generatedReleaseOneDriveAuthConfigFile.parentFile.mkdirs()
+        generatedReleaseOneDriveAuthConfigFile.setText(renderOneDriveAuthConfig(oneDriveReleaseRedirectUri), 'UTF-8')
+    }
+}
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -120,6 +154,12 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode verCode
         versionName verName
+    }
+
+    sourceSets {
+        release {
+            res.srcDirs += [generatedReleaseOneDriveAuthConfigDir.absolutePath]
+        }
     }
 
     splits {
@@ -218,3 +258,7 @@ dependencies {
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+
+tasks.named('preBuild').configure {
+    dependsOn(tasks.named('generateReleaseOneDriveAuthConfig'))
+}

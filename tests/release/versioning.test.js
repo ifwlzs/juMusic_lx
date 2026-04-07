@@ -73,7 +73,8 @@ test('applyReleaseVersion syncs package, version json, and changelog content', (
       '### 修复',
       '',
       '- 修复自动发版',
-      '- 修复本地打包',
+      '- 修复本地打包 (#994, @ikun0014)',
+      '- 修复文案引用（thanks @Folltoshe）',
       '',
     ].join('\n'),
     version: '26040523',
@@ -84,12 +85,38 @@ test('applyReleaseVersion syncs package, version json, and changelog content', (
   assert.equal(result.packageJson.versionCode, 26040523)
   assert.equal(result.versionJson.version, '26040523')
   assert.equal(result.versionJson.history[0].version, '1.8.2')
-  assert.equal(result.versionJson.desc, '修复\n\n- 修复自动发版\n- 修复本地打包')
+  assert.equal(result.versionJson.desc, '修复\n\n- 修复自动发版\n- 修复本地打包 (#994)\n- 修复文案引用')
   assert.match(
     result.changelogMarkdown,
     /## \[26040523\]\(https:\/\/github\.com\/ifwlzs\/juMusic_lx\/compare\/v1\.8\.2\.\.\.v26040523\) - 2026-04-05/,
   )
   assert.match(result.changelogMarkdown, /- 修复自动发版/)
+  assert.match(result.changelogMarkdown, /- 修复本地打包 \(#994\)/)
+  assert.doesNotMatch(result.changelogMarkdown, /@ikun0014|Folltoshe|thanks/i)
+})
+
+test('sanitizeReleaseNotesMarkdown removes contributor mentions but preserves issue references', () => {
+  assert.equal(fs.existsSync(versioningPath), true)
+  const { sanitizeReleaseNotesMarkdown } = require(versioningPath)
+
+  const result = sanitizeReleaseNotesMarkdown([
+    '### 修复',
+    '',
+    '- 修复自动发版 (#994, @ikun0014)',
+    '- 修复文案引用（thanks @Folltoshe）',
+    '- 修复注释格式（By: @foo, @bar）',
+    '- 调整目录扫描（感谢@baz）',
+    '',
+  ].join('\n'))
+
+  assert.equal(result, [
+    '### 修复',
+    '',
+    '- 修复自动发版 (#994)',
+    '- 修复文案引用',
+    '- 修复注释格式',
+    '- 调整目录扫描',
+  ].join('\n'))
 })
 
 test('package.json exposes release helper scripts', () => {
@@ -134,13 +161,15 @@ test('release workflow restores gradlew execute permission on Linux runners', ()
   assert.match(workflow, /chmod \+x gradlew/)
 })
 
-test('release workflow uses changelog body, disables generated notes, and sets a Chinese release title', () => {
+test('release workflow uses sanitized release body, disables generated notes, and sets a Chinese release title', () => {
   const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
+  const updateChangeLog = fs.readFileSync(path.resolve(__dirname, '../../publish/utils/updateChangeLog.js'), 'utf8')
 
-  assert.match(workflow, /body_path:\s*\.\/publish\/changeLog\.md/)
+  assert.match(workflow, /body_path:\s*\.\/publish\/releaseBody\.md/)
   assert.match(workflow, /generate_release_notes:\s*false/)
   assert.match(workflow, /name:\s*juMusic 安卓版 v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}/)
   assert.match(workflow, /### 安装包 MD5/)
+  assert.match(updateChangeLog, /releaseBody\.md/)
 })
 
 test('release workflow uses a no-daemon release build on CI', () => {

@@ -35,7 +35,36 @@ const normalizeRepositoryUrl = repositoryUrl => repositoryUrl
   .replace(/^git\+/, '')
   .replace(/\.git$/, '')
 
-const parseReleaseNotes = markdown => markdown
+const sanitizeParentheticalContent = content => content
+  .replace(/@[\w-]+/g, '')
+  .replace(/\bthanks\b/gi, '')
+  .replace(/\bby\s*:/gi, '')
+  .replace(/感谢/gu, '')
+  .replace(/\s+/g, ' ')
+  .replace(/\s*([,，、;；])\s*/g, '$1 ')
+  .trim()
+  .replace(/^[,，、;；\s]+|[,，、;；\s]+$/g, '')
+
+const sanitizeReleaseNoteLine = line => line
+  .replace(/([（(])([^()（）]*)([）)])/g, (match, open, content, close) => {
+    const sanitized = sanitizeParentheticalContent(content)
+    if (!sanitized) return ''
+    return `${open}${sanitized}${close}`
+  })
+  .replace(/(^|[\s(（,，、])@[\w-]+(?=$|[\s)）,，、])/g, '$1')
+  .replace(/\s+([)）,，、;；])/g, '$1')
+  .replace(/([（(])\s+/g, '$1')
+  .replace(/\s{2,}/g, ' ')
+  .trimEnd()
+
+const sanitizeReleaseNotesMarkdown = markdown => markdown
+  .split(/\r\n|\r|\n/)
+  .map(sanitizeReleaseNoteLine)
+  .join('\n')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim()
+
+const parseReleaseNotes = markdown => sanitizeReleaseNotesMarkdown(markdown)
   .replace(/(?:^|(\n))#{1,6}\s+(.+)\n/g, '$1$2\n')
   .trim()
 
@@ -157,4 +186,5 @@ module.exports = {
   formatReleaseDate,
   formatReleaseVersion,
   parseChangelog,
+  sanitizeReleaseNotesMarkdown,
 }

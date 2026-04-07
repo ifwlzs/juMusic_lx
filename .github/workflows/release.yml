@@ -59,18 +59,18 @@ jobs:
           cd android
           chmod +x gradlew
           echo ${{ secrets.KEYSTORE_STORE_FILE_BASE64 }} | base64 --decode > app/${{ secrets.KEYSTORE_STORE_FILE }}
-          ./gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease -PMYAPP_UPLOAD_STORE_FILE='${{ secrets.KEYSTORE_STORE_FILE }}' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}'
+          ./gradlew --no-daemon --stacktrace --max-workers=2 assembleRelease -PMYAPP_UPLOAD_STORE_FILE='${{ secrets.KEYSTORE_STORE_FILE }}' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}' -PONEDRIVE_RELEASE_REDIRECT_URI='${{ secrets.ONEDRIVE_RELEASE_REDIRECT_URI }}'
           rm -f app/${{ secrets.KEYSTORE_STORE_FILE }}
 
       - name: 生成安装包 MD5
         run: |
-          echo -e '\n### 安装包 MD5\n```' >> ./publish/changeLog.md
+          echo -e '\n### 安装包 MD5\n```' >> ./publish/releaseBody.md
           (
             cd android/app/build/outputs/apk/release
             md5sum *.apk
-          ) >> ./publish/changeLog.md
-          echo -e '```\n' >> ./publish/changeLog.md
-          echo -e '\n[软件安装包说明](https://lyswhut.github.io/lx-music-doc/download#%E8%BD%AF%E4%BB%B6%E5%AE%89%E8%A3%85%E5%8C%85%E8%AF%B4%E6%98%8E)\n' >> ./publish/changeLog.md
+          ) >> ./publish/releaseBody.md
+          echo -e '```\n' >> ./publish/releaseBody.md
+          echo -e '\n[软件安装包说明](https://lyswhut.github.io/lx-music-doc/download#%E8%BD%AF%E4%BB%B6%E5%AE%89%E8%A3%85%E5%8C%85%E8%AF%B4%E6%98%8E)\n' >> ./publish/releaseBody.md
 
       - name: Commit release metadata back to main
         run: |
@@ -97,7 +97,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: juMusic 安卓版 v${{ env.PACKAGE_VERSION }}
-          body_path: ./publish/changeLog.md
+          body_path: ./publish/releaseBody.md
           generate_release_notes: false
           prerelease: false
           draft: false

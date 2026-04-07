@@ -1,7 +1,7 @@
 {
-  "client_id": "116da1c1-fc09-4a63-b44d-61f4ebad5e4f",
+  "client_id": "__ONEDRIVE_CLIENT_ID__",
   "authorization_user_agent": "DEFAULT",
-  "redirect_uri": "msauth://io.ifwlzs.jumusic.lx/Xo8WBi6jzSxKDVR4drqm84yr9iU%3D",
+  "redirect_uri": "__ONEDRIVE_REDIRECT_URI__",
   "broker_redirect_uri_registered": true,
   "account_mode": "SINGLE",
   "authorities": [
