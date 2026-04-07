@@ -43,6 +43,19 @@ test('formatReleaseVersion uses Asia/Shanghai yymmddhh', () => {
   )
 })
 
+test('selectReleaseVersion appends the next available suffix when the hourly tag already exists', () => {
+  assert.equal(fs.existsSync(versioningPath), true)
+  const { selectReleaseVersion } = require(versioningPath)
+
+  assert.equal(
+    selectReleaseVersion({
+      date: new Date('2026-04-05T15:00:00.000Z'),
+      existingVersions: ['26040523', '260405231'],
+    }),
+    '260405232',
+  )
+})
+
 test('applyReleaseVersion syncs package, version json, and changelog content', () => {
   assert.equal(fs.existsSync(versioningPath), true)
   const { applyReleaseVersion } = require(versioningPath)

@@ -26,6 +26,24 @@ const formatReleaseVersion = (date = new Date()) => {
   return `${parts.year}${parts.month}${parts.day}${parts.hour}`
 }
 
+const normalizeReleaseVersion = version => String(version).replace(/^v/, '')
+
+const selectReleaseVersion = ({
+  date = new Date(),
+  existingVersions = [],
+} = {}) => {
+  const baseVersion = formatReleaseVersion(date)
+  const normalizedVersions = new Set(existingVersions.map(normalizeReleaseVersion))
+  if (!normalizedVersions.has(baseVersion)) return baseVersion
+
+  for (let suffix = 1; suffix <= 9; suffix += 1) {
+    const candidate = `${baseVersion}${suffix}`
+    if (!normalizedVersions.has(candidate)) return candidate
+  }
+
+  throw new Error(`No available release version for base ${baseVersion}`)
+}
+
 const formatReleaseDate = (date = new Date()) => {
   const parts = getFormattedParts(dateFormatter, date)
   return `${parts.year}-${parts.month}-${parts.day}`
@@ -186,5 +204,6 @@ module.exports = {
   formatReleaseDate,
   formatReleaseVersion,
   parseChangelog,
+  selectReleaseVersion,
   sanitizeReleaseNotesMarkdown,
 }
