@@ -641,13 +641,15 @@ test('deleteMediaConnection removes generated lists and converts custom-list ref
   assert.equal(saved.removedCredential, 'cred_1')
 })
 
-test('syncImportRule routes remote providers through the streaming sync coordinator path', async() => {
+test('syncImportRule prefers streamEnumerateSelection for remote providers when available', async() => {
   const connection = createConnection({
     providerType: 'onedrive',
     displayName: 'OneDrive',
   })
   const rule = createRule()
   const calls = []
+  let streamCalls = 0
+  let enumerateCalls = 0
   const saved = {
     snapshot: null,
     sourceItems: null,
@@ -694,7 +696,36 @@ test('syncImportRule routes remote providers through the streaming sync coordina
     registry: {
       get() {
         return {
+          async streamEnumerateSelection(_connection, _selection, onBatch) {
+            streamCalls += 1
+            await onBatch([{
+              sourceStableKey: '/Albums/new_remote.mp3',
+              connectionId: 'conn_1',
+              providerType: 'onedrive',
+              pathOrUri: '/Albums/new_remote.mp3',
+              fileName: 'new_remote.mp3',
+              fileSize: 100,
+              modifiedTime: 1700000000000,
+              versionToken: 'v_new_remote',
+              metadataLevelReached: 0,
+            }])
+            return {
+              complete: true,
+              items: [{
+                sourceStableKey: '/Albums/new_remote.mp3',
+                connectionId: 'conn_1',
+                providerType: 'onedrive',
+                pathOrUri: '/Albums/new_remote.mp3',
+                fileName: 'new_remote.mp3',
+                fileSize: 100,
+                modifiedTime: 1700000000000,
+                versionToken: 'v_new_remote',
+                metadataLevelReached: 0,
+              }],
+            }
+          },
           async enumerateSelection() {
+            enumerateCalls += 1
             return {
               complete: true,
               items: [{
@@ -736,6 +767,8 @@ test('syncImportRule routes remote providers through the streaming sync coordina
     },
   })
 
+  assert.equal(streamCalls, 1)
+  assert.equal(enumerateCalls, 0)
   assert.deepEqual(calls, [
     ['reconcile', ['old_remote', 'conn_1__/Albums/new_remote.mp3']],
     ['reconcile', ['conn_1__/Albums/new_remote.mp3']],
@@ -744,4 +777,91 @@ test('syncImportRule routes remote providers through the streaming sync coordina
   assert.equal(result.isComplete, true)
   assert.deepEqual(result.removedIds, ['old_remote'])
   assert.equal(saved.snapshot.snapshot.items[0].sourceItemId, 'conn_1__/Albums/new_remote.mp3')
+})
+
+test('syncImportRule falls back to enumerateSelection when streamEnumerateSelection is unavailable', async() => {
+  const connection = createConnection({
+    providerType: 'onedrive',
+    displayName: 'OneDrive',
+  })
+  const rule = createRule()
+  let enumerateCalls = 0
+
+  const result = await syncImportRule({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: 'rule_1',
+          scannedAt: 1,
+          items: [],
+        }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return []
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            enumerateCalls += 1
+            return {
+              complete: true,
+              items: [{
+                sourceStableKey: '/Albums/new_remote.mp3',
+                connectionId: 'conn_1',
+                providerType: 'onedrive',
+                pathOrUri: '/Albums/new_remote.mp3',
+                fileName: 'new_remote.mp3',
+                fileSize: 100,
+                modifiedTime: 1700000000000,
+                versionToken: 'v_new_remote',
+                metadataLevelReached: 0,
+              }],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: {
+                title: 'new_remote',
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+  })
+
+  assert.equal(enumerateCalls, 1)
+  assert.equal(result.isComplete, true)
+  assert.deepEqual(result.nextItems.map(item => item.sourceItemId), [
+    'conn_1__/Albums/new_remote.mp3',
+  ])
 })

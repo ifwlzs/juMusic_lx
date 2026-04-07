@@ -37,6 +37,10 @@ function buildSourceItemResumeKey(item = {}) {
   return item.sourceUniqueKey || item.pathOrUri || ''
 }
 
+function buildCandidateResumeKey(candidate = {}) {
+  return candidate.sourceStableKey || candidate.pathOrUri || ''
+}
+
 function buildSourceItemLookup(items = []) {
   const map = new Map()
   for (const item of items) {
@@ -57,8 +61,9 @@ function toSyncCandidateMetadata(item = {}) {
 }
 
 function isReusableCommittedItem(sourceItem, candidate) {
-  if (!sourceItem || !candidate?.sourceStableKey) return false
-  if (buildSourceItemResumeKey(sourceItem) !== candidate.sourceStableKey) return false
+  const candidateKey = buildCandidateResumeKey(candidate)
+  if (!sourceItem || !candidateKey) return false
+  if (buildSourceItemResumeKey(sourceItem) !== candidateKey) return false
   return String(sourceItem.versionToken || '') === String(candidate.versionToken || '')
 }
 
@@ -199,7 +204,7 @@ async function runRemoteStreamingSync({
   jobControl = null,
 }) {
   const provider = registry.get(connection.providerType)
-  if (!provider?.enumerateSelection || !provider?.hydrateCandidate) {
+  if ((!provider?.streamEnumerateSelection && !provider?.enumerateSelection) || !provider?.hydrateCandidate) {
     throw new Error(`Provider ${connection.providerType} does not support streaming sync`)
   }
 
@@ -222,6 +227,9 @@ async function runRemoteStreamingSync({
   let connectionSourceItems = []
   let aggregateSongs = []
   let committer = null
+  let readyCount = 0
+  let degradedCount = 0
+  let failedCount = 0
 
   const persistCheckpoint = async(currentCommittedItems = committedItems) => {
     const checkpointItems = mergeSourceItems(previousSnapshot.items, dedupeSourceItems(currentCommittedItems))
@@ -240,6 +248,29 @@ async function runRemoteStreamingSync({
   const assertJobCanContinue = async() => {
     await jobControl?.heartbeat?.()
     if (await jobControl?.isPauseRequested?.()) throw createMediaImportJobPausedError()
+  }
+
+  const persistSyncWorkspace = async(phase = 'hydrate') => {
+    await upsertSyncRun(repository, {
+      runId,
+      providerType: connection.providerType,
+      connectionId: connection.connectionId,
+      ruleId: rule.ruleId,
+      triggerSource,
+      phase,
+      status: 'running',
+      startedAt: scanAt,
+      finishedAt: null,
+      discoveredCount: discoveredCandidates.length,
+      readyCount,
+      degradedCount,
+      committedCount: committedItems.length,
+      failedCount,
+    })
+
+    if (typeof repository.saveSyncCandidates === 'function') {
+      await repository.saveSyncCandidates(runId, [...candidateStates.values()])
+    }
   }
 
   const recomputeVisibleState = async(currentItems, { persistFinalState = false } = {}) => {
@@ -302,63 +333,12 @@ async function runRemoteStreamingSync({
 
   try {
     await assertJobCanContinue()
+    await persistSyncWorkspace('enumerate')
     await notifications?.showSyncProgress({
       connectionName: connection.displayName,
       phase: 'enumerate',
       committedCount: 0,
       totalCount: 0,
-    })
-
-    enumerateResult = await provider.enumerateSelection(connection, normalizeImportSelection(rule))
-    discoveredCandidates = enumerateResult.items || []
-    let readyCount = 0
-    let degradedCount = 0
-    let failedCount = 0
-
-    for (const candidate of discoveredCandidates) {
-      const reusableItem = previousItemsByKey.get(candidate.sourceStableKey)
-      const isReusable = isReusableCommittedItem(reusableItem, candidate)
-      if (isReusable) {
-        if (reusableItem.scanStatus === 'degraded') degradedCount += 1
-        else readyCount += 1
-      }
-      candidateStates.set(candidate.sourceStableKey, {
-        ...candidate,
-        hydrateState: isReusable ? 'committed' : 'discovered',
-        attempts: isReusable ? 0 : 0,
-        lastError: '',
-        metadata: isReusable ? toSyncCandidateMetadata(reusableItem) : null,
-      })
-    }
-
-    const resumedCommittedCount = readyCount + degradedCount
-
-    await upsertSyncRun(repository, {
-      runId,
-      providerType: connection.providerType,
-      connectionId: connection.connectionId,
-      ruleId: rule.ruleId,
-      triggerSource,
-      phase: 'hydrate',
-      status: 'running',
-      startedAt: scanAt,
-      finishedAt: null,
-      discoveredCount: discoveredCandidates.length,
-      readyCount,
-      degradedCount,
-      committedCount: resumedCommittedCount,
-      failedCount: 0,
-    })
-
-    if (typeof repository.saveSyncCandidates === 'function') {
-      await repository.saveSyncCandidates(runId, [...candidateStates.values()])
-    }
-
-    await notifications?.showSyncProgress({
-      connectionName: connection.displayName,
-      phase: 'hydrate',
-      committedCount: resumedCommittedCount,
-      totalCount: discoveredCandidates.length,
     })
 
     committer = createReadyBatchCommitter({
@@ -372,71 +352,130 @@ async function runRemoteStreamingSync({
           totalCount: discoveredCandidates.length,
         })
         await persistCheckpoint(committedItems)
+        await persistSyncWorkspace('hydrate')
       },
     })
 
-    for (const candidate of discoveredCandidates) {
-      await assertJobCanContinue()
-      const reusableItem = previousItemsByKey.get(candidate.sourceStableKey)
-      if (isReusableCommittedItem(reusableItem, candidate)) {
-        await committer.push({
-          ...reusableItem,
-          lastSeenAt: scanAt,
-        })
-        continue
-      }
-      let classification = { state: 'hydrating' }
-      let lastError = ''
-      let lastMetadata = null
-      let metadataLevelReached = candidate.metadataLevelReached || 0
+    const processCandidateBatch = async(batch = []) => {
+      if (!batch.length) return
 
-      for (let attempt = 1; attempt <= maxHydrateAttempts; attempt += 1) {
+      await notifications?.showSyncProgress({
+        connectionName: connection.displayName,
+        phase: 'hydrate',
+        committedCount: committedItems.length,
+        totalCount: discoveredCandidates.length + batch.length,
+      })
+
+      for (const candidate of batch) {
+        const candidateKey = buildCandidateResumeKey(candidate)
+        if (!candidateKey || candidateStates.has(candidateKey)) continue
+
+        discoveredCandidates.push(candidate)
+        const reusableItem = previousItemsByKey.get(candidateKey)
+        const isReusable = isReusableCommittedItem(reusableItem, candidate)
+        if (isReusable) {
+          if (reusableItem.scanStatus === 'degraded') degradedCount += 1
+          else readyCount += 1
+        }
+        candidateStates.set(candidateKey, {
+          ...candidate,
+          sourceStableKey: candidateKey,
+          hydrateState: isReusable ? 'committed' : 'discovered',
+          attempts: 0,
+          lastError: '',
+          metadataLevelReached: candidate.metadataLevelReached || 0,
+          metadata: isReusable ? toSyncCandidateMetadata(reusableItem) : null,
+        })
+
         await assertJobCanContinue()
-        try {
-          const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
-          lastMetadata = hydrated?.metadata || null
-          metadataLevelReached = hydrated?.metadataLevelReached ?? metadataLevelReached
-        } catch (error) {
-          lastMetadata = null
-          lastError = String(error?.message || error || 'hydrate failed')
+        if (isReusable) {
+          await committer.push({
+            ...reusableItem,
+            lastSeenAt: scanAt,
+          })
+          continue
         }
 
-        classification = classifyHydrationResult({
-          attempts: attempt,
-          metadata: lastMetadata || {},
-          fallbackTitle: candidate.fileName,
-        })
+        let classification = { state: 'hydrating' }
+        let lastError = ''
+        let lastMetadata = null
+        let metadataLevelReached = candidate.metadataLevelReached || 0
 
-        candidateStates.set(candidate.sourceStableKey, {
-          ...candidate,
-          hydrateState: classification.state,
-          attempts: attempt,
-          lastError,
-          metadataLevelReached,
-          metadata: lastMetadata,
-        })
+        for (let attempt = 1; attempt <= maxHydrateAttempts; attempt += 1) {
+          await assertJobCanContinue()
+          try {
+            const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
+            lastMetadata = hydrated?.metadata || null
+            metadataLevelReached = hydrated?.metadataLevelReached ?? metadataLevelReached
+          } catch (error) {
+            lastMetadata = null
+            lastError = String(error?.message || error || 'hydrate failed')
+          }
 
-        if (classification.state !== 'hydrating') break
+          classification = classifyHydrationResult({
+            attempts: attempt,
+            metadata: lastMetadata || {},
+            fallbackTitle: candidate.fileName,
+          })
+
+          candidateStates.set(candidateKey, {
+            ...candidate,
+            sourceStableKey: candidateKey,
+            hydrateState: classification.state,
+            attempts: attempt,
+            lastError,
+            metadataLevelReached,
+            metadata: lastMetadata,
+          })
+
+          if (classification.state !== 'hydrating') break
+        }
+
+        if (classification.state === 'ready') readyCount += 1
+        if (classification.state === 'degraded') degradedCount += 1
+        if (lastError) failedCount += 1
+
+        if (classification.state === 'ready' || classification.state === 'degraded') {
+          const sourceItem = buildSourceItemFromCandidate({
+            connection,
+            candidate: {
+              ...candidate,
+              sourceStableKey: candidateKey,
+            },
+            classification,
+            scanAt,
+          })
+          candidateStates.set(candidateKey, {
+            ...candidateStates.get(candidateKey),
+            hydrateState: 'committed',
+          })
+          await committer.push(sourceItem)
+        }
       }
 
-      if (classification.state === 'ready') readyCount += 1
-      if (classification.state === 'degraded') degradedCount += 1
-      if (lastError) failedCount += 1
-
-      if (classification.state === 'ready' || classification.state === 'degraded') {
-        const sourceItem = buildSourceItemFromCandidate({
-          connection,
-          candidate,
-          classification,
-          scanAt,
-        })
-        candidateStates.set(candidate.sourceStableKey, {
-          ...candidateStates.get(candidate.sourceStableKey),
-          hydrateState: 'committed',
-        })
-        await committer.push(sourceItem)
-      }
+      await persistSyncWorkspace('hydrate')
     }
+
+    if (typeof provider.streamEnumerateSelection === 'function') {
+      enumerateResult = await provider.streamEnumerateSelection(
+        connection,
+        normalizeImportSelection(rule),
+        processCandidateBatch
+      )
+      const remainingCandidates = (enumerateResult.items || [])
+        .filter(candidate => !candidateStates.has(buildCandidateResumeKey(candidate)))
+      await processCandidateBatch(remainingCandidates)
+    } else {
+      enumerateResult = await provider.enumerateSelection(connection, normalizeImportSelection(rule))
+      await processCandidateBatch(enumerateResult.items || [])
+    }
+
+    await notifications?.showSyncProgress({
+      connectionName: connection.displayName,
+      phase: 'hydrate',
+      committedCount: committedItems.length,
+      totalCount: discoveredCandidates.length,
+    })
 
     await committer.flush()
     await assertJobCanContinue()
@@ -530,10 +569,10 @@ async function runRemoteStreamingSync({
         startedAt: scanAt,
         finishedAt: now(),
         discoveredCount: candidateStates.size,
-        readyCount: committedItems.length,
-        degradedCount: 0,
+        readyCount,
+        degradedCount,
         committedCount: committedItems.length,
-        failedCount: 0,
+        failedCount,
       })
       throw error
     }
@@ -549,10 +588,10 @@ async function runRemoteStreamingSync({
       startedAt: scanAt,
       finishedAt: now(),
       discoveredCount: candidateStates.size,
-      readyCount: committedItems.length,
-      degradedCount: 0,
+      readyCount,
+      degradedCount,
       committedCount: committedItems.length,
-      failedCount: 1,
+      failedCount: failedCount || 1,
     })
     await notifications?.showSyncFailed({
       connectionName: connection.displayName,

@@ -297,6 +297,99 @@ test('runRemoteStreamingSync checkpoints flushed batches before the full remote 
   assert.ok(saved.reconciles.length >= 2)
 })
 
+test('runRemoteStreamingSync commits the first streamed batch before full enumeration completes', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  const reconcileEvents = []
+  let savedSourceItems = []
+
+  await runRemoteStreamingSync({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: 'rule_1',
+          scannedAt: 1,
+          items: [],
+        }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems(_connectionId, items) {
+        savedSourceItems = items
+      },
+      async getAllSourceItems() {
+        return savedSourceItems
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async streamEnumerateSelection(_connection, _selection, onBatch) {
+            const first = createCandidate(1)
+            const second = createCandidate(2)
+            await onBatch([first])
+            reconcileEvents.push('after_first_batch')
+            await onBatch([second])
+            return {
+              complete: true,
+              items: [first, second],
+            }
+          },
+          async enumerateSelection(connectionArg, selectionArg) {
+            const items = []
+            const result = await this.streamEnumerateSelection(connectionArg, selectionArg, async batch => {
+              items.push(...batch)
+            })
+            return {
+              ...result,
+              items,
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: {
+                title: candidate.fileName.replace(/\.[^.]+$/, ''),
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists(generatedLists) {
+        const accountAll = generatedLists.find(item => item.listInfo.mediaSource.kind === 'account_all')
+        reconcileEvents.push(accountAll?.list.length || 0)
+      },
+      async removeMissingSongs() {},
+    },
+    batchCommitterOptions: {
+      maxBatchSize: 1,
+    },
+  })
+
+  assert.deepEqual(reconcileEvents.slice(0, 2), [1, 'after_first_batch'])
+})
+
 test('runRemoteStreamingSync reuses checkpointed items with unchanged version tokens after an interrupted run', async() => {
   const connection = createConnection()
   const rule = createRule()

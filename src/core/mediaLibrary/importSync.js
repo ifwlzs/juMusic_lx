@@ -205,7 +205,11 @@ async function syncImportRule({
   jobControl = null,
 }) {
   const provider = registry?.get?.(connection.providerType)
-  if (connection.providerType !== 'local' && provider?.enumerateSelection && provider?.hydrateCandidate) {
+  if (
+    connection.providerType !== 'local' &&
+    (provider?.streamEnumerateSelection || provider?.enumerateSelection) &&
+    provider?.hydrateCandidate
+  ) {
     return runRemoteStreamingSync({
       connection,
       rule,
