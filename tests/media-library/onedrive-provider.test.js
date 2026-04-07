@@ -235,6 +235,128 @@ test('onedrive provider downloadToCache delegates to downloadFile', async() => {
   assert.deepEqual(calls, [['onedrive_conn', '/Music/test.mp3', '/cache/test.mp3']])
 })
 
+test('onedrive provider enumerateSelection stays lightweight and does not read metadata', async() => {
+  let downloadCount = 0
+  let metadataCount = 0
+  const provider = createOneDriveProvider({
+    async listChildren(_connection, pathOrUri) {
+      if (pathOrUri !== '/Albums') return { items: [], nextLink: null }
+      return {
+        items: [{
+          id: 'track_1',
+          name: 'song.mp3',
+          file: { mimeType: 'audio/mpeg' },
+          size: 100,
+          eTag: '"song_1"',
+          parentReference: { path: '/drive/root:/Albums' },
+          lastModifiedDateTime: '2026-04-06T10:00:00Z',
+        }],
+        nextLink: null,
+      }
+    },
+    async getItemByPath() {
+      return null
+    },
+    async downloadFile() {
+      downloadCount += 1
+      return null
+    },
+    async readMetadata() {
+      metadataCount += 1
+      return null
+    },
+  })
+
+  const result = await provider.enumerateSelection({
+    connectionId: 'onedrive_conn',
+    providerType: 'onedrive',
+    rootPathOrUri: '/',
+  }, normalizeImportSelection({
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/Albums', displayName: 'Albums' }],
+    tracks: [],
+  }))
+
+  assert.deepEqual(result.items, [{
+    sourceStableKey: '/Albums/song.mp3',
+    connectionId: 'onedrive_conn',
+    providerType: 'onedrive',
+    pathOrUri: '/Albums/song.mp3',
+    fileName: 'song.mp3',
+    fileSize: 100,
+    modifiedTime: Date.parse('2026-04-06T10:00:00Z'),
+    versionToken: '"song_1"',
+    metadataLevelReached: 0,
+  }])
+  assert.equal(downloadCount, 0)
+  assert.equal(metadataCount, 0)
+})
+
+test('onedrive provider hydrateCandidate reads metadata for a lightweight candidate', async() => {
+  const calls = []
+  const provider = createOneDriveProvider({
+    async listChildren() {
+      return { items: [], nextLink: null }
+    },
+    async getItemByPath() {
+      return null
+    },
+    async downloadFile(connection, pathOrUri, savePath) {
+      calls.push(['download', connection.connectionId, pathOrUri, savePath])
+      return savePath
+    },
+    async readMetadata(localPath) {
+      calls.push(['metadata', localPath])
+      return {
+        name: 'Hydrated Song',
+        singer: 'Hydrated Singer',
+        albumName: 'Hydrated Album',
+        interval: 321,
+      }
+    },
+    createTempFilePath(fileName) {
+      calls.push(['temp', fileName])
+      return `/tmp/${fileName}`
+    },
+    async removeTempFile(localPath) {
+      calls.push(['cleanup', localPath])
+    },
+  })
+
+  const result = await provider.hydrateCandidate({
+    connectionId: 'onedrive_conn',
+    providerType: 'onedrive',
+  }, {
+    sourceStableKey: '/Albums/song.mp3',
+    pathOrUri: '/Albums/song.mp3',
+    fileName: 'song.mp3',
+    versionToken: '"song_1"',
+  }, {
+    attempt: 2,
+  })
+
+  assert.deepEqual(result, {
+    candidate: {
+      sourceStableKey: '/Albums/song.mp3',
+      pathOrUri: '/Albums/song.mp3',
+      fileName: 'song.mp3',
+      versionToken: '"song_1"',
+    },
+    metadata: {
+      title: 'Hydrated Song',
+      artist: 'Hydrated Singer',
+      album: 'Hydrated Album',
+      durationSec: 321,
+    },
+    metadataLevelReached: 2,
+  })
+  assert.deepEqual(calls, [
+    ['temp', 'song.mp3'],
+    ['download', 'onedrive_conn', '/Albums/song.mp3', '/tmp/song.mp3'],
+    ['metadata', '/tmp/song.mp3'],
+    ['cleanup', '/tmp/song.mp3'],
+  ])
+})
+
 test('onedrive provider caps concurrent metadata reads during scanSelection', async() => {
   let activeMetadataReads = 0
   let maxActiveMetadataReads = 0

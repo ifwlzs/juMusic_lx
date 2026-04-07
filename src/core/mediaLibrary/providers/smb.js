@@ -32,6 +32,42 @@ function toBrowserNode(entry) {
   }
 }
 
+function toCandidate(connection, file) {
+  return {
+    sourceStableKey: file.path,
+    connectionId: connection.connectionId,
+    providerType: 'smb',
+    pathOrUri: file.path,
+    fileName: file.name,
+    fileSize: file.size || 0,
+    modifiedTime: file.modifiedTime || 0,
+    versionToken: buildSmbVersionToken({
+      modifiedTime: file.modifiedTime || 0,
+      fileSize: file.size || 0,
+      pathOrUri: file.path,
+    }),
+    metadataLevelReached: 0,
+  }
+}
+
+function normalizeHydratedMetadata(candidate, metadata) {
+  return {
+    title: metadata?.name || stripExtension(candidate?.fileName || ''),
+    artist: metadata?.singer || '',
+    album: metadata?.albumName || '',
+    durationSec: metadata?.interval || 0,
+  }
+}
+
+async function hydrateCandidateMetadata(connection, candidate, attempt, readMetadata) {
+  const metadata = await readMetadata(candidate?.pathOrUri, connection, candidate)
+  return {
+    candidate,
+    metadata: normalizeHydratedMetadata(candidate, metadata),
+    metadataLevelReached: Math.max(Number(attempt) || 0, metadata ? 1 : 0),
+  }
+}
+
 async function collectSmbFiles(listDirectory, rootPathOrUri, connection) {
   const files = []
   let skipped = 0
@@ -119,6 +155,28 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadata
       return entries
         .filter(entry => entry.isDirectory || isAudioFile(entry.name))
         .map(toBrowserNode)
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const files = []
+
+      for (const directory of selection.directories || []) {
+        const nested = await collectSmbFiles(listDirectory, directory.pathOrUri, connection)
+        files.push(...nested.files)
+      }
+
+      for (const track of selection.tracks || []) {
+        const entry = await resolveSmbFile(listDirectory, connection, track.pathOrUri)
+        if (entry && isAudioFile(entry.name)) files.push(entry)
+      }
+
+      const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
+      return {
+        complete: true,
+        items: dedupedFiles.map(file => toCandidate(connection, file)),
+      }
+    },
+    async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
+      return hydrateCandidateMetadata(connection, candidate, attempt, readMetadata)
     },
     async scanSelection(connection, selection = {}) {
       const files = []

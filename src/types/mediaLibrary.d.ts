@@ -6,6 +6,13 @@ declare namespace LX {
     type BrowserNodeKind = 'directory' | 'track'
     type ImportJobType = 'import_rule_sync' | 'delete_rule_rebuild'
     type ImportJobStatus = 'queued' | 'running' | 'success' | 'failed' | 'cancelled'
+    type SyncTriggerSource = 'manual' | 'auto'
+    type AutoSyncTrigger = 'boot' | 'media_sources_page'
+    type SyncPhase = 'enumerate' | 'hydrate' | 'commit' | 'reconcile_delete'
+    type SyncRunStatus = 'queued' | 'running' | 'success' | 'failed'
+    type SyncCandidateState = 'discovered' | 'hydrating' | 'ready' | 'degraded' | 'committed' | 'dropped'
+    type CacheOrigin = 'play' | 'prefetch'
+    type PrefetchState = 'queued' | 'running' | 'ready' | 'failed'
 
     interface ConnectionCredential {
       host?: string
@@ -77,7 +84,60 @@ declare namespace LX {
       error?: string
       payload?: {
         previousRule?: ImportRule | null
+        triggerSource?: SyncTriggerSource
+        autoSyncTrigger?: AutoSyncTrigger
       } | null
+    }
+
+    interface SyncRun {
+      runId: string
+      providerType: ProviderType
+      connectionId: string
+      ruleId?: string | null
+      triggerSource: SyncTriggerSource
+      phase: SyncPhase
+      status: SyncRunStatus
+      startedAt?: number | null
+      finishedAt?: number | null
+      discoveredCount: number
+      readyCount: number
+      degradedCount: number
+      committedCount: number
+      failedCount: number
+    }
+
+    interface SyncCandidateMetadata {
+      title?: string
+      artist?: string
+      album?: string
+      durationSec?: number
+      mimeType?: string
+    }
+
+    interface SyncCandidate {
+      sourceStableKey: string
+      pathOrUri: string
+      fileName?: string
+      versionToken?: string
+      fileSize?: number
+      modifiedTime?: number | null
+      hydrateState: SyncCandidateState
+      metadataLevelReached?: number
+      attempts?: number
+      lastError?: string
+      metadata?: SyncCandidateMetadata | null
+    }
+
+    interface SyncSnapshotItem {
+      sourceStableKey: string
+      versionToken: string
+      pathOrUri: string
+    }
+
+    interface SyncSnapshot {
+      ruleId: string
+      capturedAt: number | null
+      items: SyncSnapshotItem[]
     }
 
     interface BrowserNode {
@@ -130,6 +190,8 @@ declare namespace LX {
       localFilePath: string
       cachedFileSize?: number
       cacheStatus?: string
+      cacheOrigin?: CacheOrigin
+      prefetchState?: PrefetchState
       createdAt?: number | null
       lastAccessAt?: number | null
     }

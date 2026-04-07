@@ -40,7 +40,7 @@ const downloadRemoteFile = async(musicInfo: LX.Music.MusicInfoRemoteFile, target
   return targetPath
 }
 
-const resolveLocalPlayableFilePath = async(musicInfo: LX.Music.MusicInfoRemoteFile, isRefresh: boolean) => {
+const resolveLocalPlayableFilePath = async(musicInfo: LX.Music.MusicInfoRemoteFile, isRefresh: boolean, origin = 'play') => {
   const pendingKey = `${musicInfo.meta.mediaLibrary!.sourceItemId}__${isRefresh ? 'refresh' : 'default'}`
   const pendingTask = pendingPlayableFilePaths.get(pendingKey)
   if (pendingTask) return pendingTask
@@ -74,10 +74,17 @@ const resolveLocalPlayableFilePath = async(musicInfo: LX.Music.MusicInfoRemoteFi
           sourceItemId: musicInfo.meta.mediaLibrary!.sourceItemId,
           versionToken: musicInfo.meta.mediaLibrary!.versionToken,
           localFilePath,
-        })
+        }, { origin })
         return localFilePath
       },
     })
+
+    if (result.cacheHit && cacheEntry) {
+      await upsertCacheEntry(mediaLibraryRepository, {
+        ...cacheEntry,
+        localFilePath: result.url.replace(/^file:\/\//, ''),
+      }, { origin })
+    }
 
     return result.url.replace(/^file:\/\//, '')
   })()
@@ -92,8 +99,12 @@ export const getMusicUrl = async({ musicInfo, isRefresh }: {
   musicInfo: LX.Music.MusicInfoRemoteFile
   isRefresh: boolean
 }) => {
-  const filePath = await resolveLocalPlayableFilePath(musicInfo, isRefresh)
+  const filePath = await resolveLocalPlayableFilePath(musicInfo, isRefresh, 'play')
   return `file://${filePath}`
+}
+
+export const prefetchMediaLibraryTrack = async(musicInfo: LX.Music.MusicInfoRemoteFile) => {
+  return resolveLocalPlayableFilePath(musicInfo, false, 'prefetch')
 }
 
 export const getLyricInfo = async({ musicInfo, isRefresh }: {

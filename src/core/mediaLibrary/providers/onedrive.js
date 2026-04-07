@@ -115,6 +115,45 @@ function buildVersionToken(item, pathOrUri) {
   return `${Date.parse(item?.lastModifiedDateTime || 0) || 0}__${item?.size || 0}__${pathOrUri || ''}`
 }
 
+function toCandidate(connection, item) {
+  const pathOrUri = buildPathOrUri(item)
+  return {
+    sourceStableKey: pathOrUri,
+    connectionId: connection.connectionId,
+    providerType: 'onedrive',
+    pathOrUri,
+    fileName: item?.name || getFileName(pathOrUri),
+    fileSize: item?.size || 0,
+    modifiedTime: item?.lastModifiedDateTime ? Date.parse(item.lastModifiedDateTime) || 0 : 0,
+    versionToken: buildVersionToken(item, pathOrUri),
+    metadataLevelReached: 0,
+  }
+}
+
+function normalizeHydratedMetadata(candidate, metadata) {
+  return {
+    title: metadata?.name || stripExtension(candidate?.fileName || ''),
+    artist: metadata?.singer || '',
+    album: metadata?.albumName || '',
+    durationSec: metadata?.interval || 0,
+  }
+}
+
+async function hydrateCandidateMetadata(connection, candidate, attempt, helpers = {}) {
+  const metadata = await readRemoteMetadata({
+    connection,
+    item: { name: candidate?.fileName || getFileName(candidate?.pathOrUri) },
+    pathOrUri: candidate?.pathOrUri,
+    ...helpers,
+  })
+
+  return {
+    candidate,
+    metadata: normalizeHydratedMetadata(candidate, metadata),
+    metadataLevelReached: Math.max(Number(attempt) || 0, metadata ? 1 : 0),
+  }
+}
+
 async function toSourceItem(connection, item, helpers = {}) {
   const pathOrUri = buildPathOrUri(item)
   const fileName = item?.name || getFileName(pathOrUri)
@@ -181,6 +220,31 @@ function createOneDriveProvider({
       return entries
         .filter(item => item?.folder || isAudioFile(item?.name))
         .map(toBrowserNode)
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const entries = []
+
+      for (const directory of selection.directories || []) {
+        entries.push(...await collectDirectoryTracks(listChildren, connection, directory.pathOrUri))
+      }
+
+      for (const track of selection.tracks || []) {
+        const entry = await getItemByPath(connection, track.pathOrUri)
+        if (entry?.file && isAudioFile(entry.name)) entries.push(entry)
+      }
+
+      return {
+        complete: true,
+        items: dedupeItems(entries).map(item => toCandidate(connection, item)),
+      }
+    },
+    async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
+      return hydrateCandidateMetadata(connection, candidate, attempt, {
+        downloadFile,
+        readMetadata,
+        createTempFilePath,
+        removeTempFile,
+      })
     },
     async scanSelection(connection, selection = {}) {
       const entries = []

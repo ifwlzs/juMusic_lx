@@ -5,6 +5,7 @@ const {
   scanImportSelection,
 } = require('./browse.js')
 const { buildAggregateSongs } = require('./dedupe.js')
+const { runRemoteStreamingSync } = require('./streamingSync.js')
 const { buildGeneratedListsForConnection } = require('./systemLists.js')
 
 function dedupeSourceItems(items = []) {
@@ -199,7 +200,23 @@ async function syncImportRule({
   listApi,
   now = () => Date.now(),
   skipMissingRemoval = false,
+  triggerSource = 'manual',
+  notifications = null,
 }) {
+  const provider = registry?.get?.(connection.providerType)
+  if (connection.providerType !== 'local' && provider?.enumerateSelection && provider?.hydrateCandidate) {
+    return runRemoteStreamingSync({
+      connection,
+      rule,
+      repository,
+      registry,
+      listApi,
+      now,
+      triggerSource,
+      notifications,
+    })
+  }
+
   const scanAt = now()
   const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || {
     ruleId: rule.ruleId,
@@ -306,6 +323,8 @@ async function updateImportRule({
   registry,
   listApi,
   now = () => Date.now(),
+  triggerSource = 'manual',
+  notifications = null,
 }) {
   const priorRule = previousRule || (
     typeof repository.getImportRules === 'function'
@@ -326,6 +345,8 @@ async function updateImportRule({
     listApi,
     now,
     skipMissingRemoval: selectionChanged,
+    triggerSource,
+    notifications,
   })
 
   if (!selectionChanged || !result.isComplete) return result

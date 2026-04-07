@@ -640,3 +640,108 @@ test('deleteMediaConnection removes generated lists and converts custom-list ref
   })
   assert.equal(saved.removedCredential, 'cred_1')
 })
+
+test('syncImportRule routes remote providers through the streaming sync coordinator path', async() => {
+  const connection = createConnection({
+    providerType: 'onedrive',
+    displayName: 'OneDrive',
+  })
+  const rule = createRule()
+  const calls = []
+  const saved = {
+    snapshot: null,
+    sourceItems: null,
+  }
+
+  const result = await syncImportRule({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: 'rule_1',
+          scannedAt: 1,
+          items: [createSourceItem({
+            sourceItemId: 'old_remote',
+            pathOrUri: '/Albums/old_remote.mp3',
+          })],
+        }
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems(connectionId, items) {
+        saved.sourceItems = { connectionId, items }
+      },
+      async getAllSourceItems() {
+        return saved.sourceItems?.items || []
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [{
+                sourceStableKey: '/Albums/new_remote.mp3',
+                connectionId: 'conn_1',
+                providerType: 'onedrive',
+                pathOrUri: '/Albums/new_remote.mp3',
+                fileName: 'new_remote.mp3',
+                fileSize: 100,
+                modifiedTime: 1700000000000,
+                versionToken: 'v_new_remote',
+                metadataLevelReached: 0,
+              }],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: {
+                title: 'new_remote',
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists(generatedLists) {
+        const accountAll = generatedLists.find(item => item.listInfo.mediaSource.kind === 'account_all')
+        calls.push(['reconcile', accountAll?.list.map(item => item.id) || []])
+      },
+      async removeMissingSongs(ids) {
+        calls.push(['remove', ids])
+      },
+    },
+  })
+
+  assert.deepEqual(calls, [
+    ['reconcile', ['old_remote', 'conn_1__/Albums/new_remote.mp3']],
+    ['reconcile', ['conn_1__/Albums/new_remote.mp3']],
+    ['remove', ['old_remote']],
+  ])
+  assert.equal(result.isComplete, true)
+  assert.deepEqual(result.removedIds, ['old_remote'])
+  assert.equal(saved.snapshot.snapshot.items[0].sourceItemId, 'conn_1__/Albums/new_remote.mp3')
+})

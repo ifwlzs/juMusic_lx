@@ -7,6 +7,9 @@ function createKeyBuilder(prefix = '@media_library__') {
     importRules: () => `${prefix}import_rules`,
     importJobs: () => `${prefix}import_jobs`,
     importSnapshot: ruleId => `${prefix}import_snapshot__${ruleId}`,
+    syncRuns: () => `${prefix}sync_runs`,
+    syncCandidates: runId => `${prefix}sync_candidates__${runId}`,
+    syncSnapshot: ruleId => `${prefix}sync_snapshot__${ruleId}`,
     sourceItems: connectionId => `${prefix}source_items__${connectionId}`,
     aggregateSongs: () => `${prefix}aggregate_songs`,
     caches: () => `${prefix}caches`,
@@ -55,6 +58,73 @@ function sanitizeImportJob(job = {}) {
   }
 }
 
+function sanitizeSyncRun(run = {}) {
+  return {
+    runId: run.runId,
+    providerType: run.providerType,
+    connectionId: run.connectionId,
+    ruleId: run.ruleId ?? null,
+    triggerSource: run.triggerSource,
+    phase: run.phase,
+    status: run.status,
+    startedAt: run.startedAt ?? null,
+    finishedAt: run.finishedAt ?? null,
+    discoveredCount: run.discoveredCount ?? 0,
+    readyCount: run.readyCount ?? 0,
+    degradedCount: run.degradedCount ?? 0,
+    committedCount: run.committedCount ?? 0,
+    failedCount: run.failedCount ?? 0,
+  }
+}
+
+function sanitizeSyncCandidateMetadata(metadata = null) {
+  if (!metadata || typeof metadata !== 'object') return null
+  return {
+    title: metadata.title ?? '',
+    artist: metadata.artist ?? '',
+    album: metadata.album ?? '',
+    durationSec: Number(metadata.durationSec) > 0 ? Number(metadata.durationSec) : 0,
+    mimeType: metadata.mimeType ?? '',
+  }
+}
+
+function sanitizeSyncCandidate(candidate = {}) {
+  const sanitized = {
+    sourceStableKey: candidate.sourceStableKey,
+    pathOrUri: candidate.pathOrUri ?? '',
+    fileName: candidate.fileName ?? '',
+    versionToken: candidate.versionToken ?? '',
+    hydrateState: candidate.hydrateState ?? 'discovered',
+    metadataLevelReached: candidate.metadataLevelReached ?? 0,
+    attempts: candidate.attempts ?? 0,
+    lastError: candidate.lastError ?? '',
+    metadata: sanitizeSyncCandidateMetadata(candidate.metadata),
+  }
+  if (Number.isFinite(candidate.fileSize)) {
+    sanitized.fileSize = candidate.fileSize
+  }
+  if (candidate.modifiedTime !== undefined) {
+    sanitized.modifiedTime = candidate.modifiedTime ?? null
+  }
+  return sanitized
+}
+
+function sanitizeSyncSnapshotItem(item = {}) {
+  return {
+    sourceStableKey: item.sourceStableKey,
+    versionToken: item.versionToken ?? '',
+    pathOrUri: item.pathOrUri ?? '',
+  }
+}
+
+function sanitizeSyncSnapshot(snapshot = {}) {
+  return {
+    ruleId: snapshot.ruleId,
+    capturedAt: snapshot.capturedAt ?? null,
+    items: Array.isArray(snapshot.items) ? snapshot.items.map(sanitizeSyncSnapshotItem) : [],
+  }
+}
+
 function sanitizeConnection(connection) {
   return {
     connectionId: connection.connectionId,
@@ -88,6 +158,32 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
     },
     async saveImportJobs(items) {
       await storage.set(keys.importJobs(), items.map(sanitizeImportJob))
+    },
+    async getSyncRuns() {
+      return await storage.get(keys.syncRuns()) || []
+    },
+    async saveSyncRuns(items) {
+      await storage.set(keys.syncRuns(), items.map(sanitizeSyncRun))
+    },
+    async getSyncCandidates(runId) {
+      if (!runId) return []
+      return await storage.get(keys.syncCandidates(runId)) || []
+    },
+    async saveSyncCandidates(runId, items) {
+      if (!runId) throw new Error('runId is required')
+      await storage.set(keys.syncCandidates(runId), items.map(sanitizeSyncCandidate))
+    },
+    async removeSyncCandidates(runId) {
+      if (!runId) return
+      await storage.remove(keys.syncCandidates(runId))
+    },
+    async getSyncSnapshot(ruleId) {
+      if (!ruleId) return null
+      return await storage.get(keys.syncSnapshot(ruleId)) || null
+    },
+    async saveSyncSnapshot(ruleId, snapshot) {
+      if (!ruleId) throw new Error('ruleId is required')
+      await storage.set(keys.syncSnapshot(ruleId), snapshot ? sanitizeSyncSnapshot(snapshot) : null)
     },
     async getImportSnapshot(ruleId) {
       if (!ruleId) return null

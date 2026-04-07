@@ -94,6 +94,9 @@ test('upsertCacheEntry 只替换当前 sourceItem 的缓存记录', async() => {
     sourceItemId: 'item_1',
     versionToken: 'v2',
     localFilePath: '/cache/new.mp3',
+  }, {
+    origin: 'play',
+    now: () => 200,
   })
 
   assert.deepEqual(await repo.getCaches(), [
@@ -108,6 +111,9 @@ test('upsertCacheEntry 只替换当前 sourceItem 的缓存记录', async() => {
       sourceItemId: 'item_1',
       versionToken: 'v2',
       localFilePath: '/cache/new.mp3',
+      cacheOrigin: 'play',
+      createdAt: 200,
+      lastAccessAt: 200,
     },
   ])
 })

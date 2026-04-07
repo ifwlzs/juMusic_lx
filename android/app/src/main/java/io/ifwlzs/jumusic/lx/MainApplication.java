@@ -12,6 +12,7 @@ import java.util.List;
 import io.ifwlzs.jumusic.lx.cache.CachePackage;
 import io.ifwlzs.jumusic.lx.crypto.CryptoPackage;
 import io.ifwlzs.jumusic.lx.lyric.LyricPackage;
+import io.ifwlzs.jumusic.lx.medialibrarysync.MediaLibrarySyncNotificationPackage;
 import io.ifwlzs.jumusic.lx.onedrive.OneDriveAuthPackage;
 import io.ifwlzs.jumusic.lx.smb.SmbPackage;
 import io.ifwlzs.jumusic.lx.userApi.UserApiPackage;
@@ -39,6 +40,7 @@ public class MainApplication extends NavigationApplication {
           packages.add(new UserApiPackage());
           packages.add(new SmbPackage());
           packages.add(new OneDriveAuthPackage());
+          packages.add(new MediaLibrarySyncNotificationPackage());
           return packages;
         }
 

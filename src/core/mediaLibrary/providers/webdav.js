@@ -117,6 +117,45 @@ async function readRemoteMetadata({
   }
 }
 
+function toCandidate(connection, item) {
+  const pathOrUri = normalizeHref(item.href)
+  return {
+    sourceStableKey: pathOrUri,
+    connectionId: connection.connectionId,
+    providerType: 'webdav',
+    pathOrUri: item.href,
+    fileName: getFileName(item.href),
+    fileSize: item.fileSize ?? 0,
+    modifiedTime: item.modifiedTime || 0,
+    versionToken: buildWebdavVersionToken(item),
+    metadataLevelReached: 0,
+  }
+}
+
+function normalizeHydratedMetadata(candidate, metadata) {
+  return {
+    title: metadata?.name || stripExtension(candidate?.fileName || ''),
+    artist: metadata?.singer || '',
+    album: metadata?.albumName || '',
+    durationSec: metadata?.interval || 0,
+  }
+}
+
+async function hydrateCandidateMetadata(connection, candidate, attempt, helpers = {}) {
+  const metadata = await readRemoteMetadata({
+    connection,
+    item: { href: candidate?.pathOrUri },
+    fileName: candidate?.fileName || getFileName(candidate?.pathOrUri),
+    ...helpers,
+  })
+
+  return {
+    candidate,
+    metadata: normalizeHydratedMetadata(candidate, metadata),
+    metadataLevelReached: Math.max(Number(attempt) || 0, metadata ? 1 : 0),
+  }
+}
+
 async function buildWebdavScanResult(connection, entries = [], metadataHelpers = {}, metadataConcurrency = DEFAULT_CONCURRENCY) {
   const lastSeenAt = Date.now()
   let skipped = 0
@@ -184,6 +223,33 @@ function createWebdavProvider({
         .filter(item => normalizeHref(item.href) !== normalizedRoot)
         .filter(item => isDirectoryHref(item.href) || isAudioFile(getFileName(item.href)))
         .map(toBrowserNode)
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const entries = []
+      for (const directory of selection.directories || []) {
+        entries.push(...await requestPropfind(request, connection, directory.pathOrUri, 'infinity'))
+      }
+      for (const track of selection.tracks || []) {
+        const entry = await resolveTrackEntry(request, connection, track.pathOrUri)
+        if (entry) entries.push(entry)
+      }
+
+      const dedupedEntries = [...new Map(entries.map(item => [normalizeHref(item.href), item])).values()]
+      return {
+        complete: true,
+        items: dedupedEntries
+          .filter(item => !isDirectoryHref(item.href))
+          .filter(item => isAudioFile(getFileName(item.href)))
+          .map(item => toCandidate(connection, item)),
+      }
+    },
+    async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
+      return hydrateCandidateMetadata(connection, candidate, attempt, {
+        downloadFile,
+        readMetadata,
+        createTempFilePath,
+        removeTempFile,
+      })
     },
     async scanSelection(connection, selection = {}) {
       const entries = []

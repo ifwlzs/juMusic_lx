@@ -203,3 +203,122 @@ test('createWebdavProvider 在可下载并读取 metadata 时填充标题、歌�
     ['cleanup', '/tmp/test.mp3'],
   ])
 })
+
+test('createWebdavProvider enumerateSelection stays lightweight and avoids metadata downloads', async() => {
+  let downloadCount = 0
+  let metadataCount = 0
+  const provider = createWebdavProvider({
+    async request() {
+      return `<?xml version="1.0"?>
+      <d:multistatus xmlns:d="DAV:">
+        <d:response>
+          <d:href>/music/albums/</d:href>
+          <d:propstat><d:prop><d:getetag>"dir"</d:getetag></d:prop></d:propstat>
+        </d:response>
+        <d:response>
+          <d:href>/music/albums/test.mp3</d:href>
+          <d:propstat>
+            <d:prop>
+              <d:getetag>"abc"</d:getetag>
+              <d:getlastmodified>Sat, 05 Apr 2026 10:00:00 GMT</d:getlastmodified>
+              <d:getcontentlength>321</d:getcontentlength>
+            </d:prop>
+          </d:propstat>
+        </d:response>
+      </d:multistatus>`
+    },
+    async downloadFile() {
+      downloadCount += 1
+      return null
+    },
+    async readMetadata() {
+      metadataCount += 1
+      return null
+    },
+  })
+
+  const result = await provider.enumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music/albums/', displayName: 'albums' }],
+    tracks: [],
+  })
+
+  assert.deepEqual(result.items, [{
+    sourceStableKey: '/music/albums/test.mp3',
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+    pathOrUri: '/music/albums/test.mp3',
+    fileName: 'test.mp3',
+    fileSize: 321,
+    modifiedTime: Date.parse('Sat, 05 Apr 2026 10:00:00 GMT'),
+    versionToken: '"abc"',
+    metadataLevelReached: 0,
+  }])
+  assert.equal(downloadCount, 0)
+  assert.equal(metadataCount, 0)
+})
+
+test('createWebdavProvider hydrateCandidate downloads metadata for a candidate', async() => {
+  const calls = []
+  const provider = createWebdavProvider({
+    async request() {
+      return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />`
+    },
+    async downloadFile(connection, uri, savePath) {
+      calls.push(['download', connection.connectionId, uri, savePath])
+      return savePath
+    },
+    async readMetadata(localPath) {
+      calls.push(['metadata', localPath])
+      return {
+        name: 'WebDAV Song',
+        singer: 'WebDAV Singer',
+        albumName: 'WebDAV Album',
+        interval: 222,
+      }
+    },
+    createTempFilePath(fileName) {
+      calls.push(['temp', fileName])
+      return `/tmp/${fileName}`
+    },
+    async removeTempFile(localPath) {
+      calls.push(['cleanup', localPath])
+    },
+  })
+
+  const result = await provider.hydrateCandidate({
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+  }, {
+    sourceStableKey: '/music/test.mp3',
+    pathOrUri: '/music/test.mp3',
+    fileName: 'test.mp3',
+    versionToken: '"abc"',
+  }, {
+    attempt: 1,
+  })
+
+  assert.deepEqual(result, {
+    candidate: {
+      sourceStableKey: '/music/test.mp3',
+      pathOrUri: '/music/test.mp3',
+      fileName: 'test.mp3',
+      versionToken: '"abc"',
+    },
+    metadata: {
+      title: 'WebDAV Song',
+      artist: 'WebDAV Singer',
+      album: 'WebDAV Album',
+      durationSec: 222,
+    },
+    metadataLevelReached: 1,
+  })
+  assert.deepEqual(calls, [
+    ['temp', 'test.mp3'],
+    ['download', 'conn_1', '/music/test.mp3', '/tmp/test.mp3'],
+    ['metadata', '/tmp/test.mp3'],
+    ['cleanup', '/tmp/test.mp3'],
+  ])
+})

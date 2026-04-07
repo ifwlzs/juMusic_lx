@@ -8,10 +8,17 @@ async function invalidateCache(cacheEntry, unlinkFile, repository) {
   await repository.removeCaches([cacheEntry.cacheId])
 }
 
-async function upsertCacheEntry(repository, cacheEntry) {
+async function upsertCacheEntry(repository, cacheEntry, { origin = 'play', now = () => Date.now() } = {}) {
   const prevCaches = await repository.getCaches()
   const nextCaches = prevCaches.filter(item => item.sourceItemId !== cacheEntry.sourceItemId)
-  nextCaches.push(cacheEntry)
+  const timestamp = now()
+  nextCaches.push({
+    ...cacheEntry,
+    cacheOrigin: origin,
+    ...(origin === 'prefetch' ? { prefetchState: 'ready' } : {}),
+    createdAt: cacheEntry.createdAt ?? timestamp,
+    lastAccessAt: timestamp,
+  })
   await repository.saveCaches(nextCaches)
   return cacheEntry
 }

@@ -8,6 +8,7 @@ import { useI18n } from '@/lang'
 import { signInOneDriveBusiness, signOutOneDriveBusiness, getOneDriveBusinessAccount, type OneDriveBusinessAccount } from '@/utils/nativeModules/oneDriveAuth'
 import { createStyle, toast } from '@/utils/tools'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { triggerEligibleMediaLibraryAutoSync } from '@/core/mediaLibrary/jobQueue'
 import MediaSourceManagerModal, { type MediaSourceManagerModalType } from './MediaSourceManagerModal'
 
 export default memo(() => {
@@ -51,6 +52,7 @@ export default memo(() => {
   useEffect(() => {
     void loadSummary()
     void loadOneDriveAccount()
+    void triggerEligibleMediaLibraryAutoSync('media_sources_page')
   }, [])
 
   return (

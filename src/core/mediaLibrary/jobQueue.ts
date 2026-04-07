@@ -10,9 +10,11 @@ import {
   updateUserListPosition,
 } from '@/core/list'
 import { deleteImportRule, updateImportRule } from './importSync'
+import { runEligibleMediaLibraryAutoSync } from './autoSync'
 import { createMediaImportJobQueue } from './jobs.js'
 import { createMediaLibraryListApi } from './listApi'
 import { getMediaLibraryRuntimeRegistry } from './runtimeRegistry'
+import { createMediaLibrarySyncNotifications } from './syncNotifications'
 import { mediaLibraryRepository } from './storage'
 
 const listApi = createMediaLibraryListApi({
@@ -64,6 +66,7 @@ const setConnectionStatus = async(connectionId: string, status: LX.MediaLibrary.
 }
 
 let queue: ReturnType<typeof createMediaImportJobQueue> | null = null
+const syncNotifications = createMediaLibrarySyncNotifications()
 
 const getQueue = () => {
   if (queue) return queue
@@ -88,6 +91,8 @@ const getQueue = () => {
         repository: mediaLibraryRepository,
         registry: getMediaLibraryRuntimeRegistry(),
         listApi,
+        triggerSource: job.payload?.triggerSource ?? 'manual',
+        notifications: syncNotifications,
       })
       const summary = result?.scanResult?.summary
         ? `success: ${result.scanResult.summary.success ?? 0}, failed: ${result.scanResult.summary.failed ?? 0}, skipped: ${result.scanResult.summary.skipped ?? 0}`
@@ -125,10 +130,12 @@ export const enqueueImportRuleSyncJob = async({
   connectionId,
   ruleId,
   previousRule = null,
+  triggerSource = 'manual',
 }: {
   connectionId: string
   ruleId: string
   previousRule?: LX.MediaLibrary.ImportRule | null
+  triggerSource?: LX.MediaLibrary.SyncTriggerSource
 }) => {
   await setRuleStatus(ruleId, 'running', 'queued')
   await setConnectionStatus(connectionId, 'running', 'queued')
@@ -137,7 +144,16 @@ export const enqueueImportRuleSyncJob = async({
     ruleId,
     payload: {
       previousRule,
+      triggerSource,
     },
+  })
+}
+
+export const triggerEligibleMediaLibraryAutoSync = async(trigger: LX.MediaLibrary.AutoSyncTrigger) => {
+  return runEligibleMediaLibraryAutoSync({
+    repository: mediaLibraryRepository,
+    enqueueImportRuleSyncJob,
+    trigger,
   })
 }
 

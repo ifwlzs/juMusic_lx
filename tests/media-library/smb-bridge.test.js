@@ -109,3 +109,99 @@ test('createSmbProvider 递归扫描 SMB 目录并转发下载', async() => {
 
   Date.now = originalNow
 })
+
+test('createSmbProvider enumerateSelection stays lightweight before metadata hydration', async() => {
+  let metadataCount = 0
+  const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
+
+  const provider = createSmbProvider({
+    async listDirectory(_connection, pathOrUri) {
+      if (pathOrUri === '/music') {
+        return [
+          { path: '/music/a.mp3', name: 'a.mp3', isDirectory: false, size: 10, modifiedTime: 1700000000001 },
+        ]
+      }
+      return []
+    },
+    async readMetadata() {
+      metadataCount += 1
+      return null
+    },
+    async downloadFile() {
+      return null
+    },
+  })
+
+  const result = await provider.enumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'smb',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music', displayName: 'music' }],
+    tracks: [],
+  })
+
+  assert.deepEqual(result.items, [{
+    sourceStableKey: '/music/a.mp3',
+    connectionId: 'conn_1',
+    providerType: 'smb',
+    pathOrUri: '/music/a.mp3',
+    fileName: 'a.mp3',
+    fileSize: 10,
+    modifiedTime: 1700000000001,
+    versionToken: '1700000000001__10__/music/a.mp3',
+    metadataLevelReached: 0,
+  }])
+  assert.equal(metadataCount, 0)
+})
+
+test('createSmbProvider hydrateCandidate reads metadata for a candidate', async() => {
+  const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
+
+  const calls = []
+  const provider = createSmbProvider({
+    async listDirectory() {
+      return []
+    },
+    async readMetadata(pathOrUri, connection) {
+      calls.push([pathOrUri, connection.connectionId])
+      return {
+        name: 'SMB Song',
+        singer: 'SMB Singer',
+        albumName: 'SMB Album',
+        interval: 111,
+      }
+    },
+    async downloadFile() {
+      return null
+    },
+  })
+
+  const result = await provider.hydrateCandidate({
+    connectionId: 'conn_1',
+    providerType: 'smb',
+  }, {
+    sourceStableKey: '/music/a.mp3',
+    pathOrUri: '/music/a.mp3',
+    fileName: 'a.mp3',
+    versionToken: '1700000000001__10__/music/a.mp3',
+  }, {
+    attempt: 3,
+  })
+
+  assert.deepEqual(result, {
+    candidate: {
+      sourceStableKey: '/music/a.mp3',
+      pathOrUri: '/music/a.mp3',
+      fileName: 'a.mp3',
+      versionToken: '1700000000001__10__/music/a.mp3',
+    },
+    metadata: {
+      title: 'SMB Song',
+      artist: 'SMB Singer',
+      album: 'SMB Album',
+      durationSec: 111,
+    },
+    metadataLevelReached: 3,
+  })
+  assert.deepEqual(calls, [['/music/a.mp3', 'conn_1']])
+})

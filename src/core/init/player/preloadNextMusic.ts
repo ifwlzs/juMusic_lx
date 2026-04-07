@@ -1,4 +1,6 @@
 import { getMusicUrl } from '@/core/music'
+import { createPrefetchScheduler } from '@/core/mediaLibrary/prefetch'
+import { prefetchMediaLibraryTrack } from '@/core/music/mediaLibrary'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
 import { checkUrl } from '@/utils/request'
 import playerState from '@/store/player/state'
@@ -15,6 +17,13 @@ const resetPreloadInfo = () => {
   preloadMusicInfo.info = null
   preloadMusicInfo.isLoading = false
 }
+const prefetchScheduler = createPrefetchScheduler({
+  async ensureCached(musicInfo) {
+    if (!musicInfo || 'progress' in musicInfo) return
+    if (musicInfo.source !== 'webdav' && musicInfo.source !== 'smb' && musicInfo.source !== 'onedrive') return
+    await prefetchMediaLibraryTrack(musicInfo)
+  },
+})
 const preloadNextMusicUrl = async(curTime: number) => {
   if (preloadMusicInfo.isLoading || curTime - preloadMusicInfo.preProgress < 3) return
   preloadMusicInfo.isLoading = true
@@ -22,6 +31,11 @@ const preloadNextMusicUrl = async(curTime: number) => {
   const info = await getNextPlayMusicInfo()
   if (info) {
     preloadMusicInfo.info = info
+    if (!('progress' in info.musicInfo) && (info.musicInfo.source == 'webdav' || info.musicInfo.source == 'smb' || info.musicInfo.source == 'onedrive')) {
+      await prefetchScheduler.onTrackStarted(playerState.playMusicInfo.musicInfo, info.musicInfo)
+      preloadMusicInfo.isLoading = false
+      return
+    }
     const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
     if (url) {
       console.log('preload url', url)
@@ -43,6 +57,7 @@ export default () => {
 
   const handleSetPlayInfo = () => {
     resetPreloadInfo()
+    prefetchScheduler.cancel()
   }
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
