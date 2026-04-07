@@ -18,6 +18,9 @@ public class MediaLibrarySyncNotificationPackage implements ReactPackage {
 
   @Override
   public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
-    return Arrays.<NativeModule>asList(new MediaLibrarySyncNotificationModule(reactContext));
+    return Arrays.<NativeModule>asList(
+        new MediaLibrarySyncNotificationModule(reactContext),
+        new MediaLibrarySyncServiceModule(reactContext)
+    );
   }
 }
