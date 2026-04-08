@@ -87,6 +87,17 @@ const defaultSetting: LX.AppSetting = {
   'theme.playDetail.dark.lyricRoma': '',
   'theme.hideBgDark': false,
   'theme.dynamicBg': false,
+  'theme.playDetail.background.stretchScale': 1,
+  'theme.playDetail.background.blurRadius': 200,
+  'theme.playDetail.background.imageBrightness': 1,
+  'theme.playDetail.background.imageContrast': 1.5,
+  'theme.playDetail.background.maskMode': 'auto',
+  'theme.playDetail.background.maskColor': '#914c4c',
+  'theme.playDetail.background.colorMaskOpacity': 0.37,
+  'theme.playDetail.background.maskSaturation': 0.312,
+  'theme.playDetail.background.maskLightness': 0.433,
+  'theme.playDetail.background.vignetteColor': '#898685',
+  'theme.playDetail.background.vignetteSize': 250,
   'theme.fontShadow': false,
 }
 
