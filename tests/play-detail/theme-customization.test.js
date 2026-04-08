@@ -68,3 +68,10 @@ test('theme settings expose a dedicated custom colors editor for the play detail
   assert.match(customColorsFile, /theme\.playDetail\.light\.lyricTranslation/)
   assert.match(customColorsFile, /theme\.playDetail\.dark\.lyricRoma/)
 })
+
+test('theme settings expose a dedicated play detail background settings entry', () => {
+  const themeSettingsIndexFile = readFile('src/screens/Home/Views/Setting/settings/Theme/index.tsx')
+
+  assert.match(themeSettingsIndexFile, /import PlayDetailBackgroundSettings from '\.\/PlayDetailBackgroundSettings'/)
+  assert.match(themeSettingsIndexFile, /<PlayDetailBackgroundSettings \/>/)
+})

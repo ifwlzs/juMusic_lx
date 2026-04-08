@@ -61,3 +61,21 @@ test('play detail background exports shared defaults, auto-mask helpers, and a n
   assert.match(androidUtilsFile, /BitmapFactory/)
   assert.match(androidUtilsFile, /Math\.atan2/)
 })
+
+test('play detail background settings dialog uses current playing cover preview and only exposes background controls', () => {
+  const settingsFile = readFile('src/screens/Home/Views/Setting/settings/Theme/PlayDetailBackgroundSettings.tsx')
+  const dialogFile = readFile('src/screens/Home/Views/Setting/settings/Theme/PlayDetailBackgroundDialog.tsx')
+  const zhCn = readFile('src/lang/zh-cn.json')
+
+  assert.match(settingsFile, /setting_theme_play_detail_background/)
+  assert.match(settingsFile, /setting_theme_play_detail_background_open/)
+  assert.match(settingsFile, /theme\.dynamicBg/)
+  assert.match(dialogFile, /usePlayerMusicInfo\(\)/)
+  assert.match(dialogFile, /PlayDetailBackgroundLayer/)
+  assert.match(dialogFile, /theme\.playDetail\.background\.blurRadius/)
+  assert.match(dialogFile, /theme\.playDetail\.background\.maskMode/)
+  assert.match(dialogFile, /theme\.playDetail\.background\.vignetteSize/)
+  assert.match(dialogFile, /套用当前推荐色|setting_theme_play_detail_background_apply_auto_mask/)
+  assert.doesNotMatch(dialogFile, /setting_theme_play_detail_primary/)
+  assert.match(zhCn, /"setting_theme_play_detail_background"/)
+})
