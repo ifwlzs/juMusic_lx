@@ -1,5 +1,6 @@
 import { getMusicUrl } from '@/core/music'
 import { createPrefetchScheduler } from '@/core/mediaLibrary/prefetch'
+import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { prefetchMediaLibraryTrack } from '@/core/music/mediaLibrary'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
 import { checkUrl } from '@/utils/request'
@@ -22,6 +23,10 @@ const prefetchScheduler = createPrefetchScheduler({
     if (!musicInfo || 'progress' in musicInfo) return
     if (musicInfo.source !== 'webdav' && musicInfo.source !== 'smb' && musicInfo.source !== 'onedrive') return
     await prefetchMediaLibraryTrack(musicInfo)
+  },
+  async shouldDeferPrefetch() {
+    const runs = (await mediaLibraryRepository.getSyncRuns()) as LX.MediaLibrary.SyncRun[]
+    return runs.some(run => run.status === 'running' && (run.phase === 'enumerate' || run.phase === 'hydrate'))
   },
 })
 const preloadNextMusicUrl = async(curTime: number) => {

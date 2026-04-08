@@ -30,6 +30,31 @@ test('prefetch scheduler starts the next track after current playback begins', a
   assert.deepEqual(calls, [['next', 'prefetch']])
 })
 
+test('prefetch scheduler defers next-track downloads while remote sync is actively enumerating or hydrating', async() => {
+  const calls = []
+  const waits = []
+  let deferCount = 0
+  const scheduler = createPrefetchScheduler({
+    async ensureCached(musicInfo, origin) {
+      calls.push([musicInfo.id, origin])
+    },
+    async shouldDeferPrefetch() {
+      deferCount += 1
+      return deferCount < 3
+    },
+    async wait(delay) {
+      waits.push(delay)
+    },
+    retryDelayMs: 1234,
+  })
+
+  await scheduler.onTrackStarted({ id: 'current' }, { id: 'next' })
+
+  assert.deepEqual(calls, [['next', 'prefetch']])
+  assert.equal(deferCount, 3)
+  assert.deepEqual(waits, [1234, 1234])
+})
+
 test('prefetch scheduler cancels stale work when the current track changes again', async() => {
   const calls = []
   const scheduler = createPrefetchScheduler({
@@ -90,7 +115,7 @@ test('upsertCacheEntry stores play and prefetch metadata on cache records', asyn
   ])
 })
 
-test('media library playback path records play caches and next-track prefetch uses the dedicated helper', () => {
+test('media library playback path records play caches and next-track prefetch defers while remote sync is active', () => {
   const mediaLibraryFile = readFile('src/core/music/mediaLibrary.ts')
   const preloadFile = readFile('src/core/init/player/preloadNextMusic.ts')
 
@@ -98,5 +123,10 @@ test('media library playback path records play caches and next-track prefetch us
   assert.match(mediaLibraryFile, /upsertCacheEntry\(mediaLibraryRepository, \{[\s\S]*\}, \{ origin \}\)/)
   assert.match(mediaLibraryFile, /prefetchMediaLibraryTrack/)
   assert.match(preloadFile, /createPrefetchScheduler/)
+  assert.match(preloadFile, /shouldDeferPrefetch/)
+  assert.match(preloadFile, /mediaLibraryRepository\.getSyncRuns\(\)/)
+  assert.match(preloadFile, /run\.status === 'running'/)
+  assert.match(preloadFile, /run\.phase === 'enumerate'/)
+  assert.match(preloadFile, /run\.phase === 'hydrate'/)
   assert.match(preloadFile, /prefetchMediaLibraryTrack/)
 })
