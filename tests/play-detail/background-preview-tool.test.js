@@ -36,3 +36,23 @@ test('play-detail background preview tool exists with drag-drop, presets, live r
   assert.match(readme, /edgeOverlayColor/)
   assert.match(readme, /edgeOverlayWidth/)
 })
+
+test('play-detail background preview defaults stay aligned with the approved emby preset values', () => {
+  const css = read('tools/play-detail-bg-preview/styles.css')
+  const js = read('tools/play-detail-bg-preview/preview.js')
+
+  assert.match(js, /blurRadius: 28/)
+  assert.match(js, /scaleX: 1\.1/)
+  assert.match(js, /scaleY: 1\.08/)
+  assert.match(js, /baseOverlayOpacity: 0\.14/)
+  assert.match(js, /edgeOverlayWidth: 4/)
+  assert.match(js, /edgeOverlayWidthInner: 6/)
+  assert.match(js, /edgeOverlayColor: '#919191'/)
+  assert.match(css, /--preview-blur-radius: 28px;/)
+  assert.match(css, /--preview-scale-x: 1\.10;/)
+  assert.match(css, /--preview-scale-y: 1\.08;/)
+  assert.match(css, /--preview-base-overlay-opacity: 0\.14;/)
+  assert.match(css, /--preview-edge-overlay-color-1: rgba\(145, 145, 145, 0\.34\);/)
+  assert.match(css, /--preview-edge-overlay-color-2: rgba\(145, 145, 145, 0\.2\);/)
+  assert.match(css, /--preview-edge-overlay-color-3: rgba\(145, 145, 145, 0\.12\);/)
+})

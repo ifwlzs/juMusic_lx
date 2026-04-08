@@ -28,10 +28,10 @@ const createSvgDataUri = ({ title, startColor, endColor, accentColor }) => {
 }
 
 const defaultValues = {
-  blurRadius: 40,
-  scaleX: 1.16,
+  blurRadius: 28,
+  scaleX: 1.1,
   scaleY: 1.08,
-  baseOverlayOpacity: 0.18,
+  baseOverlayOpacity: 0.14,
   edgeOverlayWidth: 4,
   edgeOverlayWidthInner: 6,
   edgeOverlayColor: '#919191',

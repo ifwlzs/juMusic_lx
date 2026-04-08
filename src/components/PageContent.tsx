@@ -36,12 +36,12 @@ const playDetailEmbyEdgeOverlayLayers = [
   {
     paddingHorizontal: '4%',
     paddingVertical: '4%',
-    backgroundColor: 'rgba(72, 72, 72, 0.34)',
+    backgroundColor: 'rgba(145, 145, 145, 0.34)',
   },
   {
     paddingHorizontal: '4%',
     paddingVertical: '4%',
-    backgroundColor: 'rgba(110, 110, 110, 0.2)',
+    backgroundColor: 'rgba(145, 145, 145, 0.2)',
   },
   {
     paddingHorizontal: '6%',
@@ -86,12 +86,12 @@ const backgroundConfigs: Record<BackgroundVariant, BackgroundConfig> = {
   },
   playDetailEmby: {
     resizeMode: 'stretch',
-    blurRadius: Math.max(scaleSizeAbsHR(40), 24),
-    imageStyle: { transform: [{ scaleX: 1.16 }, { scaleY: 1.08 }] },
+    blurRadius: Math.max(scaleSizeAbsHR(28), 24),
+    imageStyle: { transform: [{ scaleX: 1.1 }, { scaleY: 1.08 }] },
     overlayStyle: {
       flex: 1,
       flexDirection: 'column',
-      backgroundColor: 'rgba(0, 0, 0, 0.18)',
+      backgroundColor: 'rgba(0, 0, 0, 0.14)',
     },
     edgeOverlayLayers: playDetailEmbyEdgeOverlayLayers,
   },

@@ -1,12 +1,12 @@
 :root {
   color-scheme: light;
   --preview-image: linear-gradient(135deg, #f5e9d4 0%, #c7d8f7 54%, #8fa5c6 100%);
-  --preview-blur-radius: 40px;
-  --preview-scale-x: 1.16;
+  --preview-blur-radius: 28px;
+  --preview-scale-x: 1.10;
   --preview-scale-y: 1.08;
-  --preview-base-overlay-opacity: 0.18;
-  --preview-edge-overlay-color-1: rgba(72, 72, 72, 0.34);
-  --preview-edge-overlay-color-2: rgba(110, 110, 110, 0.2);
+  --preview-base-overlay-opacity: 0.14;
+  --preview-edge-overlay-color-1: rgba(145, 145, 145, 0.34);
+  --preview-edge-overlay-color-2: rgba(145, 145, 145, 0.2);
   --preview-edge-overlay-color-3: rgba(145, 145, 145, 0.12);
   --preview-edge-overlay-width-1: 4%;
   --preview-edge-overlay-width-2: 4%;
