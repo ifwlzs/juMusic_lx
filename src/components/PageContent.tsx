@@ -1,5 +1,5 @@
 // import { useEffect, useState } from 'react'
-import { StyleSheet, View, type ImageStyle, type ViewStyle } from 'react-native'
+import { View, type ImageStyle, type ViewStyle } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { useWindowSize } from '@/utils/hooks'
@@ -21,11 +21,57 @@ interface BackgroundConfig {
   blurRadius: number
   imageStyle?: ImageStyle
   overlayStyle: ViewStyle
+  edgeOverlayLayers?: EdgeOverlayLayer[]
   useThemeOverlayColor?: boolean
   overlayOpacity?: number
-  tintThemeColorKey?: string
-  tintOpacity?: number
 }
+
+interface EdgeOverlayLayer {
+  paddingHorizontal: string
+  paddingVertical: string
+  backgroundColor: string
+}
+
+const playDetailEmbyEdgeOverlayLayers = [
+  {
+    paddingHorizontal: '4%',
+    paddingVertical: '4%',
+    backgroundColor: 'rgba(72, 72, 72, 0.34)',
+  },
+  {
+    paddingHorizontal: '4%',
+    paddingVertical: '4%',
+    backgroundColor: 'rgba(110, 110, 110, 0.2)',
+  },
+  {
+    paddingHorizontal: '6%',
+    paddingVertical: '6%',
+    backgroundColor: 'rgba(145, 145, 145, 0.12)',
+  },
+] as const
+
+const renderInsetEdgeOverlay = (layers: readonly EdgeOverlayLayer[], index = 0): React.ReactNode => {
+  if (index >= layers.length) return <View style={{ flex: 1 }} />
+  const layer = layers[index]
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: layer.backgroundColor,
+        paddingHorizontal: layer.paddingHorizontal,
+        paddingVertical: layer.paddingVertical,
+      }}
+    >
+      {renderInsetEdgeOverlay(layers, index + 1)}
+    </View>
+  )
+}
+
+const renderPlayDetailEmbyEdgeOverlay = () => (
+  <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
+    {renderInsetEdgeOverlay(playDetailEmbyEdgeOverlayLayers)}
+  </View>
+)
 
 const backgroundConfigs: Record<BackgroundVariant, BackgroundConfig> = {
   default: {
@@ -40,13 +86,14 @@ const backgroundConfigs: Record<BackgroundVariant, BackgroundConfig> = {
   },
   playDetailEmby: {
     resizeMode: 'stretch',
-    blurRadius: Math.max(scaleSizeAbsHR(36), 18),
+    blurRadius: Math.max(scaleSizeAbsHR(40), 24),
     imageStyle: { transform: [{ scaleX: 1.16 }, { scaleY: 1.08 }] },
-    tintThemeColorKey: 'c-primary-background-active',
-    tintOpacity: 0.16,
     overlayStyle: {
-      backgroundColor: 'rgba(0, 0, 0, 0.43)',
+      flex: 1,
+      flexDirection: 'column',
+      backgroundColor: 'rgba(0, 0, 0, 0.18)',
     },
+    edgeOverlayLayers: playDetailEmbyEdgeOverlayLayers,
   },
 }
 
@@ -55,21 +102,10 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
   const windowSize = useWindowSize()
   const pic = useBgPic()
   const bgConfig = backgroundConfigs[backgroundVariant]
-  const overlayStyle = useMemo(() => {
-    const resolvedOverlayStyle = bgConfig.useThemeOverlayColor
-      ? { ...bgConfig.overlayStyle, backgroundColor: theme['c-content-background'], opacity: bgConfig.overlayOpacity }
-      : bgConfig.overlayStyle
-    return { ...StyleSheet.absoluteFillObject, ...resolvedOverlayStyle }
-  }, [bgConfig, theme])
-  const tintOverlayStyle = useMemo(() => {
-    if (!bgConfig.tintThemeColorKey || !bgConfig.tintOpacity) return null
-    const tintColor = theme[bgConfig.tintThemeColorKey as keyof typeof theme]
-    return {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: tintColor,
-      opacity: bgConfig.tintOpacity,
-    }
-  }, [bgConfig, theme])
+  const overlayStyle = useMemo(() => bgConfig.useThemeOverlayColor
+    ? { ...bgConfig.overlayStyle, backgroundColor: theme['c-content-background'], opacity: bgConfig.overlayOpacity }
+    : bgConfig.overlayStyle
+  , [bgConfig, theme])
   // const [wh, setWH] = useState<{ width: number | string, height: number | string }>({ width: '100%', height: Dimensions.get('screen').height })
 
   // 固定宽高度 防止弹窗键盘时大小改变导致背景被缩放
@@ -97,14 +133,14 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
         source={theme['bg-image']}
         resizeMode="cover"
       >
-        {tintOverlayStyle ? <View style={tintOverlayStyle}></View> : null}
-        <View style={overlayStyle}></View>
+        {backgroundVariant === 'playDetailEmby' ? <View style={overlayStyle}></View> : null}
+        {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayLayers ? renderPlayDetailEmbyEdgeOverlay() : null}
       </ImageBackground>
       <View style={{ flex: 1, flexDirection: 'column', backgroundColor: theme['c-main-background'] }}>
         {children}
       </View>
     </View>
-  ), [children, overlayStyle, theme, tintOverlayStyle, windowSize.height, windowSize.width])
+  ), [backgroundVariant, bgConfig.edgeOverlayLayers, children, overlayStyle, theme, windowSize.height, windowSize.width])
   const picComponent = useMemo(() => {
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>
@@ -115,15 +151,15 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
           blurRadius={bgConfig.blurRadius}
           imageStyle={bgConfig.imageStyle}
         >
-          {tintOverlayStyle ? <View style={tintOverlayStyle}></View> : null}
           <View style={overlayStyle}></View>
+          {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayLayers ? renderPlayDetailEmbyEdgeOverlay() : null}
         </ImageBackground>
         <View style={{ flex: 1, flexDirection: 'column' }}>
           {children}
         </View>
       </View>
     )
-  }, [bgConfig.blurRadius, bgConfig.imageStyle, bgConfig.resizeMode, children, overlayStyle, pic, theme, tintOverlayStyle, windowSize.height, windowSize.width])
+  }, [backgroundVariant, bgConfig.blurRadius, bgConfig.edgeOverlayLayers, bgConfig.imageStyle, bgConfig.resizeMode, children, overlayStyle, pic, theme, windowSize.height, windowSize.width])
 
   return (
     <>

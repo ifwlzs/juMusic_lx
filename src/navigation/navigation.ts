@@ -133,7 +133,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
           statusBar: {
             drawBehind: true,
             visible: true,
-            style: getStatusBarStyle(theme.isDark),
+            style: 'light',
             backgroundColor: 'transparent',
           },
           navigationBar: {

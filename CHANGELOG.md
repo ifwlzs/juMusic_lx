@@ -33,6 +33,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 优化播放缓存调度，当前播放歌曲缓存优先于下一曲预读，远端扫描活跃时会自动延后预读
 - 优化远端同步通知文案，更清晰展示扫描、补全、导入与源端删除处理阶段
 - 优化 GitHub Release 描述生成逻辑，发版时改为使用更新后 `CHANGELOG.md` 最新一节正文
+- 优化播放页背景层次，增强边缘深灰渐变模糊遮罩，并统一播放页状态栏为白色前景
 
 ## [26040802](https://github.com/ifwlzs/juMusic_lx/compare/v26040800...v26040802) - 2026-04-08
 

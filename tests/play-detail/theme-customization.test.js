@@ -10,12 +10,25 @@ test('play detail can force a light status bar regardless of the active app them
   const playDetailFile = readFile('src/screens/PlayDetail/index.tsx')
   const verticalHeaderFile = readFile('src/screens/PlayDetail/Vertical/components/Header.tsx')
   const horizontalFile = readFile('src/screens/PlayDetail/Horizontal/index.tsx')
+  const navigationFile = readFile('src/navigation/navigation.ts')
+  const playDetailNavigationBlock = navigationFile.slice(
+    navigationFile.indexOf('export function pushPlayDetailScreen'),
+    navigationFile.indexOf('export function pushSonglistDetailScreen'),
+  )
 
   assert.match(statusBarFile, /forceLightContent\?: boolean/)
   assert.match(statusBarFile, /forceLightContent \? 'light-content' : statusBarStyle/)
   assert.match(playDetailFile, /<StatusBar forceLightContent \/>/)
   assert.match(verticalHeaderFile, /<StatusBar forceLightContent \/>/)
   assert.match(horizontalFile, /<StatusBar forceLightContent \/>/)
+  assert.match(
+    playDetailNavigationBlock,
+    /name: PLAY_DETAIL_SCREEN[\s\S]*?statusBar:\s*\{[\s\S]*?style: 'light'/,
+  )
+  assert.doesNotMatch(
+    playDetailNavigationBlock,
+    /statusBar:\s*\{[\s\S]*?style: getStatusBarStyle\(theme\.isDark\)/,
+  )
 })
 
 test('play detail palette resolves separate light and dark custom color groups, with white active lyrics by default in dark mode', () => {
