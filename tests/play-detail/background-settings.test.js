@@ -33,3 +33,31 @@ test('play detail background settings define dedicated schema keys and approved 
   assert.match(defaultSettingFile, /'theme\.playDetail\.background\.vignetteColor': '#898685'/)
   assert.match(defaultSettingFile, /'theme\.playDetail\.background\.vignetteSize': 250/)
 })
+
+
+test('play detail background exports shared defaults, auto-mask helpers, and a native hue bridge', () => {
+  const configFile = readFile('src/screens/PlayDetail/backgroundConfig.ts')
+  const layerFile = readFile('src/screens/PlayDetail/BackgroundLayer.tsx')
+  const nativeUtilsFile = readFile('src/utils/nativeModules/utils.ts')
+  const androidUtilsFile = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/utils/UtilsModule.java')
+
+  assert.match(configFile, /export const playDetailBackgroundDefaults = \{/)
+  assert.match(configFile, /export const snapHue = \(hue: number, step = 15\)/)
+  assert.match(configFile, /export const createGrayBiasedMaskColor = \(/)
+  assert.match(configFile, /export const readPlayDetailBackgroundSetting = \(/)
+  assert.match(configFile, /export const resolvePlayDetailBackgroundConfig = \(/)
+  assert.match(configFile, /maskMode == 'manual' \? setting\.maskColor : recommendedMaskColor \?\? setting\.maskColor/)
+
+  assert.match(layerFile, /export default function PlayDetailBackgroundLayer/)
+  assert.match(layerFile, /blurRadius=\{resolvedConfig\.blurRadius\}/)
+  assert.match(layerFile, /resolvedConfig\.imageBrightness/)
+  assert.match(layerFile, /resolvedConfig\.imageContrast/)
+  assert.match(layerFile, /resolvedConfig\.vignetteColor/)
+  assert.match(layerFile, /resolvedConfig\.vignetteSize/)
+  assert.match(layerFile, /backgroundColor: resolvedConfig\.colorMask/)
+
+  assert.match(nativeUtilsFile, /export const extractDominantHueFromImage = \(imageUri: string\)/)
+  assert.match(androidUtilsFile, /@ReactMethod\s+public void extractDominantHueFromImage\(String imageUri, Promise promise\)/)
+  assert.match(androidUtilsFile, /BitmapFactory/)
+  assert.match(androidUtilsFile, /Math\.atan2/)
+})

@@ -68,6 +68,12 @@ export const getWindowSize = async(): Promise<{ width: number, height: number }>
   return UtilsModule.getWindowSize()
 }
 
+// eslint-disable-next-line @typescript-eslint/promise-function-async
+export const extractDominantHueFromImage = (imageUri: string): Promise<number | null> => {
+  if (!UtilsModule?.extractDominantHueFromImage) return Promise.resolve(null)
+  return UtilsModule.extractDominantHueFromImage(imageUri) as Promise<number | null>
+}
+
 export const onWindowSizeChange = (handler: (size: { width: number, height: number }) => void): () => void => {
   UtilsModule.listenWindowSizeChanged()
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

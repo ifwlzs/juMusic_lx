@@ -6,6 +6,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
@@ -29,6 +32,9 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeArray;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -332,6 +338,131 @@ public class UtilsModule extends ReactContextBaseJavaModule {
   //      );
   //    });
   //  }
+
+  @ReactMethod
+  public void extractDominantHueFromImage(String imageUri, Promise promise) {
+    new Thread(() -> {
+      Bitmap bitmap = null;
+      try {
+        bitmap = decodeBitmap(imageUri);
+        if (bitmap == null) {
+          promise.resolve(null);
+          return;
+        }
+        double[] vector = calculateHueVector(bitmap);
+        if (vector[2] <= 0) {
+          promise.resolve(null);
+          return;
+        }
+        double hue = (Math.toDegrees(Math.atan2(vector[1], vector[0])) + 360d) % 360d;
+        promise.resolve(hue);
+      } catch (Exception error) {
+        promise.resolve(null);
+      } finally {
+        if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+      }
+    }).start();
+  }
+
+  private Bitmap decodeBitmap(String imageUri) throws Exception {
+    if (imageUri == null || imageUri.isEmpty()) return null;
+
+    Uri uri = Uri.parse(imageUri);
+    String scheme = uri.getScheme();
+    if (scheme == null || scheme.isEmpty() || "file".equalsIgnoreCase(scheme)) {
+      String path = "file".equalsIgnoreCase(scheme) ? uri.getPath() : imageUri;
+      if (path == null || path.isEmpty()) return null;
+      BitmapFactory.Options bounds = new BitmapFactory.Options();
+      bounds.inJustDecodeBounds = true;
+      BitmapFactory.decodeFile(path, bounds);
+      BitmapFactory.Options options = new BitmapFactory.Options();
+      options.inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, 80);
+      return BitmapFactory.decodeFile(path, options);
+    }
+
+    BitmapFactory.Options bounds = new BitmapFactory.Options();
+    bounds.inJustDecodeBounds = true;
+    try (InputStream inputStream = openInputStream(imageUri)) {
+      if (inputStream == null) return null;
+      BitmapFactory.decodeStream(inputStream, null, bounds);
+    }
+
+    BitmapFactory.Options options = new BitmapFactory.Options();
+    options.inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, 80);
+    try (InputStream inputStream = openInputStream(imageUri)) {
+      if (inputStream == null) return null;
+      return BitmapFactory.decodeStream(inputStream, null, options);
+    }
+  }
+
+  private InputStream openInputStream(String imageUri) throws Exception {
+    if (imageUri.startsWith("http://") || imageUri.startsWith("https://")) return new URL(imageUri).openStream();
+    Uri uri = Uri.parse(imageUri);
+    String scheme = uri.getScheme();
+    if (scheme == null || scheme.isEmpty() || "file".equalsIgnoreCase(scheme)) {
+      String path = "file".equalsIgnoreCase(scheme) ? uri.getPath() : imageUri;
+      if (path == null || path.isEmpty()) return null;
+      return new FileInputStream(path);
+    }
+    return reactContext.getContentResolver().openInputStream(uri);
+  }
+
+  private int calculateInSampleSize(int width, int height, int targetMaxSize) {
+    int sampleSize = 1;
+    int largest = Math.max(width, height);
+    while (largest / sampleSize > targetMaxSize) sampleSize *= 2;
+    return Math.max(sampleSize, 1);
+  }
+
+  private double[] calculateHueVector(Bitmap bitmap) {
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    double x = 0d;
+    double y = 0d;
+    double totalWeight = 0d;
+
+    for (int px = 0; px < width; px++) {
+      for (int py = 0; py < height; py++) {
+        int color = bitmap.getPixel(px, py);
+        double[] hsl = rgbToHsl(Color.red(color), Color.green(color), Color.blue(color));
+        double saturation = hsl[1];
+        double lightness = hsl[2];
+        if (saturation < 0.08d) continue;
+
+        double weight = saturation * (0.35d + (1d - Math.abs(lightness - 0.5d) * 2d));
+        double angle = Math.toRadians(hsl[0]);
+        x += Math.cos(angle) * weight;
+        y += Math.sin(angle) * weight;
+        totalWeight += weight;
+      }
+    }
+
+    return new double[] { x, y, totalWeight };
+  }
+
+  private double[] rgbToHsl(int red, int green, int blue) {
+    double redNorm = red / 255d;
+    double greenNorm = green / 255d;
+    double blueNorm = blue / 255d;
+    double max = Math.max(redNorm, Math.max(greenNorm, blueNorm));
+    double min = Math.min(redNorm, Math.min(greenNorm, blueNorm));
+    double delta = max - min;
+    double lightness = (max + min) / 2d;
+
+    if (delta == 0d) return new double[] { 0d, 0d, lightness };
+
+    double saturation = lightness > 0.5d ? delta / (2d - max - min) : delta / (max + min);
+    double hueSegment;
+    if (max == redNorm) {
+      hueSegment = ((greenNorm - blueNorm) / delta) + (greenNorm < blueNorm ? 6d : 0d);
+    } else if (max == greenNorm) {
+      hueSegment = ((blueNorm - redNorm) / delta) + 2d;
+    } else {
+      hueSegment = ((redNorm - greenNorm) / delta) + 4d;
+    }
+
+    return new double[] { hueSegment * 60d, saturation, lightness };
+  }
 
   @ReactMethod
   public void getWindowSize(Promise promise) {
