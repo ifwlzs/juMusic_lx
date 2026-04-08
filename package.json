@@ -23,6 +23,7 @@
     "build:theme": "node src/theme/themes/createThemes.js",
     "publish": "node publish",
     "release:prepare": "node scripts/release/prepare-release.js",
+    "preview:play-detail-bg": "node tools/play-detail-bg-preview/server.js",
     "test:release": "node --test tests/release/versioning.test.js tests/release/windows-shortcuts.test.js",
     "test:media-library": "node --test tests/media-library"
   },

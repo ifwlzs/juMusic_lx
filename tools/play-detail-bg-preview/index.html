@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Play Detail Background Preview</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <aside class="panel">
+    <div class="panel__header">
+      <p class="eyebrow">Long-lived tool</p>
+      <h1>Play Detail BG Preview</h1>
+      <p class="panel__copy">
+        Tune blur, stretch, gray overlay, and edge ring values without opening React Native.
+      </p>
+    </div>
+
+    <label class="upload" data-role="drop-zone">
+      <input type="file" accept="image/*" data-role="file-input" />
+      <span data-role="drop-zone-label">Drop a real cover image here or choose a file</span>
+    </label>
+
+    <section class="panel__section">
+      <div class="section__title-row">
+        <h2>Presets</h2>
+        <span class="section__meta">matches current RN defaults</span>
+      </div>
+      <div class="preset-list" data-role="preset-list"></div>
+    </section>
+
+    <section class="panel__section controls" data-role="control-list">
+      <div class="section__title-row">
+        <h2>Controls</h2>
+        <button type="button" class="ghost-button" data-role="reset-button">Reset</button>
+      </div>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <div class="stage__frame">
+      <div class="bg-root" data-role="bg-root">
+        <div class="bg-image" data-role="bg-image"></div>
+        <div class="bg-overlay"></div>
+        <div class="bg-edge bg-edge-1">
+          <div class="bg-edge bg-edge-2">
+            <div class="bg-edge bg-edge-3"></div>
+          </div>
+        </div>
+        <div class="safe-area">
+          <div class="safe-area__label">Background only preview</div>
+          <div class="safe-area__box"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="./preview.js"></script>
+</body>
+</html>
