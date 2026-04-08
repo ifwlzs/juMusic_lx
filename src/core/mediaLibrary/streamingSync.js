@@ -337,6 +337,7 @@ async function runRemoteStreamingSync({
     await notifications?.showSyncProgress({
       connectionName: connection.displayName,
       phase: 'enumerate',
+      discoveredCount: 0,
       committedCount: 0,
       totalCount: 0,
     })
@@ -348,6 +349,7 @@ async function runRemoteStreamingSync({
         await notifications?.showSyncProgress({
           connectionName: connection.displayName,
           phase: 'commit',
+          discoveredCount: discoveredCandidates.length,
           committedCount: committedItems.length,
           totalCount: discoveredCandidates.length,
         })
@@ -362,6 +364,7 @@ async function runRemoteStreamingSync({
       await notifications?.showSyncProgress({
         connectionName: connection.displayName,
         phase: 'hydrate',
+        discoveredCount: discoveredCandidates.length + batch.length,
         committedCount: committedItems.length,
         totalCount: discoveredCandidates.length + batch.length,
       })
@@ -463,7 +466,7 @@ async function runRemoteStreamingSync({
       enumerateResult = await provider.streamEnumerateSelection(
         connection,
         normalizeImportSelection(rule),
-        async batch => processCandidateBatch(batch, { flushAfterBatch: true })
+        async batch => processCandidateBatch(batch, { flushAfterBatch: true }),
       )
       const remainingCandidates = (enumerateResult.items || [])
         .filter(candidate => !candidateStates.has(buildCandidateResumeKey(candidate)))
@@ -476,6 +479,7 @@ async function runRemoteStreamingSync({
     await notifications?.showSyncProgress({
       connectionName: connection.displayName,
       phase: 'hydrate',
+      discoveredCount: discoveredCandidates.length,
       committedCount: committedItems.length,
       totalCount: discoveredCandidates.length,
     })
@@ -493,6 +497,7 @@ async function runRemoteStreamingSync({
       await notifications?.showSyncProgress({
         connectionName: connection.displayName,
         phase: 'reconcile_delete',
+        discoveredCount: discoveredCandidates.length,
         committedCount: nextItems.length,
         totalCount: discoveredCandidates.length,
       })
@@ -533,6 +538,7 @@ async function runRemoteStreamingSync({
     await notifications?.showSyncFinished({
       connectionName: connection.displayName,
       committedCount: nextItems.length,
+      removedCount: removedIds.length,
       totalCount: discoveredCandidates.length,
     })
 
@@ -548,6 +554,11 @@ async function runRemoteStreamingSync({
       },
       generatedLists,
       removedIds,
+      syncStats: {
+        committedCount: nextItems.length,
+        discoveredCount: discoveredCandidates.length,
+        removedCount: removedIds.length,
+      },
       connectionSourceItems,
       aggregateSongs,
       isComplete: enumerateResult.complete !== false,
