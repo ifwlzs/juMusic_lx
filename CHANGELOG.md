@@ -19,6 +19,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 优化播放缓存调度，当前播放歌曲缓存优先于下一曲预读，远端扫描活跃时会自动延后预读
 - 优化远端同步通知文案，更清晰展示扫描、补全、导入与源端删除处理阶段
 
+## [26040802](https://github.com/ifwlzs/juMusic_lx/compare/v26040800...v26040802) - 2026-04-08
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [26040800](https://github.com/ifwlzs/juMusic_lx/compare/v26040718...v26040800) - 2026-04-08
 
 修复
