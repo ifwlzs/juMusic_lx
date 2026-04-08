@@ -32,21 +32,40 @@ interface EdgeOverlayLayer {
   backgroundColor: string
 }
 
+const playDetailEmbyOuterRingWidth = 4
+const playDetailEmbyInnerRingWidth = 6
+const playDetailEmbyOuterRingSegmentWidth = `${playDetailEmbyOuterRingWidth / 2}%`
+const playDetailEmbyInnerRingSegmentWidth = `${playDetailEmbyInnerRingWidth / 2}%`
 const playDetailEmbyEdgeOverlayLayers = [
   {
-    paddingHorizontal: '4%',
-    paddingVertical: '4%',
+    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
+    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
     backgroundColor: 'rgba(145, 145, 145, 0.34)',
   },
   {
-    paddingHorizontal: '4%',
-    paddingVertical: '4%',
+    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
+    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
+    backgroundColor: 'rgba(145, 145, 145, 0.26)',
+  },
+  {
+    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
+    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
     backgroundColor: 'rgba(145, 145, 145, 0.2)',
   },
   {
-    paddingHorizontal: '6%',
-    paddingVertical: '6%',
+    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
+    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
+    backgroundColor: 'rgba(145, 145, 145, 0.15)',
+  },
+  {
+    paddingHorizontal: playDetailEmbyInnerRingSegmentWidth,
+    paddingVertical: playDetailEmbyInnerRingSegmentWidth,
     backgroundColor: 'rgba(145, 145, 145, 0.12)',
+  },
+  {
+    paddingHorizontal: playDetailEmbyInnerRingSegmentWidth,
+    paddingVertical: playDetailEmbyInnerRingSegmentWidth,
+    backgroundColor: 'rgba(145, 145, 145, 0.08)',
   },
 ] as const
 
@@ -106,6 +125,11 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
     ? { ...bgConfig.overlayStyle, backgroundColor: theme['c-content-background'], opacity: bgConfig.overlayOpacity }
     : bgConfig.overlayStyle
   , [bgConfig, theme])
+  const themeBackgroundProps = useMemo(() => (
+    backgroundVariant === 'playDetailEmby'
+      ? { resizeMode: bgConfig.resizeMode, blurRadius: bgConfig.blurRadius, imageStyle: bgConfig.imageStyle }
+      : { resizeMode: 'cover' as const }
+  ), [backgroundVariant, bgConfig.blurRadius, bgConfig.imageStyle, bgConfig.resizeMode])
   // const [wh, setWH] = useState<{ width: number | string, height: number | string }>({ width: '100%', height: Dimensions.get('screen').height })
 
   // 固定宽高度 防止弹窗键盘时大小改变导致背景被缩放
@@ -131,7 +155,7 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
       <ImageBackground
         style={{ position: 'absolute', left: 0, top: 0, height: windowSize.height, width: windowSize.width, backgroundColor: theme['c-content-background'] }}
         source={theme['bg-image']}
-        resizeMode="cover"
+        {...themeBackgroundProps}
       >
         {backgroundVariant === 'playDetailEmby' ? <View style={overlayStyle}></View> : null}
         {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayLayers ? renderPlayDetailEmbyEdgeOverlay() : null}
@@ -140,7 +164,7 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
         {children}
       </View>
     </View>
-  ), [backgroundVariant, bgConfig.edgeOverlayLayers, children, overlayStyle, theme, windowSize.height, windowSize.width])
+  ), [backgroundVariant, bgConfig.edgeOverlayLayers, children, overlayStyle, theme, themeBackgroundProps, windowSize.height, windowSize.width])
   const picComponent = useMemo(() => {
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>

@@ -186,12 +186,18 @@ const applyValues = () => {
   rootStyle.setProperty('--preview-scale-x', state.values.scaleX.toFixed(2))
   rootStyle.setProperty('--preview-scale-y', state.values.scaleY.toFixed(2))
   rootStyle.setProperty('--preview-base-overlay-opacity', state.values.baseOverlayOpacity.toFixed(2))
-  rootStyle.setProperty('--preview-edge-overlay-width-1', `${state.values.edgeOverlayWidth.toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-2', `${state.values.edgeOverlayWidth.toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-3', `${state.values.edgeOverlayWidthInner.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-overlay-width-1', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-overlay-width-2', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-overlay-width-3', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-overlay-width-4', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-overlay-width-5', `${(state.values.edgeOverlayWidthInner / 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-overlay-width-6', `${(state.values.edgeOverlayWidthInner / 2).toFixed(1)}%`)
   rootStyle.setProperty('--preview-edge-overlay-color-1', buildRgba(state.values.edgeOverlayColor, 0.34))
-  rootStyle.setProperty('--preview-edge-overlay-color-2', buildRgba(state.values.edgeOverlayColor, 0.20))
-  rootStyle.setProperty('--preview-edge-overlay-color-3', buildRgba(state.values.edgeOverlayColor, 0.12))
+  rootStyle.setProperty('--preview-edge-overlay-color-2', buildRgba(state.values.edgeOverlayColor, 0.26))
+  rootStyle.setProperty('--preview-edge-overlay-color-3', buildRgba(state.values.edgeOverlayColor, 0.20))
+  rootStyle.setProperty('--preview-edge-overlay-color-4', buildRgba(state.values.edgeOverlayColor, 0.15))
+  rootStyle.setProperty('--preview-edge-overlay-color-5', buildRgba(state.values.edgeOverlayColor, 0.12))
+  rootStyle.setProperty('--preview-edge-overlay-color-6', buildRgba(state.values.edgeOverlayColor, 0.08))
 }
 
 const syncControls = () => {
