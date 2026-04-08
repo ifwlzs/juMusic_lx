@@ -43,7 +43,9 @@ function createPrefetchScheduler({
       const token = currentToken
       if (!currentMusicInfo || !nextMusicInfo) return
       await Promise.resolve()
-      while (token === currentToken && await shouldDeferPrefetch()) {
+      for (;;) {
+        if (token !== currentToken) return
+        if (!await shouldDeferPrefetch()) break
         await wait(retryDelayMs)
       }
       if (token !== currentToken) return

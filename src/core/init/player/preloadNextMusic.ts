@@ -22,7 +22,7 @@ const prefetchScheduler = createPrefetchScheduler({
   async ensureCached(musicInfo) {
     if (!musicInfo || 'progress' in musicInfo) return
     if (musicInfo.source !== 'webdav' && musicInfo.source !== 'smb' && musicInfo.source !== 'onedrive') return
-    await prefetchMediaLibraryTrack(musicInfo)
+    await prefetchMediaLibraryTrack(musicInfo as LX.Music.MusicInfoRemoteFile)
   },
   async shouldDeferPrefetch() {
     const [syncRuns, importJobs] = await Promise.all([

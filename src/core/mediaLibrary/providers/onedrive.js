@@ -49,13 +49,6 @@ function decodeGraphPath(value = '') {
   return normalizePathOrUri(relativePath || '/')
 }
 
-function encodePathSegment(name = '') {
-  return String(name || '')
-    .split('/')
-    .map(segment => encodeURIComponent(segment))
-    .join('/')
-}
-
 function buildPathOrUri(item = {}) {
   const parentPath = decodeGraphPath(item.parentReference?.path)
   const nextPath = parentPath === '/'
@@ -270,7 +263,7 @@ function createOneDriveProvider({
         const batchItems = await collectDirectoryTracks(listChildren, connection, directory.pathOrUri)
         const candidates = dedupeCandidates(
           dedupeItems(batchItems).map(item => toCandidate(connection, item)),
-          seenKeys
+          seenKeys,
         )
         if (!candidates.length) continue
         items.push(...candidates)
@@ -281,7 +274,7 @@ function createOneDriveProvider({
         if (entry?.file && isAudioFile(entry.name)) {
           const candidates = dedupeCandidates(
             dedupeItems([entry]).map(item => toCandidate(connection, item)),
-            seenKeys
+            seenKeys,
           )
           if (!candidates.length) continue
           items.push(...candidates)

@@ -34,7 +34,7 @@ test('remote providers expose enumerateSelection hydrateCandidate and downloadTo
   })
   const webdavProvider = createWebdavProvider({
     async request() {
-      return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />`
+      return '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />'
     },
     async downloadFile() {},
     async readMetadata() {
