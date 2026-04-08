@@ -1,3 +1,5 @@
+/* eslint-env browser */
+
 const rootStyle = document.documentElement.style
 const dropZone = document.querySelector('[data-role="drop-zone"]')
 const dropZoneLabel = document.querySelector('[data-role="drop-zone-label"]')
