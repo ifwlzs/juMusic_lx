@@ -2,9 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-Project versioning uses release timestamps in `yymmddhh` format (Asia/Shanghai).
+Project versioning uses display versions in `0.yy.MMddhhmm` format (Asia/Shanghai).
 Commit convention is based on [Conventional Commits](http://conventionalcommits.org).
 Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
+
+## [0.26.04081235](https://github.com/ifwlzs/juMusic_lx/compare/v260408091...v0.26.04081235) - 2026-04-08
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
 
 ## [260408091](https://github.com/ifwlzs/juMusic_lx/compare/v26040809...v260408091) - 2026-04-08
 

@@ -126,6 +126,24 @@ test('applyReleaseVersion writes displayVersion and keeps versionCode numeric', 
   assert.doesNotMatch(result.changelogMarkdown, /@ikun0014|Folltoshe|thanks/i)
 })
 
+test('buildVersionCodeFromDisplayVersion keeps hourly serial stable when the displayVersion already exists', () => {
+  assert.equal(fs.existsSync(versioningPath), true)
+  const { buildVersionCodeFromDisplayVersion } = require(versioningPath)
+
+  assert.equal(
+    buildVersionCodeFromDisplayVersion({
+      version: '0.26.04081132',
+      existingVersions: [
+        '0.26.04081101',
+        '0.26.04081115',
+        '0.26.04081132',
+        '0.26.04081150',
+      ],
+    }),
+    1302040560,
+  )
+})
+
 test('sanitizeReleaseNotesMarkdown removes contributor mentions but preserves issue references', () => {
   assert.equal(fs.existsSync(versioningPath), true)
   const { sanitizeReleaseNotesMarkdown } = require(versioningPath)
@@ -205,6 +223,17 @@ test('release workflow supports main push and manual dispatch', () => {
   assert.match(workflow, /branches:\s*\r?\n\s*-\s*main/)
 })
 
+test('release workflow generates the next displayVersion and release artifacts use the displayVersion file names', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
+  const uploadAction = fs.readFileSync(path.resolve(__dirname, '../../.github/actions/upload-artifact/action.yml'), 'utf8')
+
+  assert.match(workflow, /selectReleaseVersion\(\{ existingVersions \}\)\.displayVersion/)
+  assert.match(workflow, /tag_name:\s*v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}/)
+  assert.match(workflow, /lx-music-mobile-v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}-universal\.apk/)
+  assert.match(uploadAction, /lx-music-mobile-v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}-arm64-v8a\.apk/)
+  assert.match(uploadAction, /lx-music-mobile-v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}-x86\.apk/)
+})
+
 test('release workflow protects against recursive release commits', () => {
   const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
 
@@ -256,6 +285,28 @@ test('local PowerShell packaging script parses without syntax errors', () => {
     '-Command',
     `$errors = @(); [void][System.Management.Automation.Language.Parser]::ParseFile('${escapedPath}', [ref]$null, [ref]$errors); if ($errors.Count -gt 0) { $errors | ForEach-Object { $_.Message }; exit 1 }`,
   ], { stdio: 'pipe' })
+})
+
+test('prepare-release defaults to the new displayVersion formatter', () => {
+  const prepareRelease = fs.readFileSync(path.resolve(__dirname, '../../scripts/release/prepare-release.js'), 'utf8')
+
+  assert.match(prepareRelease, /formatDisplayVersion/)
+  assert.doesNotMatch(prepareRelease, /process\.argv\[2\] \|\| formatReleaseVersion\(\)/)
+})
+
+test('updateChangeLog derives and writes versionCode separately from displayVersion', () => {
+  const updateChangeLog = fs.readFileSync(path.resolve(__dirname, '../../publish/utils/updateChangeLog.js'), 'utf8')
+
+  assert.match(updateChangeLog, /buildVersionCodeFromDisplayVersion/)
+  assert.match(updateChangeLog, /versionCode:/)
+  assert.doesNotMatch(updateChangeLog, /versionCode:\s*Number\(newVerNum\)/)
+})
+
+test('android build.gradle offsets ABI version codes instead of multiplying by 1000', () => {
+  const buildGradle = fs.readFileSync(path.resolve(__dirname, '../../android/app/build.gradle'), 'utf8')
+
+  assert.match(buildGradle, /output\.versionCodeOverride\s*=\s*defaultConfig\.versionCode \+ versionCodes\.get\(abi\)/)
+  assert.doesNotMatch(buildGradle, /defaultConfig\.versionCode \* 1000/)
 })
 
 test('local PowerShell packaging script fails before npm when keystore.properties is missing', { concurrency: false }, () => {

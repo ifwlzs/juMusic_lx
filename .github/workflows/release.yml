@@ -36,7 +36,7 @@ jobs:
 
       - name: Generate release version
         run: |
-          PACKAGE_VERSION=$(node -e "const { execFileSync } = require('node:child_process'); const { selectReleaseVersion } = require('./scripts/release/versioning'); const existingVersions = execFileSync('git', ['ls-remote', '--tags', '--refs', 'origin'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean).map(line => line.trim().split(/\s+/)[1]).filter(Boolean).filter(ref => ref.startsWith('refs/tags/v')).map(ref => ref.replace(/^refs\\/tags\\/v/, '')); process.stdout.write(selectReleaseVersion({ existingVersions }));")
+          PACKAGE_VERSION=$(node -e "const { execFileSync } = require('node:child_process'); const { selectReleaseVersion } = require('./scripts/release/versioning'); const existingVersions = execFileSync('git', ['ls-remote', '--tags', '--refs', 'origin'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean).map(line => line.trim().split(/\s+/)[1]).filter(Boolean).filter(ref => ref.startsWith('refs/tags/v')).map(ref => ref.replace(/^refs\\/tags\\/v/, '')); process.stdout.write(selectReleaseVersion({ existingVersions }).displayVersion);")
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
           echo "PACKAGE_VERSION=$PACKAGE_VERSION"
 

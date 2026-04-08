@@ -59,6 +59,17 @@ const parseDisplayVersion = version => {
   }
 }
 
+const compareDisplayVersions = (leftVersion, rightVersion) => {
+  const left = parseDisplayVersion(leftVersion)
+  const right = parseDisplayVersion(rightVersion)
+
+  if (!left || !right) return normalizeReleaseVersion(leftVersion).localeCompare(normalizeReleaseVersion(rightVersion))
+
+  const leftKey = `${left.year}${left.month}${left.day}${left.hour}${left.minute}${String(left.suffix).padStart(4, '0')}`
+  const rightKey = `${right.year}${right.month}${right.day}${right.hour}${right.minute}${String(right.suffix).padStart(4, '0')}`
+  return leftKey.localeCompare(rightKey)
+}
+
 const getDisplayHourCode = version => {
   const parsed = parseDisplayVersion(version)
   if (!parsed) return null
@@ -87,10 +98,14 @@ const buildVersionCodeFromDisplayVersion = ({
 } = {}) => {
   const hourCode = getDisplayHourCode(version)
   if (hourCode == null) return Number(version)
-  const hourlySerial = existingVersions
-    .map(normalizeReleaseVersion)
+  const normalizedVersion = normalizeReleaseVersion(version)
+  const hourlyVersions = [...new Set([
+    ...existingVersions.map(normalizeReleaseVersion),
+    normalizedVersion,
+  ])]
     .filter(existingVersion => getDisplayHourCode(existingVersion) === hourCode)
-    .length
+    .sort(compareDisplayVersions)
+  const hourlySerial = Math.max(hourlyVersions.indexOf(normalizedVersion), 0)
   return hourCode * 50 + hourlySerial * 5
 }
 
