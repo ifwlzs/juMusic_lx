@@ -6,6 +6,19 @@ Project versioning uses release timestamps in `yymmddhh` format (Asia/Shanghai).
 Commit convention is based on [Conventional Commits](http://conventionalcommits.org).
 Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased] - 2026-04-08
+
+新增
+
+- 新增 OneDrive、WebDAV、SMB 远端媒体流式导入快路径，扫描过程中即可逐批看到已提交歌曲
+
+优化
+
+- 优化 OneDrive 元数据补全，优先复用 Graph 返回的标题、歌手、专辑与时长，减少导入阶段的临时下载
+- 优化远端同步恢复能力，中断后可复用已提交 checkpoint，并在扫描进行中持续落盘部分快照
+- 优化播放缓存调度，当前播放歌曲缓存优先于下一曲预读，远端扫描活跃时会自动延后预读
+- 优化远端同步通知文案，更清晰展示扫描、补全、导入与源端删除处理阶段
+
 ## [26040800](https://github.com/ifwlzs/juMusic_lx/compare/v26040718...v26040800) - 2026-04-08
 
 修复
