@@ -33,51 +33,68 @@ test('release versioning module exists', () => {
   assert.equal(fs.existsSync(versioningPath), true)
 })
 
-test('formatReleaseVersion uses Asia/Shanghai yymmddhh', () => {
+test('formatDisplayVersion uses Asia/Shanghai 0.yy.MMddhhmm', () => {
   assert.equal(fs.existsSync(versioningPath), true)
-  const { formatReleaseVersion } = require(versioningPath)
+  const { formatDisplayVersion } = require(versioningPath)
 
   assert.equal(
-    formatReleaseVersion(new Date('2026-04-05T15:00:00.000Z')),
-    '26040523',
+    formatDisplayVersion(new Date('2026-04-08T03:32:00.000Z')),
+    '0.26.04081132',
   )
 })
 
-test('selectReleaseVersion appends the next available suffix when the hourly tag already exists', () => {
+test('selectReleaseVersion returns displayVersion, versionCode, and hourlySerial', () => {
+  assert.equal(fs.existsSync(versioningPath), true)
+  const { selectReleaseVersion } = require(versioningPath)
+
+  assert.deepEqual(
+    selectReleaseVersion({
+      date: new Date('2026-04-08T03:32:00.000Z'),
+      existingVersions: ['0.26.04081101', '0.26.04081115'],
+    }),
+    {
+      displayVersion: '0.26.04081132',
+      versionCode: 1302040560,
+      hourlySerial: 2,
+    },
+  )
+})
+
+test('selectReleaseVersion adds a minute-level suffix when displayVersion collides', () => {
   assert.equal(fs.existsSync(versioningPath), true)
   const { selectReleaseVersion } = require(versioningPath)
 
   assert.equal(
     selectReleaseVersion({
-      date: new Date('2026-04-05T15:00:00.000Z'),
-      existingVersions: ['26040523', '260405231'],
-    }),
-    '260405232',
+      date: new Date('2026-04-08T03:32:00.000Z'),
+      existingVersions: ['0.26.04081132', '0.26.04081132.1'],
+    }).displayVersion,
+    '0.26.04081132.2',
   )
 })
 
-test('applyReleaseVersion syncs package, version json, and changelog content', () => {
+test('applyReleaseVersion writes displayVersion and keeps versionCode numeric', () => {
   assert.equal(fs.existsSync(versioningPath), true)
   const { applyReleaseVersion } = require(versioningPath)
 
   const result = applyReleaseVersion({
     packageJson: {
       name: 'lx-music-mobile',
-      version: '1.8.2',
-      versionCode: 74,
+      version: '260408091',
+      versionCode: 260408091,
       repository: {
         url: 'git+https://github.com/ifwlzs/juMusic_lx.git',
       },
     },
     versionJson: {
-      version: '1.8.2',
+      version: '260408091',
       desc: 'old desc',
       history: [],
     },
     changelogMarkdown: [
       '# Changelog',
       '',
-      '## [1.8.2](https://github.com/ifwlzs/juMusic_lx/compare/v1.8.1...v1.8.2) - 2026-03-28',
+      '## [260408091](https://github.com/ifwlzs/juMusic_lx/compare/v26040809...v260408091) - 2026-04-08',
       '',
       'old body',
       '',
@@ -90,18 +107,19 @@ test('applyReleaseVersion syncs package, version json, and changelog content', (
       '- 修复文案引用（thanks @Folltoshe）',
       '',
     ].join('\n'),
-    version: '26040523',
-    releaseDate: '2026-04-05',
+    version: '0.26.04081132',
+    versionCode: 1302040560,
+    releaseDate: '2026-04-08',
   })
 
-  assert.equal(result.packageJson.version, '26040523')
-  assert.equal(result.packageJson.versionCode, 26040523)
-  assert.equal(result.versionJson.version, '26040523')
-  assert.equal(result.versionJson.history[0].version, '1.8.2')
+  assert.equal(result.packageJson.version, '0.26.04081132')
+  assert.equal(result.packageJson.versionCode, 1302040560)
+  assert.equal(result.versionJson.version, '0.26.04081132')
+  assert.equal(result.versionJson.history[0].version, '260408091')
   assert.equal(result.versionJson.desc, '修复\n\n- 修复自动发版\n- 修复本地打包 (#994)\n- 修复文案引用')
   assert.match(
     result.changelogMarkdown,
-    /## \[26040523\]\(https:\/\/github\.com\/ifwlzs\/juMusic_lx\/compare\/v1\.8\.2\.\.\.v26040523\) - 2026-04-05/,
+    /## \[0\.26\.04081132\]\(https:\/\/github\.com\/ifwlzs\/juMusic_lx\/compare\/v260408091\.\.\.v0\.26\.04081132\) - 2026-04-08/,
   )
   assert.match(result.changelogMarkdown, /- 修复自动发版/)
   assert.match(result.changelogMarkdown, /- 修复本地打包 \(#994\)/)

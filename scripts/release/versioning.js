@@ -6,6 +6,16 @@ const versionFormatter = new Intl.DateTimeFormat('en-GB', {
   month: '2-digit',
   day: '2-digit',
   hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+const hourFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: SHANGHAI_TIME_ZONE,
+  year: '2-digit',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
   hour12: false,
 })
 
@@ -21,27 +31,89 @@ const getFormattedParts = (formatter, date) => formatter.formatToParts(date).red
   return result
 }, {})
 
-const formatReleaseVersion = (date = new Date()) => {
+const formatDisplayVersion = (date = new Date()) => {
   const parts = getFormattedParts(versionFormatter, date)
-  return `${parts.year}${parts.month}${parts.day}${parts.hour}`
+  return `0.${parts.year}.${parts.month}${parts.day}${parts.hour}${parts.minute}`
+}
+
+const formatReleaseVersion = formatDisplayVersion
+
+const formatHourCode = (date = new Date()) => {
+  const parts = getFormattedParts(hourFormatter, date)
+  return Number(`${parts.year}${parts.month}${parts.day}${parts.hour}`)
 }
 
 const normalizeReleaseVersion = version => String(version).replace(/^v/, '')
+
+const parseDisplayVersion = version => {
+  const match = normalizeReleaseVersion(version).match(/^0\.(\d{2})\.(\d{2})(\d{2})(\d{2})(\d{2})(?:\.(\d+))?$/)
+  if (!match) return null
+
+  return {
+    year: match[1],
+    month: match[2],
+    day: match[3],
+    hour: match[4],
+    minute: match[5],
+    suffix: match[6] ? Number(match[6]) : 0,
+  }
+}
+
+const getDisplayHourCode = version => {
+  const parsed = parseDisplayVersion(version)
+  if (!parsed) return null
+  return Number(`${parsed.year}${parsed.month}${parsed.day}${parsed.hour}`)
+}
+
+const selectHourlySerial = ({
+  date = new Date(),
+  existingVersions = [],
+} = {}) => {
+  const targetHourCode = formatHourCode(date)
+  return existingVersions
+    .map(normalizeReleaseVersion)
+    .filter(version => getDisplayHourCode(version) === targetHourCode)
+    .length
+}
+
+const buildVersionCode = ({
+  date = new Date(),
+  hourlySerial = 0,
+} = {}) => formatHourCode(date) * 50 + hourlySerial * 5
+
+const buildVersionCodeFromDisplayVersion = ({
+  version,
+  existingVersions = [],
+} = {}) => {
+  const hourCode = getDisplayHourCode(version)
+  if (hourCode == null) return Number(version)
+  const hourlySerial = existingVersions
+    .map(normalizeReleaseVersion)
+    .filter(existingVersion => getDisplayHourCode(existingVersion) === hourCode)
+    .length
+  return hourCode * 50 + hourlySerial * 5
+}
 
 const selectReleaseVersion = ({
   date = new Date(),
   existingVersions = [],
 } = {}) => {
-  const baseVersion = formatReleaseVersion(date)
+  const baseVersion = formatDisplayVersion(date)
   const normalizedVersions = new Set(existingVersions.map(normalizeReleaseVersion))
-  if (!normalizedVersions.has(baseVersion)) return baseVersion
+  let displayVersion = baseVersion
+  let minuteSuffix = 0
 
-  for (let suffix = 1; suffix <= 9; suffix += 1) {
-    const candidate = `${baseVersion}${suffix}`
-    if (!normalizedVersions.has(candidate)) return candidate
+  while (normalizedVersions.has(displayVersion)) {
+    minuteSuffix += 1
+    displayVersion = `${baseVersion}.${minuteSuffix}`
   }
 
-  throw new Error(`No available release version for base ${baseVersion}`)
+  const hourlySerial = selectHourlySerial({ date, existingVersions })
+  return {
+    displayVersion,
+    versionCode: buildVersionCode({ date, hourlySerial }),
+    hourlySerial,
+  }
 }
 
 const formatReleaseDate = (date = new Date()) => {
@@ -154,6 +226,7 @@ const applyReleaseVersion = ({
   changelogMarkdown,
   releaseNotesMarkdown,
   version = formatReleaseVersion(),
+  versionCode = buildVersionCodeFromDisplayVersion({ version }),
   releaseDate = formatReleaseDate(),
 }) => {
   const releaseNotes = parseReleaseNotes(releaseNotesMarkdown)
@@ -178,7 +251,7 @@ const applyReleaseVersion = ({
   const nextPackageJson = {
     ...packageJson,
     version,
-    versionCode: Number(version),
+    versionCode,
   }
 
   const nextChangelogMarkdown = upsertLatestChangelogEntry({
@@ -203,10 +276,14 @@ const applyReleaseVersion = ({
 
 module.exports = {
   applyReleaseVersion,
+  buildVersionCode,
+  buildVersionCodeFromDisplayVersion,
+  formatDisplayVersion,
   formatReleaseDate,
   formatReleaseVersion,
   getLatestChangelogBody,
   parseChangelog,
+  selectHourlySerial,
   selectReleaseVersion,
   sanitizeReleaseNotesMarkdown,
 }
