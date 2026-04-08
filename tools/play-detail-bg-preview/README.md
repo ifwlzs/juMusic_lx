@@ -14,7 +14,7 @@ Then open `http://127.0.0.1:4866`.
 
 - Loads a few built-in cover presets so the page works before you drag in a real image.
 - Supports drag/drop and file picking for real album art.
-- Lets you tune blur, stretch, base overlay opacity, and the gray edge ring.
+- Lets you tune blur, stretch, the neutral center wash, and the edge-led gray bands.
 - Reloads the browser automatically when `index.html`, `styles.css`, `preview.js`, or this README change.
 
 ## Parameter mapping back to React Native
@@ -26,11 +26,11 @@ These controls map to [`src/components/PageContent.tsx`](../../src/components/Pa
 | `blurRadius` | `backgroundConfigs.playDetailEmby.blurRadius` |
 | `scaleX` | `backgroundConfigs.playDetailEmby.imageStyle.transform[0].scaleX` |
 | `scaleY` | `backgroundConfigs.playDetailEmby.imageStyle.transform[1].scaleY` |
-| `baseOverlayOpacity` | alpha channel inside `backgroundConfigs.playDetailEmby.overlayStyle.backgroundColor` |
-| `edgeOverlayColor` | base gray used to derive `playDetailEmbyEdgeOverlayLayers[*].backgroundColor` |
-| `edgeOverlayWidth` | outer padding values that mirror `playDetailEmbyEdgeOverlayLayers[*].paddingHorizontal` and `paddingVertical` |
+| `baseOverlayOpacity` | alpha channel inside the neutral gray wash at `backgroundConfigs.playDetailEmby.overlayStyle.backgroundColor` |
+| `edgeOverlayColor` | base gray used to derive `playDetailEmbyEdgeOverlayBands[*].backgroundColor` |
+| `edgeOverlayWidth` | outer band thickness values that mirror `playDetailEmbyEdgeOverlayBands[*].thickness` |
 
-`edgeOverlayWidth inner` is a convenience control for the deepest ring, because the current React Native layout uses a wider innermost layer than the two outer layers.
+`edgeOverlayWidth inner` is a convenience control for the deepest edge-led bands, because the current React Native layout uses a wider innermost pair than the outer four.
 
 ## Working loop
 

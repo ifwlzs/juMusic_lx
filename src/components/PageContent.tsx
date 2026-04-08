@@ -21,74 +21,103 @@ interface BackgroundConfig {
   blurRadius: number
   imageStyle?: ImageStyle
   overlayStyle: ViewStyle
-  edgeOverlayLayers?: EdgeOverlayLayer[]
+  edgeOverlayBands?: readonly EdgeOverlayBand[]
   useThemeOverlayColor?: boolean
   overlayOpacity?: number
 }
 
-interface EdgeOverlayLayer {
-  paddingHorizontal: string
-  paddingVertical: string
+interface EdgeOverlayBand {
+  inset: string
+  thickness: string
   backgroundColor: string
 }
 
 const playDetailEmbyOuterRingWidth = 4
 const playDetailEmbyInnerRingWidth = 6
-const playDetailEmbyOuterRingSegmentWidth = `${playDetailEmbyOuterRingWidth / 2}%`
-const playDetailEmbyInnerRingSegmentWidth = `${playDetailEmbyInnerRingWidth / 2}%`
-const playDetailEmbyEdgeOverlayLayers = [
+const playDetailEmbyOuterBandThickness = `${playDetailEmbyOuterRingWidth / 2}%`
+const playDetailEmbyInnerBandThickness = `${playDetailEmbyInnerRingWidth / 2}%`
+const createEdgeOverlayBands = (bands: readonly EdgeOverlayBand[]) => bands
+const playDetailEmbyEdgeOverlayBands = createEdgeOverlayBands([
   {
-    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
-    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
+    inset: '0%',
+    thickness: playDetailEmbyOuterBandThickness,
     backgroundColor: 'rgba(145, 145, 145, 0.34)',
   },
   {
-    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
-    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
+    inset: playDetailEmbyOuterBandThickness,
+    thickness: playDetailEmbyOuterBandThickness,
     backgroundColor: 'rgba(145, 145, 145, 0.26)',
   },
   {
-    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
-    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
+    inset: `${playDetailEmbyOuterRingWidth}%`,
+    thickness: playDetailEmbyOuterBandThickness,
     backgroundColor: 'rgba(145, 145, 145, 0.2)',
   },
   {
-    paddingHorizontal: playDetailEmbyOuterRingSegmentWidth,
-    paddingVertical: playDetailEmbyOuterRingSegmentWidth,
+    inset: `${playDetailEmbyOuterRingWidth + playDetailEmbyOuterRingWidth / 2}%`,
+    thickness: playDetailEmbyOuterBandThickness,
     backgroundColor: 'rgba(145, 145, 145, 0.15)',
   },
   {
-    paddingHorizontal: playDetailEmbyInnerRingSegmentWidth,
-    paddingVertical: playDetailEmbyInnerRingSegmentWidth,
+    inset: `${playDetailEmbyOuterRingWidth * 2}%`,
+    thickness: playDetailEmbyInnerBandThickness,
     backgroundColor: 'rgba(145, 145, 145, 0.12)',
   },
   {
-    paddingHorizontal: playDetailEmbyInnerRingSegmentWidth,
-    paddingVertical: playDetailEmbyInnerRingSegmentWidth,
+    inset: `${playDetailEmbyOuterRingWidth * 2 + playDetailEmbyInnerRingWidth / 2}%`,
+    thickness: playDetailEmbyInnerBandThickness,
     backgroundColor: 'rgba(145, 145, 145, 0.08)',
   },
-] as const
-
-const renderInsetEdgeOverlay = (layers: readonly EdgeOverlayLayer[], index = 0): React.ReactNode => {
-  if (index >= layers.length) return <View style={{ flex: 1 }} />
-  const layer = layers[index]
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: layer.backgroundColor,
-        paddingHorizontal: layer.paddingHorizontal,
-        paddingVertical: layer.paddingVertical,
-      }}
-    >
-      {renderInsetEdgeOverlay(layers, index + 1)}
-    </View>
-  )
-}
+])
 
 const renderPlayDetailEmbyEdgeOverlay = () => (
   <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
-    {renderInsetEdgeOverlay(playDetailEmbyEdgeOverlayLayers)}
+    {playDetailEmbyEdgeOverlayBands.flatMap((band, index) => [
+      <View
+        key={`top:${index}`}
+        style={{
+          position: 'absolute',
+          left: band.inset,
+          right: band.inset,
+          top: band.inset,
+          height: band.thickness,
+          backgroundColor: band.backgroundColor,
+        }}
+      />,
+      <View
+        key={`right:${index}`}
+        style={{
+          position: 'absolute',
+          right: band.inset,
+          top: band.inset,
+          bottom: band.inset,
+          width: band.thickness,
+          backgroundColor: band.backgroundColor,
+        }}
+      />,
+      <View
+        key={`bottom:${index}`}
+        style={{
+          position: 'absolute',
+          left: band.inset,
+          right: band.inset,
+          bottom: band.inset,
+          height: band.thickness,
+          backgroundColor: band.backgroundColor,
+        }}
+      />,
+      <View
+        key={`left:${index}`}
+        style={{
+          position: 'absolute',
+          left: band.inset,
+          top: band.inset,
+          bottom: band.inset,
+          width: band.thickness,
+          backgroundColor: band.backgroundColor,
+        }}
+      />,
+    ])}
   </View>
 )
 
@@ -110,9 +139,9 @@ const backgroundConfigs: Record<BackgroundVariant, BackgroundConfig> = {
     overlayStyle: {
       flex: 1,
       flexDirection: 'column',
-      backgroundColor: 'rgba(0, 0, 0, 0.14)',
+      backgroundColor: 'rgba(145, 145, 145, 0.14)',
     },
-    edgeOverlayLayers: playDetailEmbyEdgeOverlayLayers,
+    edgeOverlayBands: playDetailEmbyEdgeOverlayBands,
   },
 }
 
@@ -158,13 +187,13 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
         {...themeBackgroundProps}
       >
         {backgroundVariant === 'playDetailEmby' ? <View style={overlayStyle}></View> : null}
-        {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayLayers ? renderPlayDetailEmbyEdgeOverlay() : null}
+        {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayBands ? renderPlayDetailEmbyEdgeOverlay() : null}
       </ImageBackground>
       <View style={{ flex: 1, flexDirection: 'column', backgroundColor: theme['c-main-background'] }}>
         {children}
       </View>
     </View>
-  ), [backgroundVariant, bgConfig.edgeOverlayLayers, children, overlayStyle, theme, themeBackgroundProps, windowSize.height, windowSize.width])
+  ), [backgroundVariant, bgConfig.edgeOverlayBands, children, overlayStyle, theme, themeBackgroundProps, windowSize.height, windowSize.width])
   const picComponent = useMemo(() => {
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>
@@ -176,14 +205,14 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
           imageStyle={bgConfig.imageStyle}
         >
           <View style={overlayStyle}></View>
-          {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayLayers ? renderPlayDetailEmbyEdgeOverlay() : null}
+          {backgroundVariant === 'playDetailEmby' && bgConfig.edgeOverlayBands ? renderPlayDetailEmbyEdgeOverlay() : null}
         </ImageBackground>
         <View style={{ flex: 1, flexDirection: 'column' }}>
           {children}
         </View>
       </View>
     )
-  }, [backgroundVariant, bgConfig.blurRadius, bgConfig.edgeOverlayLayers, bgConfig.imageStyle, bgConfig.resizeMode, children, overlayStyle, pic, theme, windowSize.height, windowSize.width])
+  }, [backgroundVariant, bgConfig.blurRadius, bgConfig.edgeOverlayBands, bgConfig.imageStyle, bgConfig.resizeMode, children, overlayStyle, pic, theme, windowSize.height, windowSize.width])
 
   return (
     <>

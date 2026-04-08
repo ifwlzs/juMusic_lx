@@ -11,12 +11,18 @@
   --preview-edge-overlay-color-4: rgba(145, 145, 145, 0.15);
   --preview-edge-overlay-color-5: rgba(145, 145, 145, 0.12);
   --preview-edge-overlay-color-6: rgba(145, 145, 145, 0.08);
-  --preview-edge-overlay-width-1: 2%;
-  --preview-edge-overlay-width-2: 2%;
-  --preview-edge-overlay-width-3: 2%;
-  --preview-edge-overlay-width-4: 2%;
-  --preview-edge-overlay-width-5: 3%;
-  --preview-edge-overlay-width-6: 3%;
+  --preview-edge-band-thickness-1: 2%;
+  --preview-edge-band-thickness-2: 2%;
+  --preview-edge-band-thickness-3: 2%;
+  --preview-edge-band-thickness-4: 2%;
+  --preview-edge-band-thickness-5: 3%;
+  --preview-edge-band-thickness-6: 3%;
+  --preview-edge-band-inset-1: 0%;
+  --preview-edge-band-inset-2: 2%;
+  --preview-edge-band-inset-3: 4%;
+  --preview-edge-band-inset-4: 6%;
+  --preview-edge-band-inset-5: 8%;
+  --preview-edge-band-inset-6: 11%;
   --panel-shadow: 0 24px 60px rgba(25, 39, 61, 0.12);
   --surface: rgba(255, 255, 255, 0.92);
   --line: rgba(20, 37, 63, 0.1);
@@ -224,8 +230,7 @@ body {
 }
 
 .bg-image,
-.bg-overlay,
-.bg-edge {
+.bg-overlay {
   position: absolute;
   inset: 0;
 }
@@ -239,41 +244,80 @@ body {
 }
 
 .bg-overlay {
-  background: rgba(0, 0, 0, var(--preview-base-overlay-opacity));
+  background: rgba(145, 145, 145, var(--preview-base-overlay-opacity));
 }
 
-.bg-edge {
+.bg-band {
+  position: absolute;
   pointer-events: none;
 }
 
-.bg-edge-1 {
-  padding: var(--preview-edge-overlay-width-1);
-  background: var(--preview-edge-overlay-color-1);
+.bg-band-1 {
+  --band-color: var(--preview-edge-overlay-color-1);
+  --band-inset: var(--preview-edge-band-inset-1);
+  --band-thickness: var(--preview-edge-band-thickness-1);
 }
 
-.bg-edge-2 {
-  padding: var(--preview-edge-overlay-width-2);
-  background: var(--preview-edge-overlay-color-2);
+.bg-band-2 {
+  --band-color: var(--preview-edge-overlay-color-2);
+  --band-inset: var(--preview-edge-band-inset-2);
+  --band-thickness: var(--preview-edge-band-thickness-2);
 }
 
-.bg-edge-3 {
-  padding: var(--preview-edge-overlay-width-3);
-  background: var(--preview-edge-overlay-color-3);
+.bg-band-3 {
+  --band-color: var(--preview-edge-overlay-color-3);
+  --band-inset: var(--preview-edge-band-inset-3);
+  --band-thickness: var(--preview-edge-band-thickness-3);
 }
 
-.bg-edge-4 {
-  padding: var(--preview-edge-overlay-width-4);
-  background: var(--preview-edge-overlay-color-4);
+.bg-band-4 {
+  --band-color: var(--preview-edge-overlay-color-4);
+  --band-inset: var(--preview-edge-band-inset-4);
+  --band-thickness: var(--preview-edge-band-thickness-4);
 }
 
-.bg-edge-5 {
-  padding: var(--preview-edge-overlay-width-5);
-  background: var(--preview-edge-overlay-color-5);
+.bg-band-5 {
+  --band-color: var(--preview-edge-overlay-color-5);
+  --band-inset: var(--preview-edge-band-inset-5);
+  --band-thickness: var(--preview-edge-band-thickness-5);
 }
 
-.bg-edge-6 {
-  padding: var(--preview-edge-overlay-width-6);
-  background: var(--preview-edge-overlay-color-6);
+.bg-band-6 {
+  --band-color: var(--preview-edge-overlay-color-6);
+  --band-inset: var(--preview-edge-band-inset-6);
+  --band-thickness: var(--preview-edge-band-thickness-6);
+}
+
+.bg-band-top {
+  left: var(--band-inset);
+  right: var(--band-inset);
+  top: var(--band-inset);
+  height: var(--band-thickness);
+  background: var(--band-color);
+}
+
+.bg-band-right {
+  right: var(--band-inset);
+  top: var(--band-inset);
+  bottom: var(--band-inset);
+  width: var(--band-thickness);
+  background: var(--band-color);
+}
+
+.bg-band-bottom {
+  left: var(--band-inset);
+  right: var(--band-inset);
+  bottom: var(--band-inset);
+  height: var(--band-thickness);
+  background: var(--band-color);
+}
+
+.bg-band-left {
+  left: var(--band-inset);
+  top: var(--band-inset);
+  bottom: var(--band-inset);
+  width: var(--band-thickness);
+  background: var(--band-color);
 }
 
 .safe-area {

@@ -53,7 +53,7 @@ const presets = [
   {
     id: 'lighter-center',
     label: 'Lighter center',
-    description: 'less gray pressure',
+    description: 'lighter center wash',
     image: createSvgDataUri({
       title: 'Lighter center',
       startColor: '#f8f2df',
@@ -63,7 +63,7 @@ const presets = [
     values: {
       ...defaultValues,
       blurRadius: 46,
-      baseOverlayOpacity: 0.14,
+      baseOverlayOpacity: 0.1,
       edgeOverlayColor: '#7d7d7d',
     },
   },
@@ -82,7 +82,7 @@ const presets = [
       blurRadius: 52,
       scaleX: 1.2,
       scaleY: 1.1,
-      baseOverlayOpacity: 0.22,
+      baseOverlayOpacity: 0.18,
       edgeOverlayColor: '#6a6a6a',
       edgeOverlayWidth: 5,
       edgeOverlayWidthInner: 7,
@@ -181,17 +181,26 @@ const buildRgba = (hex, alpha) => {
 }
 
 const applyValues = () => {
+  const outerBandThickness = state.values.edgeOverlayWidth / 2
+  const innerBandThickness = state.values.edgeOverlayWidthInner / 2
+
   rootStyle.setProperty('--preview-image', state.currentImage)
   rootStyle.setProperty('--preview-blur-radius', `${state.values.blurRadius}px`)
   rootStyle.setProperty('--preview-scale-x', state.values.scaleX.toFixed(2))
   rootStyle.setProperty('--preview-scale-y', state.values.scaleY.toFixed(2))
   rootStyle.setProperty('--preview-base-overlay-opacity', state.values.baseOverlayOpacity.toFixed(2))
-  rootStyle.setProperty('--preview-edge-overlay-width-1', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-2', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-3', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-4', `${(state.values.edgeOverlayWidth / 2).toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-5', `${(state.values.edgeOverlayWidthInner / 2).toFixed(1)}%`)
-  rootStyle.setProperty('--preview-edge-overlay-width-6', `${(state.values.edgeOverlayWidthInner / 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-thickness-1', `${outerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-thickness-2', `${outerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-thickness-3', `${outerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-thickness-4', `${outerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-thickness-5', `${innerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-thickness-6', `${innerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-inset-1', '0%')
+  rootStyle.setProperty('--preview-edge-band-inset-2', `${outerBandThickness.toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-inset-3', `${(outerBandThickness * 2).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-inset-4', `${(outerBandThickness * 3).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-inset-5', `${(outerBandThickness * 4).toFixed(1)}%`)
+  rootStyle.setProperty('--preview-edge-band-inset-6', `${(outerBandThickness * 4 + innerBandThickness).toFixed(1)}%`)
   rootStyle.setProperty('--preview-edge-overlay-color-1', buildRgba(state.values.edgeOverlayColor, 0.34))
   rootStyle.setProperty('--preview-edge-overlay-color-2', buildRgba(state.values.edgeOverlayColor, 0.26))
   rootStyle.setProperty('--preview-edge-overlay-color-3', buildRgba(state.values.edgeOverlayColor, 0.20))
