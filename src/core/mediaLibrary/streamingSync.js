@@ -356,7 +356,7 @@ async function runRemoteStreamingSync({
       },
     })
 
-    const processCandidateBatch = async(batch = []) => {
+    const processCandidateBatch = async(batch = [], { flushAfterBatch = false } = {}) => {
       if (!batch.length) return
 
       await notifications?.showSyncProgress({
@@ -454,13 +454,14 @@ async function runRemoteStreamingSync({
       }
 
       await persistSyncWorkspace('hydrate')
+      if (flushAfterBatch) await committer.flush()
     }
 
     if (typeof provider.streamEnumerateSelection === 'function') {
       enumerateResult = await provider.streamEnumerateSelection(
         connection,
         normalizeImportSelection(rule),
-        processCandidateBatch
+        async batch => processCandidateBatch(batch, { flushAfterBatch: true })
       )
       const remainingCandidates = (enumerateResult.items || [])
         .filter(candidate => !candidateStates.has(buildCandidateResumeKey(candidate)))

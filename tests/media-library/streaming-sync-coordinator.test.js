@@ -302,6 +302,7 @@ test('runRemoteStreamingSync commits the first streamed batch before full enumer
   const rule = createRule()
   const reconcileEvents = []
   let savedSourceItems = []
+  const scheduledFlushes = []
 
   await runRemoteStreamingSync({
     connection,
@@ -383,10 +384,16 @@ test('runRemoteStreamingSync commits the first streamed batch before full enumer
       async removeMissingSongs() {},
     },
     batchCommitterOptions: {
-      maxBatchSize: 1,
+      maxBatchSize: 10,
+      schedule(_delay, run) {
+        scheduledFlushes.push(run)
+        return run
+      },
+      cancel() {},
     },
   })
 
+  assert.equal(scheduledFlushes.length > 0, true)
   assert.deepEqual(reconcileEvents.slice(0, 2), [1, 'after_first_batch'])
 })
 
