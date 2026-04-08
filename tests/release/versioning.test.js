@@ -16,6 +16,20 @@ const writeFile = (filePath, content) => {
   fs.writeFileSync(filePath, content, 'utf8')
 }
 
+const backupFile = (sourcePath, backupPath) => {
+  if (!fs.existsSync(sourcePath)) return false
+  fs.copyFileSync(sourcePath, backupPath)
+  fs.unlinkSync(sourcePath)
+  return true
+}
+
+const restoreFile = (sourcePath, backupPath) => {
+  if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath)
+  if (!fs.existsSync(backupPath)) return
+  fs.copyFileSync(backupPath, sourcePath)
+  fs.unlinkSync(backupPath)
+}
+
 const runPowerShellScript = (scriptPath, args, env = {}, cwd = repoRoot) => spawnSync(
   'powershell',
   ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
@@ -320,11 +334,11 @@ test('local PowerShell packaging script fails before npm when keystore.propertie
   writeFile(path.join(fakeBinDir, 'npm.cmd'), `@echo off
 >> "%NPM_LOG%" echo %*
 exit /b 0
-`)
+  `)
 
   const keystorePath = path.join(repoRoot, 'android', 'keystore.properties')
   const backupPath = path.join(tempDir, 'keystore.properties.bak')
-  if (fs.existsSync(keystorePath)) fs.renameSync(keystorePath, backupPath)
+  backupFile(keystorePath, backupPath)
 
   try {
     const result = runPowerShellScript(packScriptPath, ['-JavaHome', fakeJavaHome], {
@@ -336,8 +350,7 @@ exit /b 0
     assert.match(`${result.stdout}\n${result.stderr}`, /keystore\.properties/i)
     assert.equal(fs.existsSync(npmLogPath), false)
   } finally {
-    if (fs.existsSync(keystorePath)) fs.unlinkSync(keystorePath)
-    if (fs.existsSync(backupPath)) fs.renameSync(backupPath, keystorePath)
+    restoreFile(keystorePath, backupPath)
   }
 })
 
@@ -356,7 +369,7 @@ test('local PowerShell packaging script returns pack:android exit code without m
 if /I "%~1"=="run" if /I "%~2"=="pack:android" exit /b 7
 exit /b 0
 `)
-  if (fs.existsSync(keystorePath)) fs.renameSync(keystorePath, backupPath)
+  backupFile(keystorePath, backupPath)
   writeFile(keystorePath, `storeFile=debug.keystore
 storePassword=android
 keyAlias=androiddebugkey
@@ -374,7 +387,6 @@ keyPassword=android
     assert.match(fs.readFileSync(npmLogPath, 'utf8'), /run pack:android/)
     assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Cannot find path .*apk[\\/]+release/i)
   } finally {
-    if (fs.existsSync(keystorePath)) fs.unlinkSync(keystorePath)
-    if (fs.existsSync(backupPath)) fs.renameSync(backupPath, keystorePath)
+    restoreFile(keystorePath, backupPath)
   }
 })
