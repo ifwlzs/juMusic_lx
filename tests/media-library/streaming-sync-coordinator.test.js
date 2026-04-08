@@ -402,6 +402,7 @@ test('runRemoteStreamingSync reuses checkpointed items with unchanged version to
   const rule = createRule()
   const hydrateCalls = []
   let savedSourceItems = []
+  let savedSyncCandidates = []
 
   const previousSong = createSourceItem({
     sourceItemId: 'conn_1__/Albums/song_1.mp3',
@@ -409,6 +410,9 @@ test('runRemoteStreamingSync reuses checkpointed items with unchanged version to
     title: 'song_1',
     versionToken: 'v_song_1',
   })
+  previousSong.artist = 'checkpoint_artist'
+  previousSong.album = 'checkpoint_album'
+  previousSong.durationSec = 245
 
   const result = await runRemoteStreamingSync({
     connection,
@@ -441,7 +445,9 @@ test('runRemoteStreamingSync reuses checkpointed items with unchanged version to
         return []
       },
       async saveSyncRuns() {},
-      async saveSyncCandidates() {},
+      async saveSyncCandidates(_runId, items) {
+        savedSyncCandidates = items
+      },
       async saveSyncSnapshot() {},
     },
     registry: {
@@ -480,7 +486,24 @@ test('runRemoteStreamingSync reuses checkpointed items with unchanged version to
 
   assert.deepEqual(hydrateCalls, ['/Albums/song_2.mp3'])
   assert.equal(result.nextItems.length, 2)
-  assert.equal(result.nextItems.find(item => item.sourceItemId === previousSong.sourceItemId)?.versionToken, 'v_song_1')
+  assert.deepEqual(result.nextItems.find(item => item.sourceItemId === previousSong.sourceItemId), {
+    ...previousSong,
+    lastSeenAt: result.nextItems.find(item => item.sourceItemId === previousSong.sourceItemId)?.lastSeenAt,
+  })
+  assert.deepEqual(savedSyncCandidates.find(item => item.sourceStableKey === '/Albums/song_1.mp3'), {
+    ...createCandidate(1),
+    sourceStableKey: '/Albums/song_1.mp3',
+    hydrateState: 'committed',
+    attempts: 0,
+    lastError: '',
+    metadataLevelReached: 1,
+    metadata: {
+      title: 'song_1',
+      artist: 'checkpoint_artist',
+      album: 'checkpoint_album',
+      durationSec: 245,
+    },
+  })
 })
 
 test('runRemoteStreamingSync preserves flushed visible state when pause is requested', async() => {

@@ -383,7 +383,9 @@ async function runRemoteStreamingSync({
           hydrateState: isReusable ? 'committed' : 'discovered',
           attempts: 0,
           lastError: '',
-          metadataLevelReached: candidate.metadataLevelReached || 0,
+          metadataLevelReached: isReusable
+            ? Math.max(candidate.metadataLevelReached || 0, 1)
+            : (candidate.metadataLevelReached || 0),
           metadata: isReusable ? toSyncCandidateMetadata(reusableItem) : null,
         })
 

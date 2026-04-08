@@ -424,6 +424,55 @@ test('onedrive provider enumerateSelection dedupes overlapping directories acros
   ])
 })
 
+test('onedrive provider hydrateCandidate short-circuits when metadata hints already satisfy title artist duration', async() => {
+  let downloadCalls = 0
+  let metadataCalls = 0
+  const provider = createOneDriveProvider({
+    async listChildren() {
+      return { items: [], nextLink: null }
+    },
+    async getItemByPath() {
+      return null
+    },
+    async downloadFile() {
+      downloadCalls += 1
+      return null
+    },
+    async readMetadata() {
+      metadataCalls += 1
+      return null
+    },
+  })
+
+  const result = await provider.hydrateCandidate({
+    connectionId: 'onedrive_conn',
+    providerType: 'onedrive',
+  }, {
+    sourceStableKey: '/Albums/song_1.mp3',
+    pathOrUri: '/Albums/song_1.mp3',
+    fileName: 'song_1.mp3',
+    hydrateState: 'discovered',
+    metadataHints: {
+      title: 'song_1',
+      artist: 'artist_1',
+      album: 'album_1',
+      durationSec: 181,
+    },
+  }, {
+    attempt: 1,
+  })
+
+  assert.equal(downloadCalls, 0)
+  assert.equal(metadataCalls, 0)
+  assert.deepEqual(result.metadata, {
+    title: 'song_1',
+    artist: 'artist_1',
+    album: 'album_1',
+    durationSec: 181,
+  })
+  assert.equal(result.metadataLevelReached, 1)
+})
+
 test('onedrive provider hydrateCandidate reads metadata for a lightweight candidate', async() => {
   const calls = []
   const provider = createOneDriveProvider({
@@ -463,6 +512,12 @@ test('onedrive provider hydrateCandidate reads metadata for a lightweight candid
     pathOrUri: '/Albums/song.mp3',
     fileName: 'song.mp3',
     versionToken: '"song_1"',
+    metadataHints: {
+      title: 'song',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
   }, {
     attempt: 2,
   })
@@ -473,6 +528,12 @@ test('onedrive provider hydrateCandidate reads metadata for a lightweight candid
       pathOrUri: '/Albums/song.mp3',
       fileName: 'song.mp3',
       versionToken: '"song_1"',
+      metadataHints: {
+        title: 'song',
+        artist: '',
+        album: '',
+        durationSec: 0,
+      },
     },
     metadata: {
       title: 'Hydrated Song',

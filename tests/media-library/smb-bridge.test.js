@@ -186,7 +186,7 @@ test('createSmbProvider streamEnumerateSelection streams candidates before hydra
   assert.equal(result.items[0].pathOrUri, '/music/a.mp3')
 })
 
-test('createSmbProvider hydrateCandidate reads metadata for a candidate', async() => {
+test('createSmbProvider hydrateCandidate falls back to the existing metadata read when hints are incomplete', async() => {
   const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
 
   const calls = []
@@ -216,6 +216,12 @@ test('createSmbProvider hydrateCandidate reads metadata for a candidate', async(
     pathOrUri: '/music/a.mp3',
     fileName: 'a.mp3',
     versionToken: '1700000000001__10__/music/a.mp3',
+    metadataHints: {
+      title: 'a',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
   }, {
     attempt: 3,
   })
@@ -226,6 +232,12 @@ test('createSmbProvider hydrateCandidate reads metadata for a candidate', async(
       pathOrUri: '/music/a.mp3',
       fileName: 'a.mp3',
       versionToken: '1700000000001__10__/music/a.mp3',
+      metadataHints: {
+        title: 'a',
+        artist: '',
+        album: '',
+        durationSec: 0,
+      },
     },
     metadata: {
       title: 'SMB Song',

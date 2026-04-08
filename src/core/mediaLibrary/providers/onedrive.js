@@ -149,15 +149,29 @@ function toCandidate(connection, item) {
 }
 
 function normalizeHydratedMetadata(candidate, metadata) {
+  const hints = candidate?.metadataHints || {}
   return {
-    title: metadata?.name || stripExtension(candidate?.fileName || ''),
-    artist: metadata?.singer || '',
-    album: metadata?.albumName || '',
-    durationSec: metadata?.interval || 0,
+    title: metadata?.name || hints.title || stripExtension(candidate?.fileName || ''),
+    artist: metadata?.singer || hints.artist || '',
+    album: metadata?.albumName || hints.album || '',
+    durationSec: metadata?.interval || hints.durationSec || 0,
   }
 }
 
+function hasReadyMetadata(metadata = {}) {
+  return Boolean(metadata?.title && metadata?.artist && Number(metadata?.durationSec) > 0)
+}
+
 async function hydrateCandidateMetadata(connection, candidate, attempt, helpers = {}) {
+  const hintedMetadata = normalizeHydratedMetadata(candidate, null)
+  if (hasReadyMetadata(hintedMetadata)) {
+    return {
+      candidate,
+      metadata: hintedMetadata,
+      metadataLevelReached: Math.max(Number(attempt) || 0, candidate?.metadataLevelReached || 0, 1),
+    }
+  }
+
   const metadata = await readRemoteMetadata({
     connection,
     item: { name: candidate?.fileName || getFileName(candidate?.pathOrUri) },

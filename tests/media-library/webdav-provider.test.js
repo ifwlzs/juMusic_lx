@@ -301,7 +301,7 @@ test('createWebdavProvider enumerateSelection stays lightweight and avoids metad
   assert.equal(metadataCount, 0)
 })
 
-test('createWebdavProvider hydrateCandidate downloads metadata for a candidate', async() => {
+test('createWebdavProvider hydrateCandidate falls back to temp-file metadata when hints are incomplete', async() => {
   const calls = []
   const provider = createWebdavProvider({
     async request() {
@@ -337,6 +337,12 @@ test('createWebdavProvider hydrateCandidate downloads metadata for a candidate',
     pathOrUri: '/music/test.mp3',
     fileName: 'test.mp3',
     versionToken: '"abc"',
+    metadataHints: {
+      title: 'test',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
   }, {
     attempt: 1,
   })
@@ -347,6 +353,12 @@ test('createWebdavProvider hydrateCandidate downloads metadata for a candidate',
       pathOrUri: '/music/test.mp3',
       fileName: 'test.mp3',
       versionToken: '"abc"',
+      metadataHints: {
+        title: 'test',
+        artist: '',
+        album: '',
+        durationSec: 0,
+      },
     },
     metadata: {
       title: 'WebDAV Song',
