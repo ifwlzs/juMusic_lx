@@ -132,6 +132,32 @@ test('sanitizeReleaseNotesMarkdown removes contributor mentions but preserves is
   ].join('\n'))
 })
 
+test('getLatestChangelogBody returns the newest changelog section body for GitHub release notes', () => {
+  assert.equal(fs.existsSync(versioningPath), true)
+  const { getLatestChangelogBody } = require(versioningPath)
+
+  const result = getLatestChangelogBody([
+    '# Changelog',
+    '',
+    '## [26040523](https://github.com/ifwlzs/juMusic_lx/compare/v1.8.2...v26040523) - 2026-04-05',
+    '',
+    '修复',
+    '',
+    '- 修复自动发版',
+    '',
+    '## [1.8.2](https://github.com/ifwlzs/juMusic_lx/compare/v1.8.1...v1.8.2) - 2026-03-28',
+    '',
+    '旧内容',
+    '',
+  ].join('\n'))
+
+  assert.equal(result, [
+    '修复',
+    '',
+    '- 修复自动发版',
+  ].join('\n'))
+})
+
 test('package.json exposes release helper scripts', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'))
 
@@ -183,6 +209,7 @@ test('release workflow uses sanitized release body, disables generated notes, an
   assert.match(workflow, /name:\s*juMusic 安卓版 v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}/)
   assert.match(workflow, /### 安装包 MD5/)
   assert.match(updateChangeLog, /releaseBody\.md/)
+  assert.match(updateChangeLog, /getLatestChangelogBody/)
 })
 
 test('release workflow uses a no-daemon release build on CI', () => {

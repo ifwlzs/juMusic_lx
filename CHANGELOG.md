@@ -25,6 +25,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 优化远端同步恢复能力，中断后可复用已提交 checkpoint，并在扫描进行中持续落盘部分快照
 - 优化播放缓存调度，当前播放歌曲缓存优先于下一曲预读，远端扫描活跃时会自动延后预读
 - 优化远端同步通知文案，更清晰展示扫描、补全、导入与源端删除处理阶段
+- 优化 GitHub Release 描述生成逻辑，发版时改为使用更新后 `CHANGELOG.md` 最新一节正文
 
 ## [26040802](https://github.com/ifwlzs/juMusic_lx/compare/v26040800...v26040802) - 2026-04-08
 

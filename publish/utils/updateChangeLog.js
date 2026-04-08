@@ -9,6 +9,7 @@ const {
   applyReleaseVersion,
   formatReleaseDate,
   formatReleaseVersion,
+  getLatestChangelogBody,
   sanitizeReleaseNotesMarkdown,
 } = require('../../scripts/release/versioning')
 
@@ -39,7 +40,11 @@ module.exports = async newVerNum => {
   fs.writeFileSync(pkgPath, JSON.stringify(nextState.packageJson, null, 2) + '\n', 'utf-8')
 
   fs.writeFileSync(changelogPath, nextState.changelogMarkdown, 'utf-8')
-  fs.writeFileSync(releaseBodyPath, releaseBodyMarkdown.trimEnd() + '\n', 'utf-8')
+  fs.writeFileSync(
+    releaseBodyPath,
+    (getLatestChangelogBody(nextState.changelogMarkdown) || nextState.releaseNotes).trimEnd() + '\n',
+    'utf-8',
+  )
 
   return {
     pkg_bak,

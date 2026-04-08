@@ -86,7 +86,7 @@ const parseReleaseNotes = markdown => sanitizeReleaseNotesMarkdown(markdown)
   .replace(/(?:^|(\n))#{1,6}\s+(.+)\n/g, '$1$2\n')
   .trim()
 
-const parseChangelog = async text => {
+const parseChangelog = text => {
   const versions = []
   const lines = text.split(/\r\n|\r|\n/)
   let currentVersion = null
@@ -121,6 +121,8 @@ const parseChangelog = async text => {
 
   return versions
 }
+
+const getLatestChangelogBody = changelogMarkdown => parseChangelog(changelogMarkdown)[0]?.desc || ''
 
 const getHeadingMatches = changelogMarkdown => [...changelogMarkdown.matchAll(/^##\s+\[?([^\]\s]+)\]?.*?-\s+\d{4}-\d{2}-\d{2}.*$/gm)]
 
@@ -203,6 +205,7 @@ module.exports = {
   applyReleaseVersion,
   formatReleaseDate,
   formatReleaseVersion,
+  getLatestChangelogBody,
   parseChangelog,
   selectReleaseVersion,
   sanitizeReleaseNotesMarkdown,
