@@ -1,3 +1,34 @@
+function isFreshImportRuleSyncJob(job, currentTime, staleHeartbeatMs) {
+  if (job?.type !== 'import_rule_sync') return false
+  if (job?.status !== 'running') return false
+  if (!job?.heartbeatAt) return false
+  return currentTime - job.heartbeatAt <= staleHeartbeatMs
+}
+
+function isMatchingSyncWork(run, job) {
+  if (!run?.connectionId || !job?.connectionId) return false
+  if (run.connectionId !== job.connectionId) return false
+  if (run.ruleId != null) return run.ruleId === job.ruleId
+  return true
+}
+
+function shouldDeferPrefetchForRemoteSync({
+  syncRuns = [],
+  importJobs = [],
+  now = () => Date.now(),
+  staleHeartbeatMs = 15_000,
+} = {}) {
+  const currentTime = now()
+  return syncRuns.some(run => {
+    if (run?.status !== 'running') return false
+    if (run?.phase !== 'enumerate' && run?.phase !== 'hydrate') return false
+    return importJobs.some(job => {
+      return isFreshImportRuleSyncJob(job, currentTime, staleHeartbeatMs) &&
+        isMatchingSyncWork(run, job)
+    })
+  })
+}
+
 function createPrefetchScheduler({
   ensureCached,
   shouldDeferPrefetch = async() => false,
@@ -26,4 +57,5 @@ function createPrefetchScheduler({
 
 module.exports = {
   createPrefetchScheduler,
+  shouldDeferPrefetchForRemoteSync,
 }
