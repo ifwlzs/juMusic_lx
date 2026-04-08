@@ -16,7 +16,7 @@ import { createMediaLibraryListApi } from './listApi'
 import { getMediaLibraryRuntimeRegistry } from './runtimeRegistry'
 import { createMediaLibrarySyncNotifications } from './syncNotifications'
 import { mediaLibraryRepository } from './storage'
-const { startBackgroundSync } = require('../../utils/nativeModules/mediaLibrarySyncService.js')
+import { startBackgroundSync } from '../../utils/nativeModules/mediaLibrarySyncService.js'
 
 const listApi = createMediaLibraryListApi({
   createUserList,
@@ -66,6 +66,33 @@ const setConnectionStatus = async(connectionId: string, status: LX.MediaLibrary.
   }))
 }
 
+const buildResultSummary = (result: {
+  syncStats?: {
+    committedCount?: number
+    removedCount?: number
+    discoveredCount?: number
+  } | null
+  scanResult?: {
+    summary?: {
+      success?: number
+      failed?: number
+      skipped?: number
+    } | null
+  } | null
+} | null | undefined) => {
+  const stats = result?.syncStats
+  if (stats) {
+    return `committed: ${stats.committedCount ?? 0}, removed: ${stats.removedCount ?? 0}, discovered: ${stats.discoveredCount ?? 0}`
+  }
+
+  const summary = result?.scanResult?.summary
+  if (summary) {
+    return `success: ${summary.success ?? 0}, failed: ${summary.failed ?? 0}, skipped: ${summary.skipped ?? 0}`
+  }
+
+  return 'success'
+}
+
 let queue: ReturnType<typeof createMediaImportJobQueue> | null = null
 const syncNotifications = createMediaLibrarySyncNotifications()
 
@@ -106,9 +133,7 @@ const getQueue = () => {
         notifications: syncNotifications,
         jobControl,
       })
-      const summary = result?.scanResult?.summary
-        ? `success: ${result.scanResult.summary.success ?? 0}, failed: ${result.scanResult.summary.failed ?? 0}, skipped: ${result.scanResult.summary.skipped ?? 0}`
-        : 'success'
+      const summary = buildResultSummary(result)
       await setRuleStatus(rule.ruleId, result.isComplete ? 'success' : 'failed', summary, Date.now())
       await setConnectionStatus(connection.connectionId, result.isComplete ? 'success' : 'failed', summary, Date.now())
     },
@@ -139,7 +164,7 @@ const getQueue = () => {
   return queue
 }
 
-export const ensureMediaLibraryJobQueue = () => getQueue().ensureProcessing()
+export const ensureMediaLibraryJobQueue = async() => getQueue().ensureProcessing()
 
 export const startMediaLibraryJobQueue = () => {
   void ensureMediaLibraryJobQueue()

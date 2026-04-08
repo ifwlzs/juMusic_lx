@@ -13,6 +13,13 @@ function stripExtension(name = '') {
   return String(name).replace(/\.[^.]+$/, '')
 }
 
+async function emitBatches(items, onBatch, batchSize = 10) {
+  if (typeof onBatch !== 'function') return
+  for (let index = 0; index < items.length; index += batchSize) {
+    await onBatch(items.slice(index, index + batchSize))
+  }
+}
+
 function normalizePathOrUri(pathOrUri = '') {
   const value = String(pathOrUri || '').trim()
   if (!value) return ''
@@ -40,13 +47,6 @@ function decodeGraphPath(value = '') {
   if (!trimmed.startsWith('/drive/root:')) return '/'
   const relativePath = trimmed.slice('/drive/root:'.length)
   return normalizePathOrUri(relativePath || '/')
-}
-
-function encodePathSegment(name = '') {
-  return String(name || '')
-    .split('/')
-    .map(segment => encodeURIComponent(segment))
-    .join('/')
 }
 
 function buildPathOrUri(item = {}) {
@@ -115,31 +115,56 @@ function buildVersionToken(item, pathOrUri) {
   return `${Date.parse(item?.lastModifiedDateTime || 0) || 0}__${item?.size || 0}__${pathOrUri || ''}`
 }
 
+function toMetadataHints(fileName, item = {}) {
+  return {
+    title: item.audio?.title || stripExtension(fileName),
+    artist: item.audio?.artist || '',
+    album: item.audio?.album || '',
+    durationSec: item.audio?.duration ? Math.round(item.audio.duration / 1000) : 0,
+  }
+}
+
 function toCandidate(connection, item) {
   const pathOrUri = buildPathOrUri(item)
+  const fileName = item?.name || getFileName(pathOrUri)
   return {
     sourceStableKey: pathOrUri,
     connectionId: connection.connectionId,
     providerType: 'onedrive',
     pathOrUri,
-    fileName: item?.name || getFileName(pathOrUri),
+    fileName,
     fileSize: item?.size || 0,
     modifiedTime: item?.lastModifiedDateTime ? Date.parse(item.lastModifiedDateTime) || 0 : 0,
     versionToken: buildVersionToken(item, pathOrUri),
+    metadataHints: toMetadataHints(fileName, item),
     metadataLevelReached: 0,
   }
 }
 
 function normalizeHydratedMetadata(candidate, metadata) {
+  const hints = candidate?.metadataHints || {}
   return {
-    title: metadata?.name || stripExtension(candidate?.fileName || ''),
-    artist: metadata?.singer || '',
-    album: metadata?.albumName || '',
-    durationSec: metadata?.interval || 0,
+    title: metadata?.name || hints.title || stripExtension(candidate?.fileName || ''),
+    artist: metadata?.singer || hints.artist || '',
+    album: metadata?.albumName || hints.album || '',
+    durationSec: metadata?.interval || hints.durationSec || 0,
   }
 }
 
+function hasReadyMetadata(metadata = {}) {
+  return Boolean(metadata?.title && metadata?.artist && Number(metadata?.durationSec) > 0)
+}
+
 async function hydrateCandidateMetadata(connection, candidate, attempt, helpers = {}) {
+  const hintedMetadata = normalizeHydratedMetadata(candidate, null)
+  if (hasReadyMetadata(hintedMetadata)) {
+    return {
+      candidate,
+      metadata: hintedMetadata,
+      metadataLevelReached: Math.max(Number(attempt) || 0, candidate?.metadataLevelReached || 0, 1),
+    }
+  }
+
   const metadata = await readRemoteMetadata({
     connection,
     item: { name: candidate?.fileName || getFileName(candidate?.pathOrUri) },
@@ -204,6 +229,16 @@ function dedupeItems(items = []) {
   return [...new Map(items.map(item => [buildPathOrUri(item), item])).values()]
 }
 
+function dedupeCandidates(candidates = [], seenKeys = new Set()) {
+  return candidates.filter(candidate => {
+    const key = candidate?.sourceStableKey || candidate?.pathOrUri || ''
+    if (!key) return true
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
+    return true
+  })
+}
+
 function createOneDriveProvider({
   listChildren,
   getItemByPath,
@@ -221,22 +256,39 @@ function createOneDriveProvider({
         .filter(item => item?.folder || isAudioFile(item?.name))
         .map(toBrowserNode)
     },
-    async enumerateSelection(connection, selection = {}) {
-      const entries = []
-
+    async streamEnumerateSelection(connection, selection = {}, onBatch) {
+      const items = []
+      const seenKeys = new Set()
       for (const directory of selection.directories || []) {
-        entries.push(...await collectDirectoryTracks(listChildren, connection, directory.pathOrUri))
+        const batchItems = await collectDirectoryTracks(listChildren, connection, directory.pathOrUri)
+        const candidates = dedupeCandidates(
+          dedupeItems(batchItems).map(item => toCandidate(connection, item)),
+          seenKeys,
+        )
+        if (!candidates.length) continue
+        items.push(...candidates)
+        await emitBatches(candidates, onBatch)
       }
-
       for (const track of selection.tracks || []) {
         const entry = await getItemByPath(connection, track.pathOrUri)
-        if (entry?.file && isAudioFile(entry.name)) entries.push(entry)
+        if (entry?.file && isAudioFile(entry.name)) {
+          const candidates = dedupeCandidates(
+            dedupeItems([entry]).map(item => toCandidate(connection, item)),
+            seenKeys,
+          )
+          if (!candidates.length) continue
+          items.push(...candidates)
+          await emitBatches(candidates, onBatch)
+        }
       }
-
-      return {
-        complete: true,
-        items: dedupeItems(entries).map(item => toCandidate(connection, item)),
-      }
+      return { complete: true, items }
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const streamed = []
+      await this.streamEnumerateSelection(connection, selection, async batch => {
+        streamed.push(...batch)
+      })
+      return { complete: true, items: streamed }
     },
     async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
       return hydrateCandidateMetadata(connection, candidate, attempt, {

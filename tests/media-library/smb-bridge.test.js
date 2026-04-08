@@ -154,7 +154,39 @@ test('createSmbProvider enumerateSelection stays lightweight before metadata hyd
   assert.equal(metadataCount, 0)
 })
 
-test('createSmbProvider hydrateCandidate reads metadata for a candidate', async() => {
+test('createSmbProvider streamEnumerateSelection streams candidates before hydration', async() => {
+  const batches = []
+  const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
+
+  const provider = createSmbProvider({
+    async listDirectory(_connection, pathOrUri) {
+      if (pathOrUri === '/music') {
+        return [
+          { path: '/music/a.mp3', name: 'a.mp3', isDirectory: false, size: 10, modifiedTime: 1700000000001 },
+        ]
+      }
+      return []
+    },
+    async readMetadata() { return null },
+    async downloadFile() { return null },
+  })
+
+  const result = await provider.streamEnumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'smb',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music', displayName: 'music' }],
+    tracks: [],
+  }, async batch => {
+    batches.push(batch)
+  })
+
+  assert.equal(batches.length, 1)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0].pathOrUri, '/music/a.mp3')
+})
+
+test('createSmbProvider hydrateCandidate falls back to the existing metadata read when hints are incomplete', async() => {
   const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
 
   const calls = []
@@ -184,6 +216,12 @@ test('createSmbProvider hydrateCandidate reads metadata for a candidate', async(
     pathOrUri: '/music/a.mp3',
     fileName: 'a.mp3',
     versionToken: '1700000000001__10__/music/a.mp3',
+    metadataHints: {
+      title: 'a',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
   }, {
     attempt: 3,
   })
@@ -194,6 +232,12 @@ test('createSmbProvider hydrateCandidate reads metadata for a candidate', async(
       pathOrUri: '/music/a.mp3',
       fileName: 'a.mp3',
       versionToken: '1700000000001__10__/music/a.mp3',
+      metadataHints: {
+        title: 'a',
+        artist: '',
+        album: '',
+        durationSec: 0,
+      },
     },
     metadata: {
       title: 'SMB Song',

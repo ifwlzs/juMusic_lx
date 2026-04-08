@@ -1,5 +1,6 @@
 import { getMusicUrl } from '@/core/music'
-import { createPrefetchScheduler } from '@/core/mediaLibrary/prefetch'
+import { createPrefetchScheduler, shouldDeferPrefetchForRemoteSync } from '@/core/mediaLibrary/prefetch'
+import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { prefetchMediaLibraryTrack } from '@/core/music/mediaLibrary'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
 import { checkUrl } from '@/utils/request'
@@ -21,7 +22,14 @@ const prefetchScheduler = createPrefetchScheduler({
   async ensureCached(musicInfo) {
     if (!musicInfo || 'progress' in musicInfo) return
     if (musicInfo.source !== 'webdav' && musicInfo.source !== 'smb' && musicInfo.source !== 'onedrive') return
-    await prefetchMediaLibraryTrack(musicInfo)
+    await prefetchMediaLibraryTrack(musicInfo as LX.Music.MusicInfoRemoteFile)
+  },
+  async shouldDeferPrefetch() {
+    const [syncRuns, importJobs] = await Promise.all([
+      mediaLibraryRepository.getSyncRuns() as Promise<LX.MediaLibrary.SyncRun[]>,
+      mediaLibraryRepository.getImportJobs() as Promise<LX.MediaLibrary.ImportJob[]>,
+    ])
+    return shouldDeferPrefetchForRemoteSync({ syncRuns, importJobs })
   },
 })
 const preloadNextMusicUrl = async(curTime: number) => {

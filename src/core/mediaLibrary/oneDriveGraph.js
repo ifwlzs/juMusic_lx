@@ -5,6 +5,7 @@ const {
 } = require('../../utils/nativeModules/oneDriveAuth')
 
 const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0'
+const DRIVE_ITEM_SELECT_FIELDS = ['name', 'size', 'file', 'folder', 'parentReference', 'eTag', 'lastModifiedDateTime', 'audio']
 
 function normalizePathOrUri(pathOrUri = '') {
   const value = String(pathOrUri || '').trim()
@@ -19,18 +20,23 @@ function encodeGraphPath(pathOrUri = '') {
   return `/${normalized.split('/').filter(Boolean).map(segment => encodeURIComponent(segment)).join('/')}`
 }
 
-function buildDriveItemUrl(pathOrUri = '') {
+function buildDriveItemUrl(pathOrUri = '', selectFields = null) {
   const encodedPath = encodeGraphPath(pathOrUri)
-  return encodedPath
+  const baseUrl = encodedPath
     ? `${GRAPH_BASE_URL}/me/drive/root:${encodedPath}`
     : `${GRAPH_BASE_URL}/me/drive/root`
+
+  if (!Array.isArray(selectFields) || !selectFields.length) return baseUrl
+  return `${baseUrl}?$select=${selectFields.join(',')}`
 }
 
 function buildChildrenUrl(pathOrUri = '') {
   const encodedPath = encodeGraphPath(pathOrUri)
-  return encodedPath
+  const baseUrl = encodedPath
     ? `${GRAPH_BASE_URL}/me/drive/root:${encodedPath}:/children`
     : `${GRAPH_BASE_URL}/me/drive/root/children`
+
+  return `${baseUrl}?$select=${DRIVE_ITEM_SELECT_FIELDS.join(',')}`
 }
 
 async function requestGraphJson(requestUrl, accessToken, fetchImpl) {
@@ -88,7 +94,7 @@ function createOneDriveGraphClient({
     },
     async getItemByPath(connection, pathOrUri) {
       const { accessToken } = await authorize(connection)
-      return requestGraphJson(buildDriveItemUrl(pathOrUri), accessToken, fetchImpl)
+      return requestGraphJson(buildDriveItemUrl(pathOrUri, DRIVE_ITEM_SELECT_FIELDS), accessToken, fetchImpl)
     },
     async downloadFile(connection, pathOrUri, localPath) {
       const { accessToken } = await authorize(connection)

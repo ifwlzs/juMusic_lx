@@ -4,6 +4,19 @@ const assert = require('node:assert/strict')
 const { normalizeImportSelection } = require('../../src/core/mediaLibrary/browse.js')
 const { createOneDriveProvider } = require('../../src/core/mediaLibrary/providers/onedrive.js')
 
+const createConnection = () => ({
+  connectionId: 'onedrive_conn',
+  providerType: 'onedrive',
+  rootPathOrUri: '/',
+})
+
+const createSelection = () => normalizeImportSelection({
+  directories: [
+    { selectionId: 'dir_1', kind: 'directory', pathOrUri: '/Albums', displayName: 'Albums' },
+  ],
+  tracks: [],
+})
+
 test('onedrive provider browseConnection follows pagination and keeps directories plus audio files only', async() => {
   const calls = []
   const provider = createOneDriveProvider({
@@ -73,6 +86,46 @@ test('onedrive provider browseConnection follows pagination and keeps directorie
     { connectionId: 'onedrive_conn', pathOrUri: '/', nextLink: null },
     { connectionId: 'onedrive_conn', pathOrUri: '/', nextLink: 'page_2' },
   ])
+})
+
+test('onedrive streamEnumerateSelection emits candidate metadata hints from Graph audio fields', async() => {
+  const batches = []
+  const provider = createOneDriveProvider({
+    async listChildren() {
+      return {
+        items: [{
+          name: 'song_1.mp3',
+          file: {},
+          audio: {
+            title: 'Actual Title',
+            artist: 'artist_1',
+            album: 'album_1',
+            duration: 181000,
+          },
+          parentReference: { path: '/drive/root:/Albums' },
+          eTag: '"v1"',
+          size: 123,
+          lastModifiedDateTime: '2026-04-08T00:00:00Z',
+        }],
+        nextLink: null,
+      }
+    },
+    async getItemByPath() { return null },
+    async downloadFile() {},
+    async readMetadata() { return null },
+  })
+
+  await provider.streamEnumerateSelection(createConnection(), createSelection(), async batch => {
+    batches.push(batch)
+  })
+
+  assert.equal(batches.length, 1)
+  assert.deepEqual(batches[0][0].metadataHints, {
+    title: 'Actual Title',
+    artist: 'artist_1',
+    album: 'album_1',
+    durationSec: 181,
+  })
 })
 
 test('onedrive provider scanSelection merges recursive directories and explicit tracks without duplicates', async() => {
@@ -285,10 +338,139 @@ test('onedrive provider enumerateSelection stays lightweight and does not read m
     fileSize: 100,
     modifiedTime: Date.parse('2026-04-06T10:00:00Z'),
     versionToken: '"song_1"',
+    metadataHints: {
+      title: 'song',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
     metadataLevelReached: 0,
   }])
   assert.equal(downloadCount, 0)
   assert.equal(metadataCount, 0)
+})
+
+test('onedrive provider enumerateSelection dedupes overlapping directories across streamed batches', async() => {
+  const provider = createOneDriveProvider({
+    async listChildren(_connection, pathOrUri) {
+      switch (pathOrUri) {
+        case '/Albums':
+          return {
+            items: [
+              {
+                id: 'nested_dir',
+                name: 'Disc 1',
+                folder: { childCount: 1 },
+                size: 0,
+                eTag: '"dir_nested"',
+                parentReference: { path: '/drive/root:/Albums' },
+              },
+              {
+                id: 'album_track',
+                name: 'intro.mp3',
+                file: { mimeType: 'audio/mpeg' },
+                size: 101,
+                eTag: '"track_intro"',
+                parentReference: { path: '/drive/root:/Albums' },
+                lastModifiedDateTime: '2026-04-06T10:00:00Z',
+              },
+            ],
+            nextLink: null,
+          }
+        case '/Albums/Disc 1':
+          return {
+            items: [
+              {
+                id: 'nested_track',
+                name: 'theme.flac',
+                file: { mimeType: 'audio/flac' },
+                size: 202,
+                eTag: '"track_theme"',
+                parentReference: { path: '/drive/root:/Albums/Disc 1' },
+                lastModifiedDateTime: '2026-04-06T11:00:00Z',
+              },
+            ],
+            nextLink: null,
+          }
+        default:
+          return {
+            items: [],
+            nextLink: null,
+          }
+      }
+    },
+    async getItemByPath() {
+      return null
+    },
+    async downloadFile() {
+      return null
+    },
+    async readMetadata() {
+      return null
+    },
+  })
+
+  const result = await provider.enumerateSelection(createConnection(), normalizeImportSelection({
+    directories: [
+      { selectionId: 'dir_1', kind: 'directory', pathOrUri: '/Albums', displayName: 'Albums' },
+      { selectionId: 'dir_2', kind: 'directory', pathOrUri: '/Albums/Disc 1', displayName: 'Disc 1' },
+    ],
+    tracks: [],
+  }))
+
+  assert.deepEqual(result.items.map(item => item.pathOrUri), [
+    '/Albums/intro.mp3',
+    '/Albums/Disc 1/theme.flac',
+  ])
+})
+
+test('onedrive provider hydrateCandidate short-circuits when metadata hints already satisfy title artist duration', async() => {
+  let downloadCalls = 0
+  let metadataCalls = 0
+  const provider = createOneDriveProvider({
+    async listChildren() {
+      return { items: [], nextLink: null }
+    },
+    async getItemByPath() {
+      return null
+    },
+    async downloadFile() {
+      downloadCalls += 1
+      return null
+    },
+    async readMetadata() {
+      metadataCalls += 1
+      return null
+    },
+  })
+
+  const result = await provider.hydrateCandidate({
+    connectionId: 'onedrive_conn',
+    providerType: 'onedrive',
+  }, {
+    sourceStableKey: '/Albums/song_1.mp3',
+    pathOrUri: '/Albums/song_1.mp3',
+    fileName: 'song_1.mp3',
+    hydrateState: 'discovered',
+    metadataHints: {
+      title: 'song_1',
+      artist: 'artist_1',
+      album: 'album_1',
+      durationSec: 181,
+    },
+  }, {
+    attempt: 1,
+  })
+
+  assert.equal(downloadCalls, 0)
+  assert.equal(metadataCalls, 0)
+  assert.deepEqual(result.metadata, {
+    title: 'song_1',
+    artist: 'artist_1',
+    album: 'album_1',
+    durationSec: 181,
+  })
+  assert.equal(result.metadataLevelReached, 1)
 })
 
 test('onedrive provider hydrateCandidate reads metadata for a lightweight candidate', async() => {
@@ -330,6 +512,12 @@ test('onedrive provider hydrateCandidate reads metadata for a lightweight candid
     pathOrUri: '/Albums/song.mp3',
     fileName: 'song.mp3',
     versionToken: '"song_1"',
+    metadataHints: {
+      title: 'song',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
   }, {
     attempt: 2,
   })
@@ -340,6 +528,12 @@ test('onedrive provider hydrateCandidate reads metadata for a lightweight candid
       pathOrUri: '/Albums/song.mp3',
       fileName: 'song.mp3',
       versionToken: '"song_1"',
+      metadataHints: {
+        title: 'song',
+        artist: '',
+        album: '',
+        durationSec: 0,
+      },
     },
     metadata: {
       title: 'Hydrated Song',
