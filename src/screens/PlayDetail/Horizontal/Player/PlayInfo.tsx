@@ -35,7 +35,7 @@ export default () => {
         <Text color={playDetailPalette.SECONDARY_TEXT}> / </Text>
         <PlayTimeMax timeStr={maxPlayTimeStr} />
       </View>
-      <View style={[StyleSheet.absoluteFill, styles.progress]}><Progress progress={progress} duration={maxPlayTime} buffered={buffered} /></View>
+      <View style={[StyleSheet.absoluteFill, styles.progress]}><Progress progress={progress} duration={maxPlayTime} buffered={buffered} colors={playDetailPalette.PROGRESS_COLORS} /></View>
     </View>
   )
 }

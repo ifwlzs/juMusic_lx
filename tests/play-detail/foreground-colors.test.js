@@ -109,6 +109,27 @@ test('play detail palette imports resolve from each folder depth correctly', () 
   assert.match(verticalMoreTimeoutBtn, /from '\.\.\/\.\.\/\.\.\/\.\.\/palette'/)
 })
 
+test('play detail custom primary color also drives progress bars and lyric jump affordances', () => {
+  const paletteFile = readFile('src/screens/PlayDetail/palette.ts')
+  const progressFile = readFile('src/components/player/Progress.tsx')
+  const progressBarFile = readFile('src/components/player/ProgressBar.tsx')
+  const horizontalPlayInfo = readFile('src/screens/PlayDetail/Horizontal/Player/PlayInfo.tsx')
+  const verticalPlayInfo = readFile('src/screens/PlayDetail/Vertical/Player/components/PlayInfo.tsx')
+  const playLineFile = readFile('src/screens/PlayDetail/components/PlayLine.tsx')
+
+  assert.match(paletteFile, /get PROGRESS_COLORS\(\)/)
+  assert.match(progressFile, /colors\?: ProgressColors/)
+  assert.match(progressFile, /const progressColors = colors \?\?/)
+  assert.match(progressBarFile, /colors\?: ProgressColors/)
+  assert.match(progressBarFile, /const progressColors = colors \?\?/)
+  assert.match(horizontalPlayInfo, /colors=\{playDetailPalette\.PROGRESS_COLORS\}/)
+  assert.match(verticalPlayInfo, /colors=\{playDetailPalette\.PROGRESS_COLORS\}/)
+  assert.match(playLineFile, /playDetailPalette\.SECONDARY_TEXT/)
+  assert.match(playLineFile, /playDetailPalette\.TERTIARY_TEXT/)
+  assert.doesNotMatch(playLineFile, /theme\['c-primary-font'\]/)
+  assert.doesNotMatch(playLineFile, /theme\['c-primary-alpha-700'\]/)
+})
+
 test('mini player title uses deep body text instead of gray helper text', () => {
   const playerBarTitle = readFile('src/components/player/PlayerBar/components/Title.tsx')
 

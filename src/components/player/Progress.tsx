@@ -6,13 +6,19 @@ import { useTheme } from '@/store/theme/hook'
 // import { scaleSizeW } from '@/utils/pixelRatio'
 // import { AppColors } from '@/theme'
 
+export interface ProgressColors {
+  track: string
+  buffered: string
+  played: string
+  playedDragging: string
+  dragPreview: string
+  thumb: string
+}
 
-const DefaultBar = memo(() => {
-  // const theme = useTheme()
-
+const DefaultBar = memo(({ color }: { color: string }) => {
   return <View style={{
     ...styles.progressBar,
-    // backgroundColor: theme['c-primary-light-200-alpha-900'],
+    backgroundColor: color,
     position: 'absolute',
     width: '100%',
     left: 0,
@@ -20,10 +26,8 @@ const DefaultBar = memo(() => {
   }}></View>
 })
 
-const BufferedBar = memo(({ progress }: { progress: number }) => {
-  // console.log(bufferedProgress)
-  const theme = useTheme()
-  return <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-light-600-alpha-900'], position: 'absolute', width: `${progress * 100}%`, left: 0, top: 0 }}></View>
+const BufferedBar = memo(({ progress, color }: { progress: number, color: string }) => {
+  return <View style={{ ...styles.progressBar, backgroundColor: color, position: 'absolute', width: `${progress * 100}%`, left: 0, top: 0 }}></View>
 })
 
 const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress }: {
@@ -67,14 +71,23 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress }: {
 })
 
 
-export const ProgressPlain = ({ progress, duration, buffered, paddingTop }: {
+export const ProgressPlain = ({ progress, duration, buffered, paddingTop, colors }: {
   progress: number
   duration: number
   buffered: number
   paddingTop?: number
+  colors?: ProgressColors
 }) => {
   // const { progress } = usePlayTimeBuffer()
   const theme = useTheme()
+  const progressColors = colors ?? {
+    track: 'transparent',
+    buffered: theme['c-primary-light-600-alpha-900'],
+    played: theme['c-primary-alpha-900'],
+    playedDragging: theme['c-primary-light-200-alpha-900'],
+    dragPreview: theme['c-primary-light-100-alpha-800'],
+    thumb: theme['c-primary-light-100'],
+  }
   // console.log(progress)
   const progressStr: `${number}%` = `${progress * 100}%`
 
@@ -86,23 +99,32 @@ export const ProgressPlain = ({ progress, duration, buffered, paddingTop }: {
   return (
     <View style={{ ...styles.progress, paddingTop }}>
       <View style={{ flex: 1 }}>
-        <DefaultBar />
-        <BufferedBar progress={buffered} />
-        <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-alpha-900'], width: progressStr, position: 'absolute', left: 0, top: 0 }} />
+        <DefaultBar color={progressColors.track} />
+        <BufferedBar progress={buffered} color={progressColors.buffered} />
+        <View style={{ ...styles.progressBar, backgroundColor: progressColors.played, width: progressStr, position: 'absolute', left: 0, top: 0 }} />
       </View>
       <View style={styles.pressBar} />
     </View>
   )
 }
 
-const Progress = ({ progress, duration, buffered, paddingTop }: {
+const Progress = ({ progress, duration, buffered, paddingTop, colors }: {
   progress: number
   duration: number
   buffered: number
   paddingTop?: number
+  colors?: ProgressColors
 }) => {
   // const { progress } = usePlayTimeBuffer()
   const theme = useTheme()
+  const progressColors = colors ?? {
+    track: 'transparent',
+    buffered: theme['c-primary-light-600-alpha-900'],
+    played: theme['c-primary-alpha-900'],
+    playedDragging: theme['c-primary-light-200-alpha-900'],
+    dragPreview: theme['c-primary-light-100-alpha-800'],
+    thumb: theme['c-primary-light-100'],
+  }
   const [draging, setDraging] = useState(false)
   const [dragProgress, setDragProgress] = useState(0)
   // console.log(progress)
@@ -119,17 +141,17 @@ const Progress = ({ progress, duration, buffered, paddingTop }: {
   return (
     <View style={{ ...styles.progress, paddingTop }}>
       <View style={{ flex: 1 }}>
-        <DefaultBar />
-        <BufferedBar progress={buffered} />
+        <DefaultBar color={progressColors.track} />
+        <BufferedBar progress={buffered} color={progressColors.buffered} />
         {
           draging
             ? (
                 <>
-                  <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-light-200-alpha-900'], width: progressStr, position: 'absolute', left: 0, top: 0 }} />
-                  <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-light-100-alpha-800'], width: `${dragProgress * 100}%`, position: 'absolute', left: 0, top: 0 }} />
+                  <View style={{ ...styles.progressBar, backgroundColor: progressColors.playedDragging, width: progressStr, position: 'absolute', left: 0, top: 0 }} />
+                  <View style={{ ...styles.progressBar, backgroundColor: progressColors.dragPreview, width: `${dragProgress * 100}%`, position: 'absolute', left: 0, top: 0 }} />
                 </>
               ) : (
-                <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-alpha-900'], width: progressStr, position: 'absolute', left: 0, top: 0 }} />
+                <View style={{ ...styles.progressBar, backgroundColor: progressColors.played, width: progressStr, position: 'absolute', left: 0, top: 0 }} />
               )
         }
       </View>
