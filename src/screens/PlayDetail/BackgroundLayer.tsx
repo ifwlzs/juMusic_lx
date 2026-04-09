@@ -26,35 +26,106 @@ const styles = StyleSheet.create({
   },
 })
 
-const renderVignetteBands = (resolvedConfig: ResolvedPlayDetailBackgroundConfig) => {
-  const thickness = Math.max(24, Math.round(resolvedConfig.vignetteSize / Math.max(resolvedConfig.imageContrast, 0.8)))
-  const opacity = Math.min(Math.max(0.24 + (resolvedConfig.imageContrast - 1) * 0.2, 0.16), 0.72)
-  const bandStyle = { backgroundColor: resolvedConfig.vignetteColor, opacity }
-
-  return [
-    <View key="vignette-top" style={[styles.absoluteFill, { bottom: undefined, height: thickness }, bandStyle]} />,
-    <View key="vignette-right" style={[styles.absoluteFill, { left: undefined, width: thickness }, bandStyle]} />,
-    <View key="vignette-bottom" style={[styles.absoluteFill, { top: undefined, height: thickness }, bandStyle]} />,
-    <View key="vignette-left" style={[styles.absoluteFill, { right: undefined, width: thickness }, bandStyle]} />,
-  ]
-}
+const renderVignetteBandStack = (resolvedConfig: ResolvedPlayDetailBackgroundConfig) => (
+  <View pointerEvents="none" style={styles.absoluteFill}>
+    {resolvedConfig.vignetteBands.flatMap((band, index) => [
+      <View
+        key={`vignette-top:${index}`}
+        style={[
+          styles.absoluteFill,
+          {
+            left: band.inset,
+            right: band.inset,
+            top: band.inset,
+            bottom: undefined,
+            height: band.thickness,
+            backgroundColor: resolvedConfig.vignetteColor,
+            opacity: band.opacity,
+          },
+        ]}
+      />,
+      <View
+        key={`vignette-right:${index}`}
+        style={[
+          styles.absoluteFill,
+          {
+            left: undefined,
+            right: band.inset,
+            top: band.inset,
+            bottom: band.inset,
+            width: band.thickness,
+            backgroundColor: resolvedConfig.vignetteColor,
+            opacity: band.opacity,
+          },
+        ]}
+      />,
+      <View
+        key={`vignette-bottom:${index}`}
+        style={[
+          styles.absoluteFill,
+          {
+            left: band.inset,
+            right: band.inset,
+            top: undefined,
+            bottom: band.inset,
+            height: band.thickness,
+            backgroundColor: resolvedConfig.vignetteColor,
+            opacity: band.opacity,
+          },
+        ]}
+      />,
+      <View
+        key={`vignette-left:${index}`}
+        style={[
+          styles.absoluteFill,
+          {
+            left: band.inset,
+            right: undefined,
+            top: band.inset,
+            bottom: band.inset,
+            width: band.thickness,
+            backgroundColor: resolvedConfig.vignetteColor,
+            opacity: band.opacity,
+          },
+        ]}
+      />,
+    ])}
+  </View>
+)
 
 export default function PlayDetailBackgroundLayer({ source, resolvedConfig, children }: Props) {
   return (
     <View style={styles.container}>
-      <ImageBackground
-        style={styles.absoluteFill}
-        source={source}
-        resizeMode="stretch"
-        blurRadius={resolvedConfig.blurRadius}
-        imageStyle={{
-          transform: [{ scaleX: resolvedConfig.stretchScale }, { scaleY: resolvedConfig.stretchScale }],
-        }}
-      >
-        <View style={[styles.absoluteFill, { backgroundColor: resolvedConfig.brightnessOverlayColor, opacity: resolvedConfig.imageBrightnessOverlayOpacity }]} />
-        <View style={[styles.absoluteFill, { backgroundColor: resolvedConfig.colorMask }]} />
-        {renderVignetteBands(resolvedConfig)}
-      </ImageBackground>
+      {resolvedConfig.blurLayers.map((layer, index) => (
+        <ImageBackground
+          key={`blur-layer:${index}`}
+          style={[styles.absoluteFill, { opacity: layer.opacity }]}
+          source={source}
+          resizeMode="stretch"
+          blurRadius={layer.blurRadius}
+          imageStyle={{
+            transform: [{ scaleX: layer.scale }, { scaleY: layer.scale }],
+          }}
+        />
+      ))}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.absoluteFill,
+          {
+            backgroundColor: resolvedConfig.brightnessOverlayColor,
+            opacity: resolvedConfig.imageBrightnessOverlayOpacity,
+          },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.absoluteFill,
+          { backgroundColor: resolvedConfig.colorMask },
+        ]}
+      />
+      {renderVignetteBandStack(resolvedConfig)}
       <View style={styles.content}>{children}</View>
     </View>
   )

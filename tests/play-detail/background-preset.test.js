@@ -11,8 +11,10 @@ test('play detail uses emby-style page background preset', () => {
   assert.match(playDetailFile, /<PageContent\s+backgroundVariant="playDetailEmby"/)
 })
 
-test('page content rewires the emby variant to the shared play detail background runtime', () => {
+test('page content rewires the emby variant to a mobile-safe shared background runtime instead of the old hard-band renderer', () => {
   const pageContentFile = readFile('src/components/PageContent.tsx')
+  const backgroundConfigFile = readFile('src/screens/PlayDetail/backgroundConfig.ts')
+  const backgroundLayerFile = readFile('src/screens/PlayDetail/BackgroundLayer.tsx')
 
   assert.match(pageContentFile, /type BackgroundVariant = 'default' \| 'playDetailEmby'/)
   assert.match(pageContentFile, /import PlayDetailBackgroundLayer from '@\/screens\/PlayDetail\/BackgroundLayer'/)
@@ -21,6 +23,18 @@ test('page content rewires the emby variant to the shared play detail background
   assert.match(pageContentFile, /const playDetailBackgroundSetting = readPlayDetailBackgroundSetting\(setting\)/)
   assert.match(pageContentFile, /const resolvedPlayDetailBackgroundConfig = useMemo\(\(\) => resolvePlayDetailBackgroundConfig\(/)
   assert.match(pageContentFile, /<PlayDetailBackgroundLayer/)
-  assert.doesNotMatch(pageContentFile, /playDetailEmbyEdgeOverlayBands/)
-  assert.doesNotMatch(pageContentFile, /renderPlayDetailEmbyEdgeOverlay/)
+
+  assert.match(backgroundConfigFile, /export interface PlayDetailBackgroundBlurLayer/)
+  assert.match(backgroundConfigFile, /export interface PlayDetailBackgroundVignetteBand/)
+  assert.match(backgroundConfigFile, /blurLayers: PlayDetailBackgroundBlurLayer\[\]/)
+  assert.match(backgroundConfigFile, /vignetteBands: PlayDetailBackgroundVignetteBand\[\]/)
+  assert.match(backgroundConfigFile, /export const resolveNativeBlurLayers =/)
+  assert.match(backgroundConfigFile, /export const resolveVignetteBands =/)
+  assert.doesNotMatch(backgroundConfigFile, /brightnessOverlayColor: imageBrightnessDelta >= 0 \? '#ffffff' : '#000000'/)
+
+  assert.match(backgroundLayerFile, /resolvedConfig\.blurLayers\.map/)
+  assert.match(backgroundLayerFile, /resolvedConfig\.vignetteBands\.flatMap/)
+  assert.match(backgroundLayerFile, /pointerEvents="none"/)
+  assert.doesNotMatch(backgroundLayerFile, /blurRadius=\{resolvedConfig\.blurRadius\}/)
+  assert.doesNotMatch(backgroundLayerFile, /const renderVignetteBands = \(/)
 })

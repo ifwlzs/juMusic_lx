@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,19 +12,38 @@
       <p class="eyebrow">Long-lived tool</p>
       <h1>Play Detail BG Preview</h1>
       <p class="panel__copy">
-        Tune blur, stretch, neutral center wash, and edge-led gray bands without opening React Native.
+        按 1.html 的强制拉伸 + 高模糊 + color-mask + vignette 结构预览，并动态提取偏灰主色。
       </p>
     </div>
 
     <label class="upload" data-role="drop-zone">
       <input type="file" accept="image/*" data-role="file-input" />
-      <span data-role="drop-zone-label">Drop a real cover image here or choose a file</span>
+      <span data-role="drop-zone-label">拖入封面图，或点击选择图片</span>
     </label>
 
     <section class="panel__section">
       <div class="section__title-row">
+        <h2>Auto mask</h2>
+        <button type="button" class="ghost-button" data-role="apply-auto-mask-button">应用自动蒙版色</button>
+      </div>
+      <div class="palette-grid">
+        <div class="palette-card">
+          <span class="palette-card__label">Gray-biased mask</span>
+          <span class="palette-swatch" data-role="auto-mask-swatch"></span>
+          <span class="palette-card__value" data-role="auto-mask-value">#914C4C</span>
+        </div>
+        <div class="palette-card">
+          <span class="palette-card__label">Hue source</span>
+          <span class="palette-card__hint" data-role="auto-mask-hue">0° snapped</span>
+          <span class="palette-card__value">固定灰偏参数</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel__section">
+      <div class="section__title-row">
         <h2>Presets</h2>
-        <span class="section__meta">matches current RN defaults</span>
+        <span class="section__meta">1.html style moods</span>
       </div>
       <div class="preset-list" data-role="preset-list"></div>
     </section>
@@ -41,33 +60,10 @@
     <div class="stage__frame">
       <div class="bg-root" data-role="bg-root">
         <div class="bg-image" data-role="bg-image"></div>
-        <div class="bg-overlay"></div>
-        <div class="bg-band bg-band-top bg-band-1"></div>
-        <div class="bg-band bg-band-right bg-band-1"></div>
-        <div class="bg-band bg-band-bottom bg-band-1"></div>
-        <div class="bg-band bg-band-left bg-band-1"></div>
-        <div class="bg-band bg-band-top bg-band-2"></div>
-        <div class="bg-band bg-band-right bg-band-2"></div>
-        <div class="bg-band bg-band-bottom bg-band-2"></div>
-        <div class="bg-band bg-band-left bg-band-2"></div>
-        <div class="bg-band bg-band-top bg-band-3"></div>
-        <div class="bg-band bg-band-right bg-band-3"></div>
-        <div class="bg-band bg-band-bottom bg-band-3"></div>
-        <div class="bg-band bg-band-left bg-band-3"></div>
-        <div class="bg-band bg-band-top bg-band-4"></div>
-        <div class="bg-band bg-band-right bg-band-4"></div>
-        <div class="bg-band bg-band-bottom bg-band-4"></div>
-        <div class="bg-band bg-band-left bg-band-4"></div>
-        <div class="bg-band bg-band-top bg-band-5"></div>
-        <div class="bg-band bg-band-right bg-band-5"></div>
-        <div class="bg-band bg-band-bottom bg-band-5"></div>
-        <div class="bg-band bg-band-left bg-band-5"></div>
-        <div class="bg-band bg-band-top bg-band-6"></div>
-        <div class="bg-band bg-band-right bg-band-6"></div>
-        <div class="bg-band bg-band-bottom bg-band-6"></div>
-        <div class="bg-band bg-band-left bg-band-6"></div>
+        <div class="color-mask" data-role="color-mask"></div>
+        <div class="vignette" data-role="vignette"></div>
         <div class="safe-area">
-          <div class="safe-area__label">Background only preview</div>
+          <div class="safe-area__label">1.html reference stack</div>
           <div class="safe-area__box"></div>
         </div>
       </div>
