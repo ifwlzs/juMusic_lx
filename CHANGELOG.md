@@ -6,6 +6,13 @@ Project versioning uses display versions in `0.yy.MMddhhmm` format (Asia/Shangha
 Commit convention is based on [Conventional Commits](http://conventionalcommits.org).
 Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.26.04090821](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04081834...v0.26.04090821) - 2026-04-09
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04081834](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04081804...v0.26.04081834) - 2026-04-08
 
 修复
