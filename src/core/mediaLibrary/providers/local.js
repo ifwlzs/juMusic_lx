@@ -61,6 +61,33 @@ async function resolveLocalFile(readDir, pathOrUri) {
   return entries.find(entry => !entry.isDirectory && entry.path === pathOrUri) || null
 }
 
+function toCandidate(connection, file) {
+  return {
+    sourceStableKey: file.path,
+    connectionId: connection.connectionId,
+    providerType: 'local',
+    pathOrUri: file.path,
+    fileName: file.name,
+    fileSize: file.size || 0,
+    modifiedTime: file.lastModified || 0,
+    versionToken: buildLocalVersionToken({
+      pathOrUri: file.path,
+      fileSize: file.size,
+      modifiedTime: file.lastModified || 0,
+    }),
+    metadataLevelReached: 0,
+  }
+}
+
+function normalizeHydratedMetadata(candidate, metadata) {
+  return {
+    title: metadata?.name || stripExtension(candidate?.fileName || ''),
+    artist: metadata?.singer || '',
+    album: metadata?.albumName || '',
+    durationSec: metadata?.interval || 0,
+  }
+}
+
 async function buildLocalScanItems(files, connection, readMetadata, skipped = 0) {
   const lastSeenAt = Date.now()
   const items = await Promise.all(files.map(async(file) => {
@@ -152,6 +179,47 @@ function createLocalProvider({ readDir, readMetadata }) {
 
       const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
       return buildLocalScanItems(dedupedFiles, connection, readMetadata, skipped)
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const files = []
+
+      for (const directory of selection.directories || []) {
+        const nested = await collectLocalFiles(readDir, directory.pathOrUri)
+        files.push(...nested.files)
+      }
+
+      for (const track of selection.tracks || []) {
+        const entry = await resolveLocalFile(readDir, track.pathOrUri)
+        if (!entry) continue
+        if (!isAudioFile(entry.name)) continue
+        files.push(entry)
+      }
+
+      const items = [...new Map(files.map(file => [file.path, file])).values()]
+        .map(file => toCandidate(connection, file))
+
+      return {
+        complete: true,
+        items,
+      }
+    },
+    async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
+      let metadata = null
+      try {
+        metadata = await readMetadata(candidate?.pathOrUri)
+      } catch {
+        metadata = null
+      }
+
+      return {
+        candidate,
+        metadata: normalizeHydratedMetadata(candidate, metadata),
+        metadataLevelReached: Math.max(
+          Number(attempt) || 0,
+          candidate?.metadataLevelReached || 0,
+          metadata ? 1 : 0,
+        ),
+      }
     },
     async scanConnection(connection) {
       const { files, skipped } = await collectLocalFiles(readDir, connection.rootPathOrUri)
