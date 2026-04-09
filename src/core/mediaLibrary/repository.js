@@ -69,12 +69,13 @@ function sanitizeImportJob(job = {}) {
     heartbeatAt: job.heartbeatAt ?? null,
     pauseRequestedAt: job.pauseRequestedAt ?? null,
     resumeAfterJobId: job.resumeAfterJobId ?? null,
-    payload: job.payload ? {
-      previousRule: job.payload.previousRule ?? null,
-      triggerSource: job.payload.triggerSource,
-      autoSyncTrigger: job.payload.autoSyncTrigger,
-      syncMode: job.payload.syncMode ?? 'incremental',
-    } : null,
+    payload: job.payload
+      ? {
+        ...job.payload,
+        previousRule: job.payload.previousRule ?? null,
+        syncMode: job.payload.syncMode ?? 'incremental',
+      }
+      : null,
   }
 }
 

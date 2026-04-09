@@ -106,9 +106,7 @@ test('repository persists import jobs separately from rules', async() => {
       previousRule: {
         ruleId: 'rule_prev',
       },
-      triggerSource: undefined,
-      autoSyncTrigger: undefined,
-      syncMode: 'incremental',
+      extra: 'kept',
     },
   }])
 
@@ -134,9 +132,8 @@ test('repository persists import jobs separately from rules', async() => {
       previousRule: {
         ruleId: 'rule_prev',
       },
-      triggerSource: undefined,
-      autoSyncTrigger: undefined,
       syncMode: 'incremental',
+      extra: 'kept',
     },
   }])
   assert.equal((await repo.getImportRules()).length, 1)
@@ -187,6 +184,13 @@ test('repository persists incremental/full-validation snapshot metadata and sync
   assert.equal(snapshot.lastIncrementalSyncAt, 120)
   assert.equal(snapshot.lastFullValidationAt, 80)
   assert.equal(snapshot.pendingFullValidation, true)
-  assert.equal(snapshot.selectionStats[0].selectionKey, 'directory::/Albums')
+  assert.deepEqual(snapshot.selectionStats[0], {
+    selectionKey: 'directory::/Albums',
+    kind: 'directory',
+    pathOrUri: '/Albums',
+    itemCount: 2,
+    latestModifiedTime: 50,
+    capturedAt: 100,
+  })
   assert.equal(jobs[0].payload.syncMode, 'full_validation')
 })
