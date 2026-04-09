@@ -1,5 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const { createMediaLibraryRepository } = require('../../src/core/mediaLibrary/repository.js')
 
@@ -17,6 +19,8 @@ const createMemoryStorage = () => {
     },
   }
 }
+
+const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
 test('repository persists import rules and snapshots separately from connections', async() => {
   const repo = createMediaLibraryRepository(createMemoryStorage())
@@ -102,6 +106,9 @@ test('repository persists import jobs separately from rules', async() => {
       previousRule: {
         ruleId: 'rule_prev',
       },
+      triggerSource: undefined,
+      autoSyncTrigger: undefined,
+      syncMode: 'incremental',
     },
   }])
 
@@ -119,11 +126,67 @@ test('repository persists import jobs separately from rules', async() => {
     finishedAt: null,
     summary: '',
     error: '',
+    runtimeOwnerId: null,
+    heartbeatAt: null,
+    pauseRequestedAt: null,
+    resumeAfterJobId: null,
     payload: {
       previousRule: {
         ruleId: 'rule_prev',
       },
+      triggerSource: undefined,
+      autoSyncTrigger: undefined,
+      syncMode: 'incremental',
     },
   }])
   assert.equal((await repo.getImportRules()).length, 1)
+})
+
+
+test('repository persists incremental/full-validation snapshot metadata and syncMode payload', async() => {
+  const typeFile = readFile('src/types/mediaLibrary.d.ts')
+  assert.match(typeFile, /type SyncMode = 'incremental' \| 'full_validation'/)
+  assert.match(typeFile, /lastIncrementalSyncAt\?: number \| null/)
+  assert.match(typeFile, /lastFullValidationAt\?: number \| null/)
+  assert.match(typeFile, /pendingFullValidation\?: boolean/)
+  assert.match(typeFile, /selectionStats\?: ImportSnapshotSelectionStat\[\]/)
+  assert.match(typeFile, /syncMode\?: SyncMode/)
+
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  await repo.saveImportSnapshot('rule_1', {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    lastIncrementalSyncAt: 120,
+    lastFullValidationAt: 80,
+    pendingFullValidation: true,
+    selectionStats: [{
+      selectionKey: 'directory::/Albums',
+      kind: 'directory',
+      pathOrUri: '/Albums',
+      itemCount: 2,
+      latestModifiedTime: 50,
+      capturedAt: 100,
+    }],
+    items: [],
+  })
+  await repo.saveImportJobs([{
+    jobId: 'job_1',
+    type: 'import_rule_sync',
+    connectionId: 'conn_1',
+    ruleId: 'rule_1',
+    status: 'queued',
+    attempt: 0,
+    createdAt: 1,
+    payload: {
+      syncMode: 'full_validation',
+    },
+  }])
+
+  const snapshot = await repo.getImportSnapshot('rule_1')
+  const jobs = await repo.getImportJobs()
+  assert.equal(snapshot.lastIncrementalSyncAt, 120)
+  assert.equal(snapshot.lastFullValidationAt, 80)
+  assert.equal(snapshot.pendingFullValidation, true)
+  assert.equal(snapshot.selectionStats[0].selectionKey, 'directory::/Albums')
+  assert.equal(jobs[0].payload.syncMode, 'full_validation')
 })

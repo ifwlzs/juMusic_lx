@@ -9,6 +9,7 @@ declare namespace LX {
     type ImportJobConflictMode = 'continue_previous' | 'current_first'
     type SyncTriggerSource = 'manual' | 'auto'
     type AutoSyncTrigger = 'boot' | 'media_sources_page'
+    type SyncMode = 'incremental' | 'full_validation'
     type SyncPhase = 'enumerate' | 'hydrate' | 'commit' | 'reconcile_delete'
     type SyncRunStatus = 'queued' | 'running' | 'paused' | 'success' | 'failed'
     type SyncCandidateState = 'discovered' | 'hydrating' | 'ready' | 'degraded' | 'committed' | 'dropped'
@@ -65,10 +66,23 @@ declare namespace LX {
       lastSyncSummary?: string
     }
 
+    interface ImportSnapshotSelectionStat {
+      selectionKey: string
+      kind: 'directory' | 'track'
+      pathOrUri: string
+      itemCount: number
+      latestModifiedTime: number
+      capturedAt: number
+    }
+
     interface ImportSnapshot {
       ruleId: string
       scannedAt: number | null
       isComplete?: boolean
+      lastIncrementalSyncAt?: number | null
+      lastFullValidationAt?: number | null
+      pendingFullValidation?: boolean
+      selectionStats?: ImportSnapshotSelectionStat[]
       items: SourceItem[]
     }
 
@@ -92,6 +106,7 @@ declare namespace LX {
         previousRule?: ImportRule | null
         triggerSource?: SyncTriggerSource
         autoSyncTrigger?: AutoSyncTrigger
+        syncMode?: SyncMode
       } | null
     }
 

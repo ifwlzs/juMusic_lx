@@ -41,6 +41,17 @@ function sanitizeImportRule(rule = {}) {
   }
 }
 
+function sanitizeImportSnapshotSelectionStat(stat = {}) {
+  return {
+    selectionKey: stat.selectionKey,
+    kind: stat.kind,
+    pathOrUri: stat.pathOrUri ?? '',
+    itemCount: Number(stat.itemCount) || 0,
+    latestModifiedTime: Number(stat.latestModifiedTime) || 0,
+    capturedAt: Number(stat.capturedAt) || 0,
+  }
+}
+
 function sanitizeImportJob(job = {}) {
   return {
     jobId: job.jobId,
@@ -58,7 +69,12 @@ function sanitizeImportJob(job = {}) {
     heartbeatAt: job.heartbeatAt ?? null,
     pauseRequestedAt: job.pauseRequestedAt ?? null,
     resumeAfterJobId: job.resumeAfterJobId ?? null,
-    payload: job.payload ?? null,
+    payload: job.payload ? {
+      previousRule: job.payload.previousRule ?? null,
+      triggerSource: job.payload.triggerSource,
+      autoSyncTrigger: job.payload.autoSyncTrigger,
+      syncMode: job.payload.syncMode ?? 'incremental',
+    } : null,
   }
 }
 
@@ -203,6 +219,12 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
         scannedAt: snapshot.scannedAt ?? null,
         items: Array.isArray(snapshot.items) ? [...snapshot.items] : [],
         ...(snapshot.isComplete === false ? { isComplete: false } : {}),
+        lastIncrementalSyncAt: snapshot.lastIncrementalSyncAt ?? null,
+        lastFullValidationAt: snapshot.lastFullValidationAt ?? null,
+        pendingFullValidation: snapshot.pendingFullValidation === true,
+        selectionStats: Array.isArray(snapshot.selectionStats)
+          ? snapshot.selectionStats.map(sanitizeImportSnapshotSelectionStat)
+          : [],
       } : null)
     },
     async removeImportSnapshots(ruleIds = []) {

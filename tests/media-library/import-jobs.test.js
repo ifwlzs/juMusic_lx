@@ -80,6 +80,39 @@ test('media import queue dedupes queued sync jobs for the same rule and runs the
   assert.equal(jobs[0].status, 'success')
 })
 
+test('media import queue keeps the latest syncMode when deduping the same rule', async() => {
+  const calls = []
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  const queue = createMediaImportJobQueue({
+    repository: repo,
+    now: (() => {
+      let value = 100
+      return () => ++value
+    })(),
+    async runImportRuleJob(job) {
+      calls.push([job.ruleId, job.payload?.syncMode || null])
+    },
+  })
+
+  await queue.enqueueImportRuleJob({
+    connectionId: 'conn_1',
+    ruleId: 'rule_1',
+    payload: {
+      syncMode: 'full_validation',
+    },
+  })
+  await queue.enqueueImportRuleJob({
+    connectionId: 'conn_1',
+    ruleId: 'rule_1',
+    payload: {
+      syncMode: 'incremental',
+    },
+  })
+
+  await waitForQueueToDrain(queue)
+  assert.deepEqual(calls, [['rule_1', 'incremental']])
+})
+
 test('media import queue runs delete jobs after queued sync jobs and records failures', async() => {
   const calls = []
   const failures = []
