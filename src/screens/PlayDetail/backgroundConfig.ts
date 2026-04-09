@@ -75,7 +75,7 @@ export interface PlayDetailBackgroundBlurLayer {
   scale: number
 }
 
-export interface PlayDetailBackgroundVignetteBand {
+export interface PlayDetailBackgroundLinearVignetteSlice {
   inset: number
   thickness: number
   opacity: number
@@ -87,7 +87,7 @@ export interface ResolvedPlayDetailBackgroundConfig extends PlayDetailBackground
   brightnessOverlayColor: string
   imageBrightnessOverlayOpacity: number
   blurLayers: PlayDetailBackgroundBlurLayer[]
-  vignetteBands: PlayDetailBackgroundVignetteBand[]
+  linearVignetteSlices: PlayDetailBackgroundLinearVignetteSlice[]
 }
 
 export const playDetailBackgroundDefaults = {
@@ -143,26 +143,26 @@ export const resolveNativeBlurLayers = ({
   ]
 }
 
-export const resolveVignetteBands = ({
+export const resolveLinearVignetteSlices = ({
   vignetteSize,
   imageContrast,
 }: {
   vignetteSize: number
   imageContrast: number
-}): PlayDetailBackgroundVignetteBand[] => {
+}): PlayDetailBackgroundLinearVignetteSlice[] => {
   const totalDepth = Math.max(60, Math.round(vignetteSize))
-  const bandCount = Math.max(12, Math.min(20, Math.round(totalDepth / 16)))
-  const bandThickness = Math.max(4, totalDepth / bandCount)
+  const sliceCount = Math.max(48, Math.min(96, Math.round(totalDepth / 2.5)))
+  const sliceThickness = totalDepth / sliceCount
   const contrastIntensity = normalizeContrastIntensity(imageContrast)
-  const maxOpacity = clamp(0.16 + contrastIntensity * 0.08, 0.14, 0.24)
+  const maxOpacity = clamp(0.22 + contrastIntensity * 0.08, 0.2, 0.3)
 
-  return Array.from({ length: bandCount }, (_, index) => {
-    const fade = 1 - (index / bandCount)
+  return Array.from({ length: sliceCount }, (_, index) => {
+    const fade = 1 - (index / Math.max(sliceCount - 1, 1))
 
     return {
-      inset: Math.round(index * bandThickness),
-      thickness: Math.max(2, Math.ceil(bandThickness)),
-      opacity: roundTo(maxOpacity * fade, 3),
+      inset: roundTo(index * sliceThickness, 3),
+      thickness: roundTo(Math.max(1, sliceThickness), 3),
+      opacity: roundTo(maxOpacity * fade, 4),
     }
   })
 }
@@ -202,6 +202,6 @@ export const resolvePlayDetailBackgroundConfig = ({
     brightnessOverlayColor,
     imageBrightnessOverlayOpacity: brightnessOverlayOpacity,
     blurLayers: resolveNativeBlurLayers(setting),
-    vignetteBands: resolveVignetteBands(setting),
+    linearVignetteSlices: resolveLinearVignetteSlices(setting),
   }
 }
