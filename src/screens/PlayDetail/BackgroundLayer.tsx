@@ -1,4 +1,5 @@
 import { View, StyleSheet, type ImageSourcePropType } from 'react-native'
+import LinearGradient from 'react-native-linear-gradient'
 import ImageBackground from '@/components/common/ImageBackground'
 import type { ResolvedPlayDetailBackgroundConfig } from './backgroundConfig'
 
@@ -24,80 +25,43 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
   },
+  edgeOverlay: {
+    position: 'absolute',
+  },
 })
 
-const renderLinearVignetteOverlay = (resolvedConfig: ResolvedPlayDetailBackgroundConfig) => (
-  <View pointerEvents="none" style={styles.absoluteFill}>
-    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
-      <View
-        key={`vignette-top:${index}`}
-        style={[
-          styles.absoluteFill,
-          {
-            left: 0,
-            right: 0,
-            top: slice.inset,
-            bottom: undefined,
-            height: slice.thickness,
-            backgroundColor: resolvedConfig.vignetteColor,
-            opacity: slice.opacity,
-          },
-        ]}
+const renderLinearVignetteOverlay = (resolvedConfig: ResolvedPlayDetailBackgroundConfig) => {
+  const vignetteDepth = Math.max(60, Math.round(resolvedConfig.vignetteSize))
+
+  return (
+    <View pointerEvents="none" style={styles.absoluteFill}>
+      <LinearGradient
+        colors={[resolvedConfig.vignetteOverlayColor, resolvedConfig.vignetteTransparentColor]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.edgeOverlay, { top: 0, left: 0, right: 0, height: vignetteDepth }]}
       />
-    ))}
-    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
-      <View
-        key={`vignette-right:${index}`}
-        style={[
-          styles.absoluteFill,
-          {
-            left: undefined,
-            right: slice.inset,
-            top: 0,
-            bottom: 0,
-            width: slice.thickness,
-            backgroundColor: resolvedConfig.vignetteColor,
-            opacity: slice.opacity,
-          },
-        ]}
+      <LinearGradient
+        colors={[resolvedConfig.vignetteTransparentColor, resolvedConfig.vignetteOverlayColor]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.edgeOverlay, { left: 0, right: 0, bottom: 0, height: vignetteDepth }]}
       />
-    ))}
-    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
-      <View
-        key={`vignette-bottom:${index}`}
-        style={[
-          styles.absoluteFill,
-          {
-            left: 0,
-            right: 0,
-            top: undefined,
-            bottom: slice.inset,
-            height: slice.thickness,
-            backgroundColor: resolvedConfig.vignetteColor,
-            opacity: slice.opacity,
-          },
-        ]}
+      <LinearGradient
+        colors={[resolvedConfig.vignetteOverlayColor, resolvedConfig.vignetteTransparentColor]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.edgeOverlay, { top: 0, bottom: 0, left: 0, width: vignetteDepth }]}
       />
-    ))}
-    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
-      <View
-        key={`vignette-left:${index}`}
-        style={[
-          styles.absoluteFill,
-          {
-            left: slice.inset,
-            right: undefined,
-            top: 0,
-            bottom: 0,
-            width: slice.thickness,
-            backgroundColor: resolvedConfig.vignetteColor,
-            opacity: slice.opacity,
-          },
-        ]}
+      <LinearGradient
+        colors={[resolvedConfig.vignetteTransparentColor, resolvedConfig.vignetteOverlayColor]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.edgeOverlay, { top: 0, right: 0, bottom: 0, width: vignetteDepth }]}
       />
-    ))}
-  </View>
-)
+    </View>
+  )
+}
 
 export default function PlayDetailBackgroundLayer({ source, resolvedConfig, children }: Props) {
   return (
