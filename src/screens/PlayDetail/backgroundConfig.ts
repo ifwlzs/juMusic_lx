@@ -75,19 +75,14 @@ export interface PlayDetailBackgroundBlurLayer {
   scale: number
 }
 
-export interface PlayDetailBackgroundLinearVignetteSlice {
-  inset: number
-  thickness: number
-  opacity: number
-}
-
 export interface ResolvedPlayDetailBackgroundConfig extends PlayDetailBackgroundSettingValues {
   resolvedMaskColor: string
   colorMask: string
   brightnessOverlayColor: string
   imageBrightnessOverlayOpacity: number
   blurLayers: PlayDetailBackgroundBlurLayer[]
-  linearVignetteSlices: PlayDetailBackgroundLinearVignetteSlice[]
+  vignetteOverlayColor: string
+  vignetteTransparentColor: string
 }
 
 export const playDetailBackgroundDefaults = {
@@ -143,28 +138,13 @@ export const resolveNativeBlurLayers = ({
   ]
 }
 
-export const resolveLinearVignetteSlices = ({
-  vignetteSize,
+const resolveVignetteOverlayOpacity = ({
   imageContrast,
 }: {
-  vignetteSize: number
   imageContrast: number
-}): PlayDetailBackgroundLinearVignetteSlice[] => {
-  const totalDepth = Math.max(60, Math.round(vignetteSize))
-  const sliceCount = Math.max(48, Math.min(96, Math.round(totalDepth / 2.5)))
-  const sliceThickness = totalDepth / sliceCount
+}) => {
   const contrastIntensity = normalizeContrastIntensity(imageContrast)
-  const maxOpacity = clamp(0.22 + contrastIntensity * 0.08, 0.2, 0.3)
-
-  return Array.from({ length: sliceCount }, (_, index) => {
-    const fade = 1 - (index / Math.max(sliceCount - 1, 1))
-
-    return {
-      inset: roundTo(index * sliceThickness, 3),
-      thickness: roundTo(Math.max(1, sliceThickness), 3),
-      opacity: roundTo(maxOpacity * fade, 4),
-    }
-  })
+  return roundTo(clamp(0.22 + contrastIntensity * 0.08, 0.2, 0.3), 3)
 }
 
 export const readPlayDetailBackgroundSetting = (setting: LX.AppSetting): PlayDetailBackgroundSettingValues => ({
@@ -191,6 +171,7 @@ export const resolvePlayDetailBackgroundConfig = ({
   const resolvedMaskColor = setting.maskMode == 'manual' ? setting.maskColor : recommendedMaskColor ?? setting.maskColor
   const imageBrightnessDelta = setting.imageBrightness - 1
   const brightnessOverlayOpacity = clamp(Math.abs(imageBrightnessDelta) * 0.42, 0, 0.35)
+  const vignetteOverlayOpacity = resolveVignetteOverlayOpacity(setting)
   const brightnessOverlayColor = imageBrightnessDelta >= 0
     ? 'rgba(255, 255, 255, 1)'
     : 'rgba(0, 0, 0, 1)'
@@ -202,6 +183,7 @@ export const resolvePlayDetailBackgroundConfig = ({
     brightnessOverlayColor,
     imageBrightnessOverlayOpacity: brightnessOverlayOpacity,
     blurLayers: resolveNativeBlurLayers(setting),
-    linearVignetteSlices: resolveLinearVignetteSlices(setting),
+    vignetteOverlayColor: buildRgba(setting.vignetteColor, vignetteOverlayOpacity),
+    vignetteTransparentColor: buildRgba(setting.vignetteColor, 0),
   }
 }
