@@ -26,70 +26,76 @@ const styles = StyleSheet.create({
   },
 })
 
-const renderVignetteBandStack = (resolvedConfig: ResolvedPlayDetailBackgroundConfig) => (
+const renderLinearVignetteOverlay = (resolvedConfig: ResolvedPlayDetailBackgroundConfig) => (
   <View pointerEvents="none" style={styles.absoluteFill}>
-    {resolvedConfig.vignetteBands.flatMap((band, index) => [
+    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
       <View
         key={`vignette-top:${index}`}
         style={[
           styles.absoluteFill,
           {
-            left: band.inset,
-            right: band.inset,
-            top: band.inset,
+            left: 0,
+            right: 0,
+            top: slice.inset,
             bottom: undefined,
-            height: band.thickness,
+            height: slice.thickness,
             backgroundColor: resolvedConfig.vignetteColor,
-            opacity: band.opacity,
+            opacity: slice.opacity,
           },
         ]}
-      />,
+      />
+    ))}
+    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
       <View
         key={`vignette-right:${index}`}
         style={[
           styles.absoluteFill,
           {
             left: undefined,
-            right: band.inset,
-            top: band.inset,
-            bottom: band.inset,
-            width: band.thickness,
+            right: slice.inset,
+            top: 0,
+            bottom: 0,
+            width: slice.thickness,
             backgroundColor: resolvedConfig.vignetteColor,
-            opacity: band.opacity,
+            opacity: slice.opacity,
           },
         ]}
-      />,
+      />
+    ))}
+    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
       <View
         key={`vignette-bottom:${index}`}
         style={[
           styles.absoluteFill,
           {
-            left: band.inset,
-            right: band.inset,
+            left: 0,
+            right: 0,
             top: undefined,
-            bottom: band.inset,
-            height: band.thickness,
+            bottom: slice.inset,
+            height: slice.thickness,
             backgroundColor: resolvedConfig.vignetteColor,
-            opacity: band.opacity,
+            opacity: slice.opacity,
           },
         ]}
-      />,
+      />
+    ))}
+    {resolvedConfig.linearVignetteSlices.map((slice, index) => (
       <View
         key={`vignette-left:${index}`}
         style={[
           styles.absoluteFill,
           {
-            left: band.inset,
+            left: slice.inset,
             right: undefined,
-            top: band.inset,
-            bottom: band.inset,
-            width: band.thickness,
+            top: 0,
+            bottom: 0,
+            width: slice.thickness,
             backgroundColor: resolvedConfig.vignetteColor,
-            opacity: band.opacity,
+            opacity: slice.opacity,
           },
         ]}
-      />,
-    ])}
+      />
+    ))}
   </View>
 )
 
@@ -125,7 +131,7 @@ export default function PlayDetailBackgroundLayer({ source, resolvedConfig, chil
           { backgroundColor: resolvedConfig.colorMask },
         ]}
       />
-      {renderVignetteBandStack(resolvedConfig)}
+      {renderLinearVignetteOverlay(resolvedConfig)}
       <View style={styles.content}>{children}</View>
     </View>
   )
