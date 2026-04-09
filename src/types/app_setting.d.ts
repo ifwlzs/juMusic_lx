@@ -152,6 +152,61 @@ declare global {
       'theme.dynamicBg': boolean
 
       /**
+       * 播放页背景拉伸缩放比例
+       */
+      'theme.playDetail.background.stretchScale': number
+
+      /**
+       * 播放页背景模糊强度
+       */
+      'theme.playDetail.background.blurRadius': number
+
+      /**
+       * 播放页背景亮度调节
+       */
+      'theme.playDetail.background.imageBrightness': number
+
+      /**
+       * 播放页背景对比度调节
+       */
+      'theme.playDetail.background.imageContrast': number
+
+      /**
+       * 播放页背景蒙版模式
+       */
+      'theme.playDetail.background.maskMode': 'auto' | 'manual'
+
+      /**
+       * 播放页背景蒙版颜色
+       */
+      'theme.playDetail.background.maskColor': string
+
+      /**
+       * 播放页背景蒙版透明度
+       */
+      'theme.playDetail.background.colorMaskOpacity': number
+
+      /**
+       * 播放页背景自动蒙版饱和度
+       */
+      'theme.playDetail.background.maskSaturation': number
+
+      /**
+       * 播放页背景自动蒙版明度
+       */
+      'theme.playDetail.background.maskLightness': number
+
+      /**
+       * 播放页背景四周压暗颜色
+       */
+      'theme.playDetail.background.vignetteColor': string
+
+      /**
+       * 播放页背景四周压暗范围
+       */
+      'theme.playDetail.background.vignetteSize': number
+
+      /**
        * 字体阴影
        */
       'theme.fontShadow': boolean
