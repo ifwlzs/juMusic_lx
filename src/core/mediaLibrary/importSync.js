@@ -565,6 +565,7 @@ async function runIncrementalSync({
   }
 }
 
+// Prioritize incremental sync mode regardless of provider type.
 async function syncImportRule({
   connection,
   rule,
@@ -579,7 +580,7 @@ async function syncImportRule({
   jobControl = null,
   syncMode = 'full_validation',
 }) {
-  if (syncMode === 'incremental' && connection.providerType === 'local') {
+  if (syncMode === 'incremental') {
     return runIncrementalSync({
       connection,
       rule,

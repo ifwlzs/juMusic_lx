@@ -196,6 +196,100 @@ test('runRemoteStreamingSync keeps existing visible songs while progressively ch
   assert.equal(saved.syncSnapshot.snapshot.items.length, 12)
 })
 
+test('runRemoteStreamingSync preserves full-validation metadata in snapshot saves', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  const snapshotSaves = []
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 80,
+    lastFullValidationAt: 80,
+    pendingFullValidation: true,
+    items: [
+      createSourceItem({
+        sourceItemId: 'placeholder',
+        pathOrUri: '/Albums/placeholder.mp3',
+      }),
+    ],
+  }
+  let savedSourceItems = []
+
+  await runRemoteStreamingSync({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        snapshotSaves.push({ ruleId, snapshot })
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems(_connectionId, items) {
+        savedSourceItems = items
+      },
+      async getAllSourceItems() {
+        return savedSourceItems
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [createCandidate(1), createCandidate(2)],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: {
+                title: candidate.fileName.replace(/\.[^.]+$/, ''),
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    now: () => 2000,
+    batchCommitterOptions: {
+      maxBatchSize: 1,
+    },
+  })
+
+  assert.ok(snapshotSaves.length >= 2)
+  const checkpoint = snapshotSaves.find(entry => entry.snapshot.isComplete === false)
+  assert.ok(checkpoint, 'expected at least one checkpoint save')
+  assert.equal(checkpoint.snapshot.lastFullValidationAt, previousSnapshot.lastFullValidationAt)
+  assert.equal(checkpoint.snapshot.pendingFullValidation, previousSnapshot.pendingFullValidation)
+  const finalSnapshot = snapshotSaves.at(-1)
+  assert.equal(finalSnapshot.snapshot.isComplete, true)
+  assert.equal(finalSnapshot.snapshot.lastFullValidationAt, 2000)
+  assert.equal(finalSnapshot.snapshot.pendingFullValidation, false)
+})
+
 test('runRemoteStreamingSync checkpoints flushed batches before the full remote scan completes', async() => {
   const connection = createConnection()
   const rule = createRule()

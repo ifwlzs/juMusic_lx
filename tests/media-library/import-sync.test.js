@@ -858,6 +858,103 @@ test('updateImportRule incremental sync persists completeness based on current r
   assert.equal(snapshotWhenIncomplete.isComplete, false)
 })
 
+test('syncImportRule remote incremental avoids full validation removal path', async() => {
+  const connection = createConnection({
+    providerType: 'onedrive',
+  })
+  const rule = createRule({
+    connectionId: connection.connectionId,
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    lastFullValidationAt: 80,
+    pendingFullValidation: true,
+    items: [
+      createSourceItem({
+        sourceItemId: 'old',
+        pathOrUri: '/Albums/old.mp3',
+      }),
+    ],
+  }
+  const calls = []
+  const saved = {
+    snapshot: null,
+    sourceItems: null,
+  }
+  const now = () => 250
+
+  const result = await syncImportRule({
+    connection,
+    rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems(connectionId, items) {
+        saved.sourceItems = { connectionId, items }
+      },
+      async getAllSourceItems() {
+        return saved.sourceItems?.items || []
+      },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [
+                createCandidate({
+                  pathOrUri: '/Albums/new.mp3',
+                  versionToken: 'v_new',
+                }),
+              ],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: {
+                title: 'new',
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async removeMissingSongs(ids) {
+        calls.push(ids)
+      },
+      async reconcileGeneratedLists() {},
+    },
+    now,
+  })
+
+  assert.deepEqual(calls, [])
+  assert.deepEqual(result.removedIds, [])
+  assert.equal(saved.snapshot.snapshot.lastIncrementalSyncAt, now())
+  assert.equal(saved.snapshot.snapshot.lastFullValidationAt, previousSnapshot.lastFullValidationAt)
+  assert.equal(saved.snapshot.snapshot.pendingFullValidation, true)
+})
+
 test('deleteImportRule rebuilds remaining generated lists and keeps uncovered custom references unavailable', async() => {
   const connection = createConnection()
   const rule1 = {
