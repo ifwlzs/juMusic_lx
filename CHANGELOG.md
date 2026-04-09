@@ -14,6 +14,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 同步播放页背景预览工具到 `1.html` 风格的强制拉伸、灰偏蒙版和均匀压边基线
 - 将播放页四周压暗从分段 band 改为更接近 `1.html` 的连续线性压边过渡，减少一圈圈的台阶感
 
+## [0.26.04091335](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04091227...v0.26.04091335) - 2026-04-09
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04091227](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04090821...v0.26.04091227) - 2026-04-09
 
 修复
