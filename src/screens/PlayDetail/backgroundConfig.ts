@@ -1,4 +1,5 @@
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+const roundTo = (value: number, fractionDigits = 3) => Number(value.toFixed(fractionDigits))
 
 const hexToRgb = (hex: string) => {
   const value = hex.replace('#', '')
@@ -51,6 +52,9 @@ const buildRgba = (hex: string, alpha: number) => {
   return `rgba(${red}, ${green}, ${blue}, ${clamp(alpha, 0, 1).toFixed(2)})`
 }
 
+const normalizeBlurIntensity = (blurRadius: number) => clamp((blurRadius - 40) / 220, 0, 1)
+const normalizeContrastIntensity = (imageContrast: number) => clamp((imageContrast - 1) / 1.2, 0, 1)
+
 export interface PlayDetailBackgroundSettingValues {
   stretchScale: number
   blurRadius: number
@@ -65,11 +69,25 @@ export interface PlayDetailBackgroundSettingValues {
   vignetteSize: number
 }
 
+export interface PlayDetailBackgroundBlurLayer {
+  blurRadius: number
+  opacity: number
+  scale: number
+}
+
+export interface PlayDetailBackgroundVignetteBand {
+  inset: number
+  thickness: number
+  opacity: number
+}
+
 export interface ResolvedPlayDetailBackgroundConfig extends PlayDetailBackgroundSettingValues {
   resolvedMaskColor: string
   colorMask: string
   brightnessOverlayColor: string
   imageBrightnessOverlayOpacity: number
+  blurLayers: PlayDetailBackgroundBlurLayer[]
+  vignetteBands: PlayDetailBackgroundVignetteBand[]
 }
 
 export const playDetailBackgroundDefaults = {
@@ -91,6 +109,62 @@ export const snapHue = (hue: number, step = 15) => Math.round(hue / step) * step
 export const createGrayBiasedMaskColor = (hue: number, saturation: number, lightness: number) => {
   const snappedHue = snapHue(hue, 15)
   return rgbToHex(hslToRgb(snappedHue, saturation, lightness))
+}
+
+export const resolveNativeBlurLayers = ({
+  blurRadius,
+  stretchScale,
+  imageContrast,
+}: {
+  blurRadius: number
+  stretchScale: number
+  imageContrast: number
+}): PlayDetailBackgroundBlurLayer[] => {
+  const blurIntensity = normalizeBlurIntensity(blurRadius)
+  const contrastIntensity = normalizeContrastIntensity(imageContrast)
+  const baseScale = clamp(stretchScale, 1, 1.2)
+
+  return [
+    {
+      blurRadius: Math.round(clamp(14 + blurIntensity * 8 + contrastIntensity * 2, 12, 24)),
+      opacity: roundTo(clamp(0.92 - contrastIntensity * 0.06, 0.78, 0.92), 3),
+      scale: roundTo(baseScale, 3),
+    },
+    {
+      blurRadius: Math.round(clamp(22 + blurIntensity * 10 + contrastIntensity * 4, 18, 36)),
+      opacity: roundTo(clamp(0.34 + blurIntensity * 0.14, 0.32, 0.5), 3),
+      scale: roundTo(clamp(baseScale + 0.045, 1.04, 1.25), 3),
+    },
+    {
+      blurRadius: Math.round(clamp(30 + blurIntensity * 12 + contrastIntensity * 6, 24, 48)),
+      opacity: roundTo(clamp(0.16 + blurIntensity * 0.14, 0.16, 0.32), 3),
+      scale: roundTo(clamp(baseScale + 0.09, 1.08, 1.3), 3),
+    },
+  ]
+}
+
+export const resolveVignetteBands = ({
+  vignetteSize,
+  imageContrast,
+}: {
+  vignetteSize: number
+  imageContrast: number
+}): PlayDetailBackgroundVignetteBand[] => {
+  const totalDepth = Math.max(60, Math.round(vignetteSize))
+  const bandCount = Math.max(12, Math.min(20, Math.round(totalDepth / 16)))
+  const bandThickness = Math.max(4, totalDepth / bandCount)
+  const contrastIntensity = normalizeContrastIntensity(imageContrast)
+  const maxOpacity = clamp(0.16 + contrastIntensity * 0.08, 0.14, 0.24)
+
+  return Array.from({ length: bandCount }, (_, index) => {
+    const fade = 1 - (index / bandCount)
+
+    return {
+      inset: Math.round(index * bandThickness),
+      thickness: Math.max(2, Math.ceil(bandThickness)),
+      opacity: roundTo(maxOpacity * fade, 3),
+    }
+  })
 }
 
 export const readPlayDetailBackgroundSetting = (setting: LX.AppSetting): PlayDetailBackgroundSettingValues => ({
@@ -116,12 +190,18 @@ export const resolvePlayDetailBackgroundConfig = ({
 }): ResolvedPlayDetailBackgroundConfig => {
   const resolvedMaskColor = setting.maskMode == 'manual' ? setting.maskColor : recommendedMaskColor ?? setting.maskColor
   const imageBrightnessDelta = setting.imageBrightness - 1
+  const brightnessOverlayOpacity = clamp(Math.abs(imageBrightnessDelta) * 0.42, 0, 0.35)
+  const brightnessOverlayColor = imageBrightnessDelta >= 0
+    ? 'rgba(255, 255, 255, 1)'
+    : 'rgba(0, 0, 0, 1)'
 
   return {
     ...setting,
     resolvedMaskColor,
     colorMask: buildRgba(resolvedMaskColor, setting.colorMaskOpacity),
-    brightnessOverlayColor: imageBrightnessDelta >= 0 ? '#ffffff' : '#000000',
-    imageBrightnessOverlayOpacity: clamp(Math.abs(imageBrightnessDelta) * 0.42, 0, 0.35),
+    brightnessOverlayColor,
+    imageBrightnessOverlayOpacity: brightnessOverlayOpacity,
+    blurLayers: resolveNativeBlurLayers(setting),
+    vignetteBands: resolveVignetteBands(setting),
   }
 }

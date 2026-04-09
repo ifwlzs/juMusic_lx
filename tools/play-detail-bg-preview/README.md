@@ -1,40 +1,60 @@
-# Play Detail Background Preview
+# Play Detail Background Preview Tool
 
-This tool is a browser-only sandbox for the play-detail blurred background. It does not try to render the full player UI.
-
-## Run
+运行本地预览服务器：
 
 ```bash
 npm run preview:play-detail-bg
 ```
 
-Then open `http://127.0.0.1:4866`.
+然后打开 `http://127.0.0.1:4866`。
 
-## What it does
+## 这版对齐什么效果
 
-- Loads a few built-in cover presets so the page works before you drag in a real image.
-- Supports drag/drop and file picking for real album art.
-- Lets you tune blur, stretch, the neutral center wash, and the edge-led gray bands.
-- Reloads the browser automatically when `index.html`, `styles.css`, `preview.js`, or this README change.
+这次的目标不是上一版的渐变映射，而是直接参考仓库根目录的 `1.html`：
 
-## Parameter mapping back to React Native
+- 底图来自封面图
+- `background-size: 100% 100%`
+- 高强度 `blur`
+- 上面盖一层 `color-mask`
+- 最外层再叠 `vignette`
 
-These controls map to [`src/components/PageContent.tsx`](../../src/components/PageContent.tsx):
+也就是更接近你现在手里已经满意的那种“强制拉伸 + 高模糊 + 灰偏主色蒙版 + 均匀压边”效果。
 
-| Preview control | React Native target |
+## gray-biased color mask
+
+这个工具现在会从图片里提取**主要色相**，再把它压成固定的偏灰 HSL 参数：
+
+- `maskSaturation` 默认 `0.312`
+- `maskLightness` 默认 `0.433`
+- `colorMaskOpacity` 默认 `0.37`
+- 色相会先做 `15°` 步长吸附
+
+这样可以得到更稳定的“主色偏灰”蒙版色，而不是直接拿封面里的脏杂色。
+
+你提到的两个样例，目标就是这类结果：
+
+- `MIMI,可不 - くうになる (feat. 可不).jpg` → 接近 `rgb(145 76 76 / 37%)`
+- `李縺琦,亚哲大大 - 2019.End.jpg` → 接近 `rgb(76 110 145 / 37%)`
+
+## 控件说明
+
+| 控件 | 作用 |
 | --- | --- |
-| `blurRadius` | `backgroundConfigs.playDetailEmby.blurRadius` |
-| `scaleX` | `backgroundConfigs.playDetailEmby.imageStyle.transform[0].scaleX` |
-| `scaleY` | `backgroundConfigs.playDetailEmby.imageStyle.transform[1].scaleY` |
-| `baseOverlayOpacity` | alpha channel inside the neutral gray wash at `backgroundConfigs.playDetailEmby.overlayStyle.backgroundColor` |
-| `edgeOverlayColor` | base gray used to derive `playDetailEmbyEdgeOverlayBands[*].backgroundColor` |
-| `edgeOverlayWidth` | outer band thickness values that mirror `playDetailEmbyEdgeOverlayBands[*].thickness` |
+| `stretchScale` | 在 1.html 的强制拉伸基础上再做轻微缩放，便于裁掉边缘瑕疵。 |
+| `blurRadius` | 底图模糊半径。 |
+| `imageBrightness` | 底图亮度。 |
+| `imageContrast` | 底图对比度。 |
+| `maskColor` | 当前真正应用到 `color-mask` 的颜色，可手动改。 |
+| `colorMaskOpacity` | `color-mask` 的透明度。 |
+| `maskSaturation` | 自动蒙版色使用的固定饱和度。 |
+| `maskLightness` | 自动蒙版色使用的固定明度。 |
+| `vignetteColor` | `vignette` 的压边颜色。 |
+| `vignetteSize` | `vignette` 的内阴影范围。 |
 
-`edgeOverlayWidth inner` is a convenience control for the deepest edge-led bands, because the current React Native layout uses a wider innermost pair than the outer four.
+## 使用方式
 
-## Working loop
-
-1. Start the preview server.
-2. Drag in a real cover image or choose a built-in preset.
-3. Edit `styles.css` or `preview.js` until the background feels right.
-4. Copy the final values back into [`src/components/PageContent.tsx`](../../src/components/PageContent.tsx).
+1. 先上传一张封面，或者点内置 preset。
+2. 看左侧 `Auto mask` 给出的自动灰偏主色。
+3. 如果自动色靠谱，就点 `应用自动蒙版色`。
+4. 然后继续微调 `maskColor`、`colorMaskOpacity`、`vignetteColor`、`vignetteSize`。
+5. 调到满意后，再把这组值带回正式实现。

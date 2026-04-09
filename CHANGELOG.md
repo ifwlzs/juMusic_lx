@@ -6,6 +6,13 @@ Project versioning uses display versions in `0.yy.MMddhhmm` format (Asia/Shangha
 Commit convention is based on [Conventional Commits](http://conventionalcommits.org).
 Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+修复
+
+- 修复播放页背景在部分设备上容易出现马赛克感和硬边压框的问题，改为更接近预览模板的多层模糊与平滑压边渲染
+- 同步播放页背景预览工具到 `1.html` 风格的强制拉伸、灰偏蒙版和均匀压边基线
+
 ## [0.26.04090821](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04081834...v0.26.04090821) - 2026-04-09
 
 修复
