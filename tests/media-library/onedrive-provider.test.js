@@ -541,6 +541,7 @@ test('onedrive provider hydrateCandidate reads metadata for a lightweight candid
       album: 'Hydrated Album',
       durationSec: 321,
     },
+    scanStatus: 'success',
     metadataLevelReached: 2,
   })
   assert.deepEqual(calls, [

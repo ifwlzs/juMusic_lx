@@ -305,7 +305,7 @@ test('createWebdavProvider hydrateCandidate falls back to temp-file metadata whe
   const calls = []
   const provider = createWebdavProvider({
     async request() {
-      return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />`
+      return '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />'
     },
     async downloadFile(connection, uri, savePath) {
       calls.push(['download', connection.connectionId, uri, savePath])
@@ -366,6 +366,7 @@ test('createWebdavProvider hydrateCandidate falls back to temp-file metadata whe
       album: 'WebDAV Album',
       durationSec: 222,
     },
+    scanStatus: 'success',
     metadataLevelReached: 1,
   })
   assert.deepEqual(calls, [

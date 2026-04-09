@@ -54,6 +54,9 @@ function createSourceItem({
   pathOrUri,
   fileName,
   title,
+  artist = '',
+  album = '',
+  durationSec = 180,
   versionToken,
 } = {}) {
   const resolvedPath = pathOrUri || `/${sourceItemId}.mp3`
@@ -66,9 +69,9 @@ function createSourceItem({
     pathOrUri: resolvedPath,
     fileName: resolvedFileName,
     title: title || resolvedFileName.replace(/\.[^.]+$/, ''),
-    artist: '',
-    album: '',
-    durationSec: 180,
+    artist,
+    album,
+    durationSec,
     versionToken: versionToken || `v_${sourceItemId}`,
   }
 }
@@ -640,6 +643,258 @@ test('updateImportRule incremental sync scans added selections first and hydrate
     'conn_1__/Albums/Keep/existing.mp3',
     'conn_1__/Albums/New/new.mp3',
   ])
+})
+
+test('updateImportRule incremental sync removes items from removed selections immediately', async() => {
+  const connection = createConnection()
+  const previousRule = createRule({
+    directories: [
+      {
+        selectionId: 'dir_keep',
+        kind: 'directory',
+        pathOrUri: '/Albums/Keep',
+        displayName: 'Keep',
+      },
+      {
+        selectionId: 'dir_remove',
+        kind: 'directory',
+        pathOrUri: '/Albums/Remove',
+        displayName: 'Remove',
+      },
+    ],
+  })
+  const nextRule = createRule({
+    directories: [{
+      selectionId: 'dir_keep',
+      kind: 'directory',
+      pathOrUri: '/Albums/Keep',
+      displayName: 'Keep',
+    }],
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    lastIncrementalSyncAt: 100,
+    lastFullValidationAt: 80,
+    pendingFullValidation: false,
+    items: [
+      createSourceItem({
+        sourceItemId: 'conn_1__/Albums/Keep/keep.mp3',
+        pathOrUri: '/Albums/Keep/keep.mp3',
+        versionToken: 'v_keep',
+      }),
+      createSourceItem({
+        sourceItemId: 'conn_1__/Albums/Remove/old.mp3',
+        pathOrUri: '/Albums/Remove/old.mp3',
+        versionToken: 'v_old',
+      }),
+    ],
+  }
+  const enumerateCalls = []
+  const saved = {
+    snapshot: null,
+    sourceItems: null,
+  }
+  let removeMissingCalls = 0
+
+  const result = await updateImportRule({
+    connection,
+    rule: nextRule,
+    previousRule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [nextRule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems(connectionId, items) {
+        saved.sourceItems = { connectionId, items }
+      },
+      async getAllSourceItems() {
+        return saved.sourceItems?.items || []
+      },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection(_connection, selection) {
+            enumerateCalls.push({
+              directories: (selection.directories || []).map(item => item.pathOrUri),
+              tracks: (selection.tracks || []).map(item => item.pathOrUri),
+            })
+            return {
+              complete: true,
+              items: [
+                createCandidate({
+                  pathOrUri: '/Albums/Keep/keep.mp3',
+                  fileName: 'keep.mp3',
+                  versionToken: 'v_keep',
+                  modifiedTime: 90,
+                }),
+              ],
+            }
+          },
+          async hydrateCandidate() {
+            throw new Error('incremental sync should not hydrate unchanged retained items')
+          },
+          async scanSelection() {
+            throw new Error('incremental sync should not call scanSelection')
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {
+        removeMissingCalls += 1
+      },
+    },
+    now: () => 200,
+  })
+
+  assert.deepEqual(enumerateCalls, [
+    { directories: ['/Albums/Keep'], tracks: [] },
+  ])
+  assert.equal(removeMissingCalls, 0)
+  assert.deepEqual(result.nextItems.map(item => item.sourceItemId), [
+    'conn_1__/Albums/Keep/keep.mp3',
+  ])
+  assert.deepEqual(saved.snapshot.snapshot.items.map(item => item.sourceItemId), [
+    'conn_1__/Albums/Keep/keep.mp3',
+  ])
+  assert.deepEqual(saved.sourceItems.items.map(item => item.sourceItemId), [
+    'conn_1__/Albums/Keep/keep.mp3',
+  ])
+
+  const accountAll = result.generatedLists.find(item => item.listInfo.mediaSource.kind === 'account_all')
+  const merged = result.generatedLists.find(item => item.listInfo.mediaSource.kind === 'rule_merged')
+  assert.ok(accountAll)
+  assert.ok(merged)
+  assert.deepEqual(accountAll.list.map(item => item.id), ['conn_1__/Albums/Keep/keep.mp3'])
+  assert.deepEqual(merged.list.map(item => item.id), ['conn_1__/Albums/Keep/keep.mp3'])
+})
+
+test('updateImportRule incremental sync preserves previous metadata when hydration is incomplete', async() => {
+  const connection = createConnection()
+  const rule = createRule({
+    directories: [{
+      selectionId: 'dir_keep',
+      kind: 'directory',
+      pathOrUri: '/Albums/Keep',
+      displayName: 'Keep',
+    }],
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    lastIncrementalSyncAt: 100,
+    lastFullValidationAt: 80,
+    pendingFullValidation: false,
+    items: [
+      createSourceItem({
+        sourceItemId: 'conn_1__/Albums/Keep/song.mp3',
+        pathOrUri: '/Albums/Keep/song.mp3',
+        title: 'Good Title',
+        artist: 'Good Artist',
+        album: 'Good Album',
+        durationSec: 180,
+        versionToken: 'v_old',
+      }),
+    ],
+  }
+  const saved = {
+    snapshot: null,
+  }
+
+  const result = await updateImportRule({
+    connection,
+    rule,
+    previousRule: rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return []
+      },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [
+                createCandidate({
+                  pathOrUri: '/Albums/Keep/song.mp3',
+                  fileName: 'song.mp3',
+                  versionToken: 'v_new',
+                  modifiedTime: 150,
+                }),
+              ],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: null,
+              metadataLevelReached: 0,
+            }
+          },
+          async scanSelection() {
+            throw new Error('incremental sync should not call scanSelection')
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    now: () => 220,
+  })
+
+  assert.deepEqual(result.nextItems.map(item => ({
+    sourceItemId: item.sourceItemId,
+    title: item.title,
+    artist: item.artist,
+    album: item.album,
+    durationSec: item.durationSec,
+    versionToken: item.versionToken,
+  })), [{
+    sourceItemId: 'conn_1__/Albums/Keep/song.mp3',
+    title: 'Good Title',
+    artist: 'Good Artist',
+    album: 'Good Album',
+    durationSec: 180,
+    versionToken: 'v_old',
+  }])
+  assert.equal(saved.snapshot.snapshot.isComplete, false)
+  assert.equal(result.scanResult.complete, false)
+  assert.equal(result.scanResult.summary.failed, 1)
 })
 
 test('updateImportRule incremental sync keeps absent old items until full validation but still refreshes recently modified songs', async() => {

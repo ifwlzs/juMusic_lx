@@ -245,6 +245,7 @@ test('createSmbProvider hydrateCandidate falls back to the existing metadata rea
       album: 'SMB Album',
       durationSec: 111,
     },
+    scanStatus: 'success',
     metadataLevelReached: 3,
   })
   assert.deepEqual(calls, [['/music/a.mp3', 'conn_1']])

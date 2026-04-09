@@ -209,6 +209,7 @@ function createLocalProvider({ readDir, readMetadata }) {
       return {
         candidate,
         metadata: normalizeHydratedMetadata(candidate, metadata),
+        scanStatus: metadata ? 'success' : 'failed',
         metadataLevelReached: Math.max(
           Number(attempt) || 0,
           candidate?.metadataLevelReached || 0,

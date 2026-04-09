@@ -77,6 +77,7 @@ async function hydrateCandidateMetadata(connection, candidate, attempt, readMeta
     return {
       candidate,
       metadata: hintedMetadata,
+      scanStatus: 'success',
       metadataLevelReached: Math.max(Number(attempt) || 0, candidate?.metadataLevelReached || 0, 1),
     }
   }
@@ -85,6 +86,7 @@ async function hydrateCandidateMetadata(connection, candidate, attempt, readMeta
   return {
     candidate,
     metadata: normalizeHydratedMetadata(candidate, metadata),
+    scanStatus: metadata ? 'success' : 'failed',
     metadataLevelReached: Math.max(Number(attempt) || 0, metadata ? 1 : 0),
   }
 }

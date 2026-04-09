@@ -61,15 +61,20 @@ function createSelectionKey(selection = {}) {
 function diffImportSelections(previousRule, nextRule) {
   const previousSelection = normalizeImportSelection(previousRule || {})
   const nextSelection = normalizeImportSelection(nextRule || {})
+  const previousSelections = [
+    ...previousSelection.directories,
+    ...previousSelection.tracks,
+  ]
   const previousKeys = new Set([
-    ...previousSelection.directories.map(createSelectionKey),
-    ...previousSelection.tracks.map(createSelectionKey),
+    ...previousSelections.map(createSelectionKey),
   ])
   const nextSelections = [
     ...nextSelection.directories,
     ...nextSelection.tracks,
   ]
+  const nextKeys = new Set(nextSelections.map(createSelectionKey))
   const addedSelections = []
+  const removedSelections = []
   const unchangedSelections = []
 
   for (const selection of nextSelections) {
@@ -77,8 +82,13 @@ function diffImportSelections(previousRule, nextRule) {
     else addedSelections.push(selection)
   }
 
+  for (const selection of previousSelections) {
+    if (!nextKeys.has(createSelectionKey(selection))) removedSelections.push(selection)
+  }
+
   return {
     addedSelections,
+    removedSelections,
     unchangedSelections,
   }
 }
@@ -287,6 +297,16 @@ function buildSourceItemFromHydration({
   }
 }
 
+function retainRuleScopedItems(items = [], rule) {
+  return items.filter(item => isSourceItemCoveredByRule(item, rule))
+}
+
+function didHydrationFail(hydrated) {
+  if (!hydrated) return true
+  if (hydrated.scanStatus === 'failed') return true
+  return hydrated.metadata == null
+}
+
 async function runFullSync({
   connection,
   rule,
@@ -429,15 +449,19 @@ async function runIncrementalSync({
   const scanAt = now()
   const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || createEmptySnapshot(rule.ruleId)
   const previousItemsByKey = buildSourceItemLookup(previousSnapshot.items)
-  const nextItemsByKey = new Map(previousItemsByKey)
+  const nextItemsByKey = buildSourceItemLookup(retainRuleScopedItems(previousSnapshot.items, rule))
   const selectionStats = []
   const processedCandidateKeys = new Set()
   const lastIncrementalCutoff = previousSnapshot.lastIncrementalSyncAt ??
     previousSnapshot.scannedAt ??
     0
-  const { addedSelections, unchangedSelections } = diffImportSelections(previousRule, rule)
+  const {
+    addedSelections,
+    unchangedSelections,
+  } = diffImportSelections(previousRule, rule)
   const orderedSelections = [...addedSelections, ...unchangedSelections]
   let isComplete = true
+  let failedHydrationCount = 0
 
   for (const selection of orderedSelections) {
     const selectionInput = selection?.kind === 'track'
@@ -471,6 +495,19 @@ async function runIncrementalSync({
       }
 
       const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt: 1 })
+      if (didHydrationFail(hydrated)) {
+        failedHydrationCount += 1
+        isComplete = false
+        if (previousItem) {
+          nextItemsByKey.set(candidateKey, {
+            ...previousItem,
+            lastSeenAt: scanAt,
+          })
+        } else {
+          nextItemsByKey.delete(candidateKey)
+        }
+        continue
+      }
       nextItemsByKey.set(candidateKey, buildSourceItemFromHydration({
         connection,
         candidate: {
@@ -551,7 +588,7 @@ async function runIncrementalSync({
       items: nextItems,
       summary: {
         success: nextItems.length,
-        failed: 0,
+        failed: failedHydrationCount,
         skipped: 0,
       },
     },
