@@ -71,10 +71,10 @@ function sanitizeImportJob(job = {}) {
     resumeAfterJobId: job.resumeAfterJobId ?? null,
     payload: job.payload
       ? {
-        ...job.payload,
-        previousRule: job.payload.previousRule ?? null,
-        syncMode: job.payload.syncMode ?? 'incremental',
-      }
+          ...job.payload,
+          previousRule: job.payload.previousRule ?? null,
+          syncMode: job.payload.syncMode ?? 'incremental',
+        }
       : null,
   }
 }
