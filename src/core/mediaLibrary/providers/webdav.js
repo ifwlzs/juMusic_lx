@@ -1,5 +1,6 @@
 const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
 const { parseMultiStatus } = require('./webdavXml.js')
+const { resolveDownloadResult } = require('../downloadResult.js')
 const { buildWebdavVersionToken } = require('../versionToken.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
@@ -111,7 +112,9 @@ async function readRemoteMetadata({
 
   try {
     const downloadResult = await downloadFile(connection, item.href, tempFilePath)
-    if (downloadResult?.promise) await downloadResult.promise
+    await resolveDownloadResult(downloadResult, {
+      operation: 'webdav metadata download',
+    })
     return await readMetadata(tempFilePath, connection, item)
   } catch {
     return null

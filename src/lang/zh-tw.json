@@ -279,6 +279,7 @@
   "player__getting_url_delay_retry": "伺服器繁忙，{time} 秒後重試...",
   "player__loading": "音樂載入中...",
   "player__refresh_url": "URL 過期，正在重新整理 URL...",
+  "player__retry_media_file": "播放異常，正在重新載入檔案...",
   "player_cache_migrating": "歌曲快取遷移中，請稍等 ⌛️",
   "quality_high_quality": "HQ",
   "quality_lossless": "SQ",

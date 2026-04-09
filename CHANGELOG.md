@@ -15,6 +15,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 将播放页四周压暗从分段 band 改为更接近 `1.html` 的连续线性压边过渡，减少一圈圈的台阶感
 - 进一步修复播放页四周压边出现横竖线的问题，改用连续渐变边层替代离散切片叠加
 - 修复媒体来源默认增量更新在规则缩小范围时残留旧歌曲，以及 metadata 补同步失败会降级覆盖旧信息的问题
+- 修复 WebDAV / OneDrive 媒体库新歌首次播放时下载异常仍被当成成功缓存，并将远端媒体库重试提示从“URL 过期”改为更准确的文件重载提示
 
 优化
 

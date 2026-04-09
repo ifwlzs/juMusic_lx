@@ -1,5 +1,6 @@
 import { playNext, setMusicUrl } from '@/core/player/player'
 import { setStatusText } from '@/core/player/playStatus'
+import { getPlayerRetryStatusTextKey } from '@/core/player/retryStatus'
 import { getPosition, isEmpty, setStop } from '@/plugins/player'
 import { isActive } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
@@ -99,7 +100,7 @@ export default () => {
         if (playerState.playMusicInfo.musicInfo !== musicInfo) return
         retryNum++
         setMusicUrl(playerState.playMusicInfo.musicInfo, true)
-        setStatusText(global.i18n.t('player__refresh_url'))
+        setStatusText(global.i18n.t(getPlayerRetryStatusTextKey(playerState.playMusicInfo.musicInfo)))
       })
       return
     }

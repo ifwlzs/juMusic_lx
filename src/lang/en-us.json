@@ -280,6 +280,7 @@
   "player__getting_url_delay_retry": "The server is busy. Try again in {time} seconds...",
   "player__loading": "Music loading...",
   "player__refresh_url": "Music URL expired, refreshing...",
+  "player__retry_media_file": "Playback failed, reloading media file...",
   "player_cache_migrating": "Song cache is being migrated, please wait ⌛️",
   "quality_high_quality": "HQ",
   "quality_lossless": "SQ",

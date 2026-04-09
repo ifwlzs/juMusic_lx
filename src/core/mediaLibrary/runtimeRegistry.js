@@ -3,6 +3,7 @@ const { readMetadata } = require('../../utils/localMediaMetadata')
 const { downloadSmbFile, listSmbDirectory } = require('../../utils/nativeModules/smb')
 const { getOneDriveBusinessAccessToken, getOneDriveBusinessAccount } = require('../../utils/nativeModules/oneDriveAuth')
 const { resolveConnectionCredential } = require('./credentials.js')
+const { resolveDownloadResult } = require('./downloadResult.js')
 const { createOneDriveGraphClient } = require('./oneDriveGraph.js')
 const { createProviderRegistry } = require('./providers/index.js')
 const { createLocalProvider } = require('./providers/local.js')
@@ -38,7 +39,9 @@ async function readRemoteMetadataViaTemp(pathOrUri, downloadToPath) {
   const tempFilePath = buildTempMetadataPath(pathOrUri)
   try {
     const downloadResult = await downloadToPath(tempFilePath)
-    if (downloadResult?.promise) await downloadResult.promise
+    await resolveDownloadResult(downloadResult, {
+      operation: 'media library metadata download',
+    })
     return await readMetadata(tempFilePath)
   } finally {
     try {

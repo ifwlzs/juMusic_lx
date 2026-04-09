@@ -1,4 +1,5 @@
 const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
+const { resolveDownloadResult } = require('../downloadResult.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
 
@@ -97,7 +98,9 @@ async function readRemoteMetadata({
 
   try {
     const downloadResult = await downloadFile(connection, pathOrUri, tempFilePath, item)
-    if (downloadResult?.promise) await downloadResult.promise
+    await resolveDownloadResult(downloadResult, {
+      operation: 'onedrive metadata download',
+    })
     return await readMetadata(tempFilePath, connection, item)
   } catch {
     return null
