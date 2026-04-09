@@ -204,12 +204,7 @@ function createLocalProvider({ readDir, readMetadata }) {
       }
     },
     async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {
-      let metadata = null
-      try {
-        metadata = await readMetadata(candidate?.pathOrUri)
-      } catch {
-        metadata = null
-      }
+      const metadata = await readMetadata(candidate?.pathOrUri)
 
       return {
         candidate,

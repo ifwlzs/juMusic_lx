@@ -235,3 +235,29 @@ test('hydrateCandidate reads metadata for a lightweight candidate', async() => {
   })
   assert.equal(hydrated.metadataLevelReached, 2)
 })
+
+
+test('hydrateCandidate propagates metadata read errors for streaming sync diagnostics', async() => {
+  const readDir = async(path) => {
+    if (path === '/root') {
+      return [
+        { path: '/root/song-b.flac', name: 'song-b.flac', isDirectory: false, size: 120, lastModified: 2000 },
+      ]
+    }
+    return []
+  }
+  const readMetadata = async() => {
+    throw new Error('bad metadata')
+  }
+  const provider = createLocalProvider({ readDir, readMetadata })
+  const connection = { connectionId: 'conn_1', rootPathOrUri: '/root' }
+  const enumerateResult = await provider.enumerateSelection(connection, {
+    tracks: [{ pathOrUri: '/root/song-b.flac' }],
+  })
+  const candidate = enumerateResult.items[0]
+
+  await assert.rejects(
+    provider.hydrateCandidate(connection, candidate, { attempt: 1 }),
+    /bad metadata/,
+  )
+})
