@@ -759,6 +759,93 @@ test('updateImportRule incremental sync keeps absent old items until full valida
   ])
 })
 
+test('updateImportRule incremental sync persists completeness based on current run', async() => {
+  const connection = createConnection()
+  const rule = createRule({
+    directories: [{
+      selectionId: 'dir_keep',
+      kind: 'directory',
+      pathOrUri: '/Albums/Keep',
+      displayName: 'Keep',
+    }],
+  })
+
+  const runIncremental = async({ previousIsComplete, enumerateComplete }) => {
+    const saved = { snapshot: null }
+
+    await updateImportRule({
+      connection,
+      rule,
+      previousRule: rule,
+      syncMode: 'incremental',
+      repository: {
+        async getImportSnapshot() {
+          return {
+            ruleId: rule.ruleId,
+            scannedAt: 100,
+            isComplete: previousIsComplete,
+            items: [],
+          }
+        },
+        async saveImportSnapshot(ruleId, snapshot) {
+          saved.snapshot = { ruleId, snapshot }
+        },
+        async getImportRules() {
+          return [rule]
+        },
+        async saveImportRules() {},
+        async getConnections() {
+          return [connection]
+        },
+        async saveSourceItems() {},
+        async getAllSourceItems() {
+          return []
+        },
+        async saveAggregateSongs() {},
+      },
+      registry: {
+        get() {
+          return {
+            async enumerateSelection() {
+              return {
+                complete: enumerateComplete,
+                items: [],
+              }
+            },
+            async hydrateCandidate() {
+              throw new Error('incremental sync should not hydrate without candidates')
+            },
+            async scanSelection() {
+              throw new Error('incremental sync should not call scanSelection')
+            },
+          }
+        },
+      },
+      listApi: {
+        async reconcileGeneratedLists() {},
+        async removeMissingSongs() {},
+      },
+      now: () => 200,
+    })
+
+    return saved.snapshot?.snapshot
+  }
+
+  const snapshotWhenComplete = await runIncremental({
+    previousIsComplete: false,
+    enumerateComplete: true,
+  })
+  assert.ok(snapshotWhenComplete)
+  assert.notStrictEqual(snapshotWhenComplete.isComplete, false)
+
+  const snapshotWhenIncomplete = await runIncremental({
+    previousIsComplete: true,
+    enumerateComplete: false,
+  })
+  assert.ok(snapshotWhenIncomplete)
+  assert.equal(snapshotWhenIncomplete.isComplete, false)
+})
+
 test('deleteImportRule rebuilds remaining generated lists and keeps uncovered custom references unavailable', async() => {
   const connection = createConnection()
   const rule1 = {

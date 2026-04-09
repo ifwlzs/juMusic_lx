@@ -485,7 +485,7 @@ async function runIncrementalSync({
   const effectiveSnapshot = {
     ruleId: rule.ruleId,
     scannedAt: previousSnapshot.scannedAt ?? null,
-    isComplete: previousSnapshot.isComplete ?? false,
+    ...(isComplete === false ? { isComplete: false } : {}),
     lastIncrementalSyncAt: scanAt,
     lastFullValidationAt: previousSnapshot.lastFullValidationAt ?? previousSnapshot.scannedAt ?? null,
     pendingFullValidation: true,
