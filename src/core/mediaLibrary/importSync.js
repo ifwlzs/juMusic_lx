@@ -387,6 +387,8 @@ async function runFullSync({
       ruleId: rule.ruleId,
       scannedAt: scanAt,
       items: nextItems,
+      lastFullValidationAt: scanAt,
+      pendingFullValidation: false,
     })
   }
 

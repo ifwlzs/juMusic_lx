@@ -47,8 +47,8 @@ test('runEligibleMediaLibraryAutoSync enqueues only stale remote rules and tags 
   })
 
   assert.deepEqual(calls, [
-    { connectionId: 'conn_remote', ruleId: 'rule_remote', triggerSource: 'auto' },
-    { connectionId: 'conn_failed', ruleId: 'rule_failed', triggerSource: 'auto' },
+    { connectionId: 'conn_remote', ruleId: 'rule_remote', triggerSource: 'auto', syncMode: 'incremental' },
+    { connectionId: 'conn_failed', ruleId: 'rule_failed', triggerSource: 'auto', syncMode: 'incremental' },
   ])
   assert.deepEqual(result, calls)
 })

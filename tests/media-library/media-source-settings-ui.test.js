@@ -35,20 +35,26 @@ test('Media source manager exposes account and rule actions', () => {
   assert.match(file, /enqueueImportRuleSyncJob/)
   assert.match(file, /enqueueDeleteImportRuleJob/)
   assert.match(file, /deleteMediaConnection/)
+  assert.match(file, /syncMode:\s*'incremental'/)
+  assert.match(file, /syncMode:\s*'full_validation'/)
 })
 
-test('Account and rule cards expose manual update and delete actions', () => {
+test('Account and rule cards expose manual update, full validation, and delete actions', () => {
   const accountFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/AccountList.tsx')
   const ruleFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/RuleList.tsx')
 
   assert.match(accountFile, /onUpdate/)
+  assert.match(accountFile, /onFullValidation/)
   assert.match(accountFile, /onDelete/)
   assert.match(accountFile, /media_source_update/)
+  assert.match(accountFile, /media_source_full_validation/)
   assert.match(accountFile, /media_source_delete_account/)
 
   assert.match(ruleFile, /onUpdateRule/)
+  assert.match(ruleFile, /onFullValidationRule/)
   assert.match(ruleFile, /onDeleteRule/)
   assert.match(ruleFile, /media_source_update/)
+  assert.match(ruleFile, /media_source_full_validation/)
   assert.match(ruleFile, /media_source_delete_rule/)
 })
 
@@ -141,4 +147,14 @@ test('Generated media playlists expose source-rule and immediate-update actions 
   assert.match(activeListFile, /media_source_update/)
   assert.match(activeListFile, /onOpenMediaSourceManager/)
   assert.match(activeListFile, /enqueueImportRuleSyncJob/)
+})
+
+test('Translations include full validation label', () => {
+  const zhCnFile = readFile('src/lang/zh-cn.json')
+  const zhTwFile = readFile('src/lang/zh-tw.json')
+  const enUsFile = readFile('src/lang/en-us.json')
+
+  assert.match(zhCnFile, /"media_source_full_validation":\s*"全量校验"/)
+  assert.match(zhTwFile, /"media_source_full_validation":\s*"全量校驗"/)
+  assert.match(enUsFile, /"media_source_full_validation":\s*"Full Validation"/)
 })

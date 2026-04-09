@@ -419,16 +419,23 @@ test('updateImportRule removes truly missing covered songs but keeps scope-remov
     ],
   }
   const calls = []
+  const saved = {
+    snapshot: null,
+  }
+  const now = () => 200
 
   await updateImportRule({
     connection,
     rule: nextRule,
     previousRule,
+    syncMode: 'full_validation',
     repository: {
       async getImportSnapshot() {
         return previousSnapshot
       },
-      async saveImportSnapshot() {},
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
       async getImportRules() {
         return [nextRule]
       },
@@ -475,6 +482,7 @@ test('updateImportRule removes truly missing covered songs but keeps scope-remov
         calls.push(['placeholder', ids])
       },
     },
+    now,
   })
 
   assert.deepEqual(calls, [
@@ -482,6 +490,10 @@ test('updateImportRule removes truly missing covered songs but keeps scope-remov
     ['remove', ['item_source_deleted']],
     ['placeholder', ['item_scope_removed']],
   ])
+  assert.equal(saved.snapshot.ruleId, 'rule_1')
+  assert.equal(saved.snapshot.snapshot.scannedAt, now())
+  assert.equal(saved.snapshot.snapshot.lastFullValidationAt, now())
+  assert.equal(saved.snapshot.snapshot.pendingFullValidation, false)
 })
 
 test('updateImportRule incremental sync scans added selections first and hydrates only new candidates', async() => {
