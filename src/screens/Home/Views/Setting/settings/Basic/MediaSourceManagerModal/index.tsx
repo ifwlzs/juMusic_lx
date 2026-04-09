@@ -303,6 +303,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
       ruleId: nextRule.ruleId,
       previousRule,
       conflictMode,
+      syncMode: 'incremental',
     })
     await loadData()
     await onUpdated?.()
@@ -311,7 +312,13 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     toast(t('media_source_job_queued'))
   }
 
-  const handleUpdateConnection = async(connection: LX.MediaLibrary.SourceConnection) => {
+  const handleSyncConnection = async({
+    connection,
+    syncMode,
+  }: {
+    connection: LX.MediaLibrary.SourceConnection
+    syncMode: LX.MediaLibrary.SyncMode
+  }) => {
     try {
       const connectionRules = rules.filter(rule => rule.connectionId === connection.connectionId)
       if (connectionRules.length) {
@@ -322,6 +329,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
           ruleId: rule.ruleId,
           previousRule: rule,
           conflictMode,
+          syncMode,
         })))
         await loadData()
         await onUpdated?.()
@@ -334,6 +342,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
         repository: mediaLibraryRepository,
         registry: getMediaLibraryRuntimeRegistry(),
         listApi,
+        syncMode,
       })
       await loadData()
       await onUpdated?.()
@@ -368,7 +377,27 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     }
   }
 
-  const handleUpdateRule = async(rule: LX.MediaLibrary.ImportRule) => {
+  const handleUpdateConnection = async(connection: LX.MediaLibrary.SourceConnection) => {
+    await handleSyncConnection({
+      connection,
+      syncMode: 'incremental',
+    })
+  }
+
+  const handleFullValidationConnection = async(connection: LX.MediaLibrary.SourceConnection) => {
+    await handleSyncConnection({
+      connection,
+      syncMode: 'full_validation',
+    })
+  }
+
+  const handleSyncRule = async({
+    rule,
+    syncMode,
+  }: {
+    rule: LX.MediaLibrary.ImportRule
+    syncMode: LX.MediaLibrary.SyncMode
+  }) => {
     if (!currentConnection) return
     try {
       const conflictMode = await resolveImportConflictMode(currentConnection.connectionId)
@@ -378,6 +407,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
         ruleId: rule.ruleId,
         previousRule: rule,
         conflictMode,
+        syncMode,
       })
       await loadData()
       await onUpdated?.()
@@ -385,6 +415,20 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     } catch (error) {
       handleActionError(error)
     }
+  }
+
+  const handleUpdateRule = async(rule: LX.MediaLibrary.ImportRule) => {
+    await handleSyncRule({
+      rule,
+      syncMode: 'incremental',
+    })
+  }
+
+  const handleFullValidationRule = async(rule: LX.MediaLibrary.ImportRule) => {
+    await handleSyncRule({
+      rule,
+      syncMode: 'full_validation',
+    })
   }
 
   const handleDeleteRule = async(rule: LX.MediaLibrary.ImportRule) => {
@@ -461,6 +505,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
             setPage('rules')
           }}
           onUpdate={connection => { void handleUpdateConnection(connection) }}
+          onFullValidation={connection => { void handleFullValidationConnection(connection) }}
           onDelete={connection => { void handleDeleteConnection(connection) }}
         />
       ) : null}
@@ -491,6 +536,7 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
             setPage('editor')
           }}
           onUpdateRule={rule => { void handleUpdateRule(rule) }}
+          onFullValidationRule={rule => { void handleFullValidationRule(rule) }}
           onDeleteRule={rule => { void handleDeleteRule(rule) }}
         />
       ) : null}

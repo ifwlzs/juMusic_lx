@@ -98,6 +98,7 @@
   "media_source_connection_validate_success": "Connection validated. You can save and continue with import rules.",
   "media_source_browser_up": "Up",
   "media_source_browser_empty": "No importable items in this directory",
+  "media_source_full_validation": "Full Validation",
   "media_source_update": "Update",
   "media_source_update_success": "Media source updated",
   "media_source_job_queued": "Added to the background import queue",

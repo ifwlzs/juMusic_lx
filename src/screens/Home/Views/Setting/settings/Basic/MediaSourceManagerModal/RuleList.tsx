@@ -16,6 +16,7 @@ export default memo(({
   onAddRule,
   onEditRule,
   onUpdateRule,
+  onFullValidationRule,
   onDeleteRule,
 }: {
   connection: LX.MediaLibrary.SourceConnection
@@ -24,6 +25,7 @@ export default memo(({
   onAddRule: () => void
   onEditRule: (rule: LX.MediaLibrary.ImportRule) => void
   onUpdateRule: (rule: LX.MediaLibrary.ImportRule) => void
+  onFullValidationRule: (rule: LX.MediaLibrary.ImportRule) => void
   onDeleteRule: (rule: LX.MediaLibrary.ImportRule) => void
 }) => {
   const t = useI18n()
@@ -87,6 +89,7 @@ export default memo(({
             <View style={styles.cardActions}>
               <Button onPress={() => { onEditRule(rule) }}>{t('media_source_edit_rule')}</Button>
               <Button onPress={() => { onUpdateRule(rule) }}>{t('media_source_update')}</Button>
+              <Button onPress={() => { onFullValidationRule(rule) }}>{t('media_source_full_validation')}</Button>
               <Button onPress={() => { onDeleteRule(rule) }}>{t('media_source_delete_rule')}</Button>
             </View>
           </View>

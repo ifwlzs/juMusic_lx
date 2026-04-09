@@ -45,6 +45,70 @@ function dedupeIds(ids = []) {
   return [...new Set(ids.filter(Boolean))]
 }
 
+function createEmptySnapshot(ruleId) {
+  return {
+    ruleId,
+    scannedAt: null,
+    items: [],
+  }
+}
+
+function createSelectionKey(selection = {}) {
+  const kind = selection?.kind === 'track' ? 'track' : 'directory'
+  return `${kind}::${normalizePathOrUri(selection?.pathOrUri)}`
+}
+
+function diffImportSelections(previousRule, nextRule) {
+  const previousSelection = normalizeImportSelection(previousRule || {})
+  const nextSelection = normalizeImportSelection(nextRule || {})
+  const previousSelections = [
+    ...previousSelection.directories,
+    ...previousSelection.tracks,
+  ]
+  const previousKeys = new Set([
+    ...previousSelections.map(createSelectionKey),
+  ])
+  const nextSelections = [
+    ...nextSelection.directories,
+    ...nextSelection.tracks,
+  ]
+  const nextKeys = new Set(nextSelections.map(createSelectionKey))
+  const addedSelections = []
+  const removedSelections = []
+  const unchangedSelections = []
+
+  for (const selection of nextSelections) {
+    if (previousKeys.has(createSelectionKey(selection))) unchangedSelections.push(selection)
+    else addedSelections.push(selection)
+  }
+
+  for (const selection of previousSelections) {
+    if (!nextKeys.has(createSelectionKey(selection))) removedSelections.push(selection)
+  }
+
+  return {
+    addedSelections,
+    removedSelections,
+    unchangedSelections,
+  }
+}
+
+function buildSelectionStat(selection, candidates = [], capturedAt) {
+  const latestModifiedTime = candidates.reduce((max, candidate) => {
+    const modifiedTime = Number(candidate?.modifiedTime) || 0
+    return Math.max(max, modifiedTime)
+  }, 0)
+
+  return {
+    selectionKey: createSelectionKey(selection),
+    kind: selection?.kind === 'track' ? 'track' : 'directory',
+    pathOrUri: normalizePathOrUri(selection?.pathOrUri),
+    itemCount: candidates.length,
+    latestModifiedTime,
+    capturedAt,
+  }
+}
+
 function upsertRule(rules = [], nextRule) {
   let matched = false
   const nextRules = rules.map(rule => {
@@ -92,11 +156,7 @@ async function buildSnapshotsForConnection({ connectionRules, currentRuleId, cur
       continue
     }
     const snapshot = await repository.getImportSnapshot(rule.ruleId)
-    snapshots.set(rule.ruleId, snapshot || {
-      ruleId: rule.ruleId,
-      scannedAt: null,
-      items: [],
-    })
+    snapshots.set(rule.ruleId, snapshot || createEmptySnapshot(rule.ruleId))
   }
   return snapshots
 }
@@ -105,11 +165,7 @@ async function loadSnapshotsForRules(rules = [], repository) {
   const snapshots = new Map()
   for (const rule of rules) {
     const snapshot = await repository.getImportSnapshot(rule.ruleId)
-    snapshots.set(rule.ruleId, snapshot || {
-      ruleId: rule.ruleId,
-      scannedAt: null,
-      items: [],
-    })
+    snapshots.set(rule.ruleId, snapshot || createEmptySnapshot(rule.ruleId))
   }
   return snapshots
 }
@@ -192,7 +248,66 @@ async function recomputeAggregateSongs({
   return aggregateSongs
 }
 
-async function syncImportRule({
+function buildSourceItemResumeKey(item = {}) {
+  return item.sourceUniqueKey || item.pathOrUri || ''
+}
+
+function buildCandidateResumeKey(candidate = {}) {
+  return candidate.sourceStableKey || candidate.pathOrUri || ''
+}
+
+function buildSourceItemLookup(items = []) {
+  const map = new Map()
+  for (const item of items) {
+    const key = buildSourceItemResumeKey(item)
+    if (!key) continue
+    map.set(key, item)
+  }
+  return map
+}
+
+function stripExtension(name = '') {
+  return String(name).replace(/\.[^.]+$/, '')
+}
+
+function buildSourceItemFromHydration({
+  connection,
+  candidate,
+  hydrated,
+  scanAt,
+}) {
+  const metadata = hydrated?.metadata || {}
+  return {
+    sourceItemId: `${connection.connectionId}__${candidate.pathOrUri}`,
+    connectionId: connection.connectionId,
+    providerType: connection.providerType,
+    sourceUniqueKey: candidate.sourceStableKey || candidate.pathOrUri,
+    pathOrUri: candidate.pathOrUri,
+    fileName: candidate.fileName || '',
+    title: metadata.title || stripExtension(candidate.fileName || ''),
+    artist: metadata.artist || '',
+    album: metadata.album || '',
+    durationSec: metadata.durationSec || 0,
+    mimeType: metadata.mimeType || '',
+    fileSize: candidate.fileSize || 0,
+    modifiedTime: candidate.modifiedTime || 0,
+    versionToken: candidate.versionToken || '',
+    lastSeenAt: scanAt,
+    scanStatus: 'success',
+  }
+}
+
+function retainRuleScopedItems(items = [], rule) {
+  return items.filter(item => isSourceItemCoveredByRule(item, rule))
+}
+
+function didHydrationFail(hydrated) {
+  if (!hydrated) return true
+  if (hydrated.scanStatus === 'failed') return true
+  return hydrated.metadata == null
+}
+
+async function runFullSync({
   connection,
   rule,
   repository,
@@ -224,11 +339,7 @@ async function syncImportRule({
   }
 
   const scanAt = now()
-  const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || {
-    ruleId: rule.ruleId,
-    scannedAt: null,
-    items: [],
-  }
+  const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || createEmptySnapshot(rule.ruleId)
   const scanResult = await scanImportSelection(registry, connection, rule)
   const isComplete = scanResult.complete !== false
   const nextItems = dedupeSourceItems(scanResult.items || [])
@@ -296,6 +407,8 @@ async function syncImportRule({
       ruleId: rule.ruleId,
       scannedAt: scanAt,
       items: nextItems,
+      lastFullValidationAt: scanAt,
+      pendingFullValidation: false,
     })
   }
 
@@ -309,6 +422,225 @@ async function syncImportRule({
     previousSnapshot,
     nextItems,
   }
+}
+
+async function runIncrementalSync({
+  connection,
+  rule,
+  previousRule = null,
+  repository,
+  registry,
+  listApi,
+  now = () => Date.now(),
+}) {
+  const provider = registry?.get?.(connection.providerType)
+  if (!provider?.enumerateSelection || !provider?.hydrateCandidate) {
+    return runFullSync({
+      connection,
+      rule,
+      repository,
+      registry,
+      listApi,
+      now,
+      skipMissingRemoval: true,
+    })
+  }
+
+  const scanAt = now()
+  const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || createEmptySnapshot(rule.ruleId)
+  const previousItemsByKey = buildSourceItemLookup(previousSnapshot.items)
+  const nextItemsByKey = buildSourceItemLookup(retainRuleScopedItems(previousSnapshot.items, rule))
+  const selectionStats = []
+  const processedCandidateKeys = new Set()
+  const lastIncrementalCutoff = previousSnapshot.lastIncrementalSyncAt ??
+    previousSnapshot.scannedAt ??
+    0
+  const {
+    addedSelections,
+    unchangedSelections,
+  } = diffImportSelections(previousRule, rule)
+  const orderedSelections = [...addedSelections, ...unchangedSelections]
+  let isComplete = true
+  let failedHydrationCount = 0
+
+  for (const selection of orderedSelections) {
+    const selectionInput = selection?.kind === 'track'
+      ? { directories: [], tracks: [selection] }
+      : { directories: [selection], tracks: [] }
+    const enumerateResult = await provider.enumerateSelection(connection, selectionInput)
+    const candidates = enumerateResult?.items || []
+    if (enumerateResult?.complete === false) isComplete = false
+    selectionStats.push(buildSelectionStat(selection, candidates, scanAt))
+
+    for (const candidate of candidates) {
+      const candidateKey = buildCandidateResumeKey(candidate)
+      if (!candidateKey || processedCandidateKeys.has(candidateKey)) continue
+      processedCandidateKeys.add(candidateKey)
+
+      const previousItem = previousItemsByKey.get(candidateKey)
+      const versionChanged = previousItem
+        ? String(previousItem.versionToken || '') !== String(candidate.versionToken || '')
+        : true
+      const modifiedTime = Number(candidate?.modifiedTime) || 0
+      const shouldHydrate = !previousItem ||
+        versionChanged ||
+        modifiedTime > lastIncrementalCutoff
+
+      if (!shouldHydrate && previousItem) {
+        nextItemsByKey.set(candidateKey, {
+          ...previousItem,
+          lastSeenAt: scanAt,
+        })
+        continue
+      }
+
+      const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt: 1 })
+      if (didHydrationFail(hydrated)) {
+        failedHydrationCount += 1
+        isComplete = false
+        if (previousItem) {
+          nextItemsByKey.set(candidateKey, {
+            ...previousItem,
+            lastSeenAt: scanAt,
+          })
+        } else {
+          nextItemsByKey.delete(candidateKey)
+        }
+        continue
+      }
+      nextItemsByKey.set(candidateKey, buildSourceItemFromHydration({
+        connection,
+        candidate: {
+          ...candidate,
+          sourceStableKey: candidateKey,
+        },
+        hydrated,
+        scanAt,
+      }))
+    }
+  }
+
+  const nextItems = dedupeSourceItems([...nextItemsByKey.values()])
+  const effectiveSnapshot = {
+    ruleId: rule.ruleId,
+    scannedAt: previousSnapshot.scannedAt ?? null,
+    ...(isComplete === false ? { isComplete: false } : {}),
+    lastIncrementalSyncAt: scanAt,
+    lastFullValidationAt: previousSnapshot.lastFullValidationAt ?? previousSnapshot.scannedAt ?? null,
+    pendingFullValidation: true,
+    selectionStats,
+    items: nextItems,
+  }
+  const allRules = typeof repository.getImportRules === 'function'
+    ? await repository.getImportRules()
+    : []
+  const connectionRules = getConnectionRules(allRules, rule, connection.connectionId)
+  const snapshots = await buildSnapshotsForConnection({
+    connectionRules,
+    currentRuleId: rule.ruleId,
+    currentSnapshot: effectiveSnapshot,
+    repository,
+  })
+  const generatedLists = buildGeneratedListsForConnection({
+    connection,
+    rules: connectionRules,
+    snapshots,
+  })
+  const currentRuleListIds = generatedLists
+    .filter(item => item.listInfo.mediaSource.ruleId === rule.ruleId)
+    .map(item => item.listInfo.id)
+
+  await saveUpdatedRuleState({
+    repository,
+    currentRule: rule,
+    currentRuleListIds,
+    scanAt,
+    isComplete,
+  })
+
+  const connectionSourceItems = collectConnectionSourceItems(connectionRules, snapshots)
+  await repository.saveSourceItems(connection.connectionId, connectionSourceItems)
+
+  const connections = typeof repository.getConnections === 'function'
+    ? await repository.getConnections()
+    : [connection]
+  const connectionIds = [...new Set([
+    connection.connectionId,
+    ...connections.map(item => item.connectionId).filter(Boolean),
+  ])]
+  const allSourceItems = typeof repository.getAllSourceItems === 'function'
+    ? await repository.getAllSourceItems(connectionIds)
+    : connectionSourceItems
+  const aggregateSongs = buildAggregateSongs(allSourceItems)
+  await repository.saveAggregateSongs(aggregateSongs)
+
+  if (typeof listApi?.reconcileGeneratedLists === 'function') {
+    await listApi.reconcileGeneratedLists(generatedLists)
+  }
+
+  if (typeof repository.saveImportSnapshot === 'function') {
+    await repository.saveImportSnapshot(rule.ruleId, effectiveSnapshot)
+  }
+
+  return {
+    scanResult: {
+      complete: isComplete,
+      items: nextItems,
+      summary: {
+        success: nextItems.length,
+        failed: failedHydrationCount,
+        skipped: 0,
+      },
+    },
+    generatedLists,
+    removedIds: [],
+    connectionSourceItems,
+    aggregateSongs,
+    isComplete,
+    previousSnapshot,
+    nextItems,
+  }
+}
+
+// Prioritize incremental sync mode regardless of provider type.
+async function syncImportRule({
+  connection,
+  rule,
+  previousRule = null,
+  repository,
+  registry,
+  listApi,
+  now = () => Date.now(),
+  skipMissingRemoval = false,
+  triggerSource = 'manual',
+  notifications = null,
+  jobControl = null,
+  syncMode = 'full_validation',
+}) {
+  if (syncMode === 'incremental') {
+    return runIncrementalSync({
+      connection,
+      rule,
+      previousRule,
+      repository,
+      registry,
+      listApi,
+      now,
+    })
+  }
+
+  return runFullSync({
+    connection,
+    rule,
+    repository,
+    registry,
+    listApi,
+    now,
+    skipMissingRemoval,
+    triggerSource,
+    notifications,
+    jobControl,
+  })
 }
 
 async function applyMissingSourceRemoval({
@@ -332,21 +664,19 @@ async function updateImportRule({
   triggerSource = 'manual',
   notifications = null,
   jobControl = null,
+  syncMode = 'full_validation',
 }) {
   const priorRule = previousRule || (
     typeof repository.getImportRules === 'function'
       ? (await repository.getImportRules()).find(item => item.ruleId === rule.ruleId) || null
       : null
   )
-  const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || {
-    ruleId: rule.ruleId,
-    scannedAt: null,
-    items: [],
-  }
+  const previousSnapshot = await repository.getImportSnapshot(rule.ruleId) || createEmptySnapshot(rule.ruleId)
   const selectionChanged = hasRuleSelectionChanged(priorRule, rule)
   const result = await syncImportRule({
     connection,
     rule,
+    previousRule: priorRule,
     repository,
     registry,
     listApi,
@@ -355,8 +685,10 @@ async function updateImportRule({
     triggerSource,
     notifications,
     jobControl,
+    syncMode,
   })
 
+  if (syncMode === 'incremental') return result
   if (!selectionChanged || !result.isComplete) return result
 
   const nextItemIds = new Set(result.nextItems.map(item => item.sourceItemId))
@@ -391,6 +723,7 @@ async function updateMediaConnection({
   registry,
   listApi,
   now = () => Date.now(),
+  syncMode = 'full_validation',
 }) {
   const allRules = typeof repository.getImportRules === 'function'
     ? await repository.getImportRules()
@@ -406,6 +739,7 @@ async function updateMediaConnection({
       registry,
       listApi,
       now,
+      syncMode,
     }))
   }
 

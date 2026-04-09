@@ -240,6 +240,8 @@ async function runRemoteStreamingSync({
         scannedAt: previousSnapshot.scannedAt ?? null,
         items: checkpointItems,
         isComplete: false,
+        lastFullValidationAt: previousSnapshot.lastFullValidationAt ?? null,
+        pendingFullValidation: previousSnapshot.pendingFullValidation === true,
       })
     }
     return checkpointItems
@@ -510,6 +512,8 @@ async function runRemoteStreamingSync({
         scannedAt: scanAt,
         items: nextItems,
         isComplete: true,
+        lastFullValidationAt: scanAt,
+        pendingFullValidation: false,
       })
     }
     if (typeof repository.saveSyncCandidates === 'function') {

@@ -98,6 +98,7 @@
   "media_source_connection_validate_success": "連線校驗通過，可以儲存並繼續設定匯入範圍。",
   "media_source_browser_up": "上一層",
   "media_source_browser_empty": "目前目錄沒有可匯入項目",
+  "media_source_full_validation": "全量校驗",
   "media_source_update": "更新",
   "media_source_update_success": "媒體來源更新完成",
   "media_source_job_queued": "已加入背景匯入佇列",

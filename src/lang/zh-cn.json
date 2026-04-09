@@ -99,6 +99,7 @@
   "media_source_browser_up": "上一级",
   "media_source_browser_empty": "当前目录没有可导入项目",
   "media_source_update": "更新",
+  "media_source_full_validation": "全量校验",
   "media_source_update_success": "媒体来源更新完成",
   "media_source_job_queued": "已加入后台导入队列",
   "media_source_conflict_title": "已有扫描正在进行",

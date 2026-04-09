@@ -31,6 +31,7 @@ export default memo(({
   onEdit,
   onManageRules,
   onUpdate,
+  onFullValidation,
   onDelete,
 }: {
   connections: LX.MediaLibrary.SourceConnection[]
@@ -39,6 +40,7 @@ export default memo(({
   onEdit: (connection: LX.MediaLibrary.SourceConnection) => void
   onManageRules: (connection: LX.MediaLibrary.SourceConnection) => void
   onUpdate: (connection: LX.MediaLibrary.SourceConnection) => void
+  onFullValidation: (connection: LX.MediaLibrary.SourceConnection) => void
   onDelete: (connection: LX.MediaLibrary.SourceConnection) => void
 }) => {
   const t = useI18n()
@@ -99,6 +101,7 @@ export default memo(({
               <Button onPress={() => { onManageRules(connection) }}>{t('media_source_manage_rules')}</Button>
               <Button onPress={() => { onEdit(connection) }}>{t('media_source_edit_connection')}</Button>
               <Button onPress={() => { onUpdate(connection) }}>{t('media_source_update')}</Button>
+              <Button onPress={() => { onFullValidation(connection) }}>{t('media_source_full_validation')}</Button>
               <Button onPress={() => { onDelete(connection) }}>{t('media_source_delete_account')}</Button>
             </View>
           </View>

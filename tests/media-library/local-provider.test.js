@@ -149,3 +149,115 @@ test('scanConnection 在版本变化时立刻删除旧缓存并重建总曲库',
 
   Date.now = originalNow
 })
+
+
+test('enumerateSelection stays lightweight before metadata hydration', async() => {
+  let readMetadataCalled = 0
+  const readDir = async(path) => {
+    if (path === '/root') {
+      return [
+        { path: '/root/AlbumA', name: 'AlbumA', isDirectory: true },
+        { path: '/root/song-root.mp3', name: 'song-root.mp3', isDirectory: false, size: 50, lastModified: 10 },
+      ]
+    }
+    if (path === '/root/AlbumA') {
+      return [
+        { path: '/root/AlbumA/song-a.flac', name: 'song-a.flac', isDirectory: false, size: 100, lastModified: 1000 },
+        { path: '/root/AlbumA/song-b.mp3', name: 'song-b.mp3', isDirectory: false, size: 200, lastModified: 2000 },
+      ]
+    }
+    return []
+  }
+  const readMetadata = async() => {
+    readMetadataCalled += 1
+    return { name: 'should-not-be-called' }
+  }
+  const provider = createLocalProvider({ readDir, readMetadata })
+  const connection = { connectionId: 'conn_1', rootPathOrUri: '/root' }
+
+  const result = await provider.enumerateSelection(connection, {
+    directories: [{ pathOrUri: '/root/AlbumA' }],
+    tracks: [{ pathOrUri: '/root/AlbumA/song-a.flac' }, { pathOrUri: '/root/song-root.mp3' }],
+  })
+
+  assert.equal(readMetadataCalled, 0)
+  assert.equal(result.complete, true)
+  assert.equal(result.items.length, 3)
+
+  const songA = result.items.find(item => item.pathOrUri === '/root/AlbumA/song-a.flac')
+  assert.deepEqual(songA, {
+    sourceStableKey: '/root/AlbumA/song-a.flac',
+    connectionId: 'conn_1',
+    providerType: 'local',
+    pathOrUri: '/root/AlbumA/song-a.flac',
+    fileName: 'song-a.flac',
+    fileSize: 100,
+    modifiedTime: 1000,
+    versionToken: '/root/AlbumA/song-a.flac__100__1000',
+    metadataLevelReached: 0,
+  })
+})
+
+test('hydrateCandidate reads metadata for a lightweight candidate', async() => {
+  const readDir = async(path) => {
+    if (path === '/root') {
+      return [
+        { path: '/root/song-a.flac', name: 'song-a.flac', isDirectory: false, size: 100, lastModified: 1000 },
+      ]
+    }
+    return []
+  }
+  const readMetadataCalls = []
+  const readMetadata = async(path) => {
+    readMetadataCalls.push(path)
+    return {
+      singer: 'Artist A',
+      albumName: 'Album A',
+      interval: 180,
+    }
+  }
+  const provider = createLocalProvider({ readDir, readMetadata })
+  const connection = { connectionId: 'conn_1', rootPathOrUri: '/root' }
+  const enumerateResult = await provider.enumerateSelection(connection, {
+    tracks: [{ pathOrUri: '/root/song-a.flac' }],
+  })
+  const candidate = enumerateResult.items[0]
+
+  const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt: 2 })
+
+  assert.deepEqual(readMetadataCalls, ['/root/song-a.flac'])
+  assert.equal(hydrated.candidate.pathOrUri, '/root/song-a.flac')
+  assert.deepEqual(hydrated.metadata, {
+    title: 'song-a',
+    artist: 'Artist A',
+    album: 'Album A',
+    durationSec: 180,
+  })
+  assert.equal(hydrated.metadataLevelReached, 2)
+})
+
+
+test('hydrateCandidate propagates metadata read errors for streaming sync diagnostics', async() => {
+  const readDir = async(path) => {
+    if (path === '/root') {
+      return [
+        { path: '/root/song-b.flac', name: 'song-b.flac', isDirectory: false, size: 120, lastModified: 2000 },
+      ]
+    }
+    return []
+  }
+  const readMetadata = async() => {
+    throw new Error('bad metadata')
+  }
+  const provider = createLocalProvider({ readDir, readMetadata })
+  const connection = { connectionId: 'conn_1', rootPathOrUri: '/root' }
+  const enumerateResult = await provider.enumerateSelection(connection, {
+    tracks: [{ pathOrUri: '/root/song-b.flac' }],
+  })
+  const candidate = enumerateResult.items[0]
+
+  await assert.rejects(
+    provider.hydrateCandidate(connection, candidate, { attempt: 1 }),
+    /bad metadata/,
+  )
+})
