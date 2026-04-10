@@ -94,16 +94,21 @@ function diffImportSelections(previousRule, nextRule) {
 }
 
 function buildSelectionStat(selection, candidates = [], capturedAt) {
-  const latestModifiedTime = candidates.reduce((max, candidate) => {
-    const modifiedTime = Number(candidate?.modifiedTime) || 0
-    return Math.max(max, modifiedTime)
-  }, 0)
+  const itemCount = Array.isArray(candidates)
+    ? candidates.length
+    : Math.max(Number(candidates?.itemCount) || 0, 0)
+  const latestModifiedTime = Array.isArray(candidates)
+    ? candidates.reduce((max, candidate) => {
+      const modifiedTime = Number(candidate?.modifiedTime) || 0
+      return Math.max(max, modifiedTime)
+    }, 0)
+    : Math.max(Number(candidates?.latestModifiedTime) || 0, 0)
 
   return {
     selectionKey: createSelectionKey(selection),
     kind: selection?.kind === 'track' ? 'track' : 'directory',
     pathOrUri: normalizePathOrUri(selection?.pathOrUri),
-    itemCount: candidates.length,
+    itemCount,
     latestModifiedTime,
     capturedAt,
   }
@@ -432,6 +437,7 @@ async function runIncrementalSync({
   registry,
   listApi,
   now = () => Date.now(),
+  notifications = null,
 }) {
   const provider = registry?.get?.(connection.providerType)
   if (!provider?.enumerateSelection || !provider?.hydrateCandidate) {
@@ -443,6 +449,7 @@ async function runIncrementalSync({
       listApi,
       now,
       skipMissingRemoval: true,
+      notifications,
     })
   }
 
@@ -462,21 +469,39 @@ async function runIncrementalSync({
   const orderedSelections = [...addedSelections, ...unchangedSelections]
   let isComplete = true
   let failedHydrationCount = 0
+  let discoveredCount = 0
+  let processedCount = 0
 
-  for (const selection of orderedSelections) {
-    const selectionInput = selection?.kind === 'track'
-      ? { directories: [], tracks: [selection] }
-      : { directories: [selection], tracks: [] }
-    const enumerateResult = await provider.enumerateSelection(connection, selectionInput)
-    const candidates = enumerateResult?.items || []
-    if (enumerateResult?.complete === false) isComplete = false
-    selectionStats.push(buildSelectionStat(selection, candidates, scanAt))
+  const showProgress = async(phase = 'hydrate') => {
+    await notifications?.showSyncProgress?.({
+      connectionName: connection.displayName,
+      phase,
+      discoveredCount,
+      committedCount: processedCount,
+      totalCount: Math.max(discoveredCount, processedCount),
+    })
+  }
+
+  const processCandidateBatch = async(candidates = []) => {
+    const uniqueCandidates = []
 
     for (const candidate of candidates) {
       const candidateKey = buildCandidateResumeKey(candidate)
       if (!candidateKey || processedCandidateKeys.has(candidateKey)) continue
       processedCandidateKeys.add(candidateKey)
+      uniqueCandidates.push({
+        ...candidate,
+        sourceStableKey: candidateKey,
+      })
+    }
 
+    if (!uniqueCandidates.length) return
+
+    discoveredCount += uniqueCandidates.length
+    await showProgress('enumerate')
+
+    for (const candidate of uniqueCandidates) {
+      const candidateKey = buildCandidateResumeKey(candidate)
       const previousItem = previousItemsByKey.get(candidateKey)
       const versionChanged = previousItem
         ? String(previousItem.versionToken || '') !== String(candidate.versionToken || '')
@@ -491,6 +516,7 @@ async function runIncrementalSync({
           ...previousItem,
           lastSeenAt: scanAt,
         })
+        processedCount += 1
         continue
       }
 
@@ -506,18 +532,68 @@ async function runIncrementalSync({
         } else {
           nextItemsByKey.delete(candidateKey)
         }
+        processedCount += 1
         continue
       }
       nextItemsByKey.set(candidateKey, buildSourceItemFromHydration({
         connection,
-        candidate: {
-          ...candidate,
-          sourceStableKey: candidateKey,
-        },
+        candidate,
         hydrated,
         scanAt,
       }))
+      processedCount += 1
     }
+
+    await showProgress('hydrate')
+  }
+
+  await showProgress('enumerate')
+
+  for (const selection of orderedSelections) {
+    const selectionInput = selection?.kind === 'track'
+      ? { directories: [], tracks: [selection] }
+      : { directories: [selection], tracks: [] }
+    let selectionItemCount = 0
+    let selectionLatestModifiedTime = 0
+    const trackSelectionBatch = (batch = []) => {
+      selectionItemCount += batch.length
+      for (const candidate of batch) {
+        selectionLatestModifiedTime = Math.max(selectionLatestModifiedTime, Number(candidate?.modifiedTime) || 0)
+      }
+    }
+
+    let enumerateResult
+    if (connection.providerType !== 'local' && typeof provider.streamEnumerateSelection === 'function') {
+      const streamedCandidateKeys = new Set()
+      enumerateResult = await provider.streamEnumerateSelection(connection, selectionInput, async batch => {
+        trackSelectionBatch(batch)
+        for (const candidate of batch) {
+          const candidateKey = buildCandidateResumeKey(candidate)
+          if (!candidateKey) continue
+          streamedCandidateKeys.add(candidateKey)
+        }
+        await processCandidateBatch(batch)
+      })
+      const remainingCandidates = (enumerateResult?.items || []).filter(candidate => {
+        const candidateKey = buildCandidateResumeKey(candidate)
+        return !candidateKey || !streamedCandidateKeys.has(candidateKey)
+      })
+      if (remainingCandidates.length) {
+        trackSelectionBatch(remainingCandidates)
+        await processCandidateBatch(remainingCandidates)
+      }
+    } else {
+      enumerateResult = await provider.enumerateSelection(connection, selectionInput)
+      const candidates = enumerateResult?.items || []
+      trackSelectionBatch(candidates)
+      await processCandidateBatch(candidates)
+    }
+
+    if (enumerateResult?.complete === false) isComplete = false
+    selectionStats.push(buildSelectionStat(selection, {
+      itemCount: selectionItemCount,
+      latestModifiedTime: selectionLatestModifiedTime,
+    }, scanAt))
   }
 
   const nextItems = dedupeSourceItems([...nextItemsByKey.values()])
@@ -582,6 +658,13 @@ async function runIncrementalSync({
     await repository.saveImportSnapshot(rule.ruleId, effectiveSnapshot)
   }
 
+  await notifications?.showSyncFinished?.({
+    connectionName: connection.displayName,
+    committedCount: nextItems.length,
+    removedCount: 0,
+    totalCount: discoveredCount,
+  })
+
   return {
     scanResult: {
       complete: isComplete,
@@ -626,6 +709,7 @@ async function syncImportRule({
       registry,
       listApi,
       now,
+      notifications,
     })
   }
 

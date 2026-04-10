@@ -1210,6 +1210,129 @@ test('syncImportRule remote incremental avoids full validation removal path', as
   assert.equal(saved.snapshot.snapshot.pendingFullValidation, true)
 })
 
+test('syncImportRule remote incremental prefers streaming enumeration and emits progress notifications', async() => {
+  const connection = createConnection({
+    providerType: 'webdav',
+    displayName: 'Remote Disk',
+  })
+  const rule = createRule({
+    connectionId: connection.connectionId,
+  })
+  const progressCalls = []
+  const finishedCalls = []
+  const streamCalls = []
+  const hydrateCalls = []
+
+  const result = await syncImportRule({
+    connection,
+    rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: rule.ruleId,
+          scannedAt: 100,
+          lastIncrementalSyncAt: 100,
+          lastFullValidationAt: 80,
+          pendingFullValidation: false,
+          items: [],
+        }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return []
+      },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async streamEnumerateSelection(_connection, selection, onBatch) {
+            streamCalls.push({
+              directories: (selection.directories || []).map(item => item.pathOrUri),
+              tracks: (selection.tracks || []).map(item => item.pathOrUri),
+            })
+            const firstCandidate = createCandidate({
+              providerType: 'webdav',
+              pathOrUri: '/Albums/one.mp3',
+              fileName: 'one.mp3',
+              versionToken: 'v_one',
+              modifiedTime: 160,
+            })
+            const secondCandidate = createCandidate({
+              providerType: 'webdav',
+              pathOrUri: '/Albums/two.mp3',
+              fileName: 'two.mp3',
+              versionToken: 'v_two',
+              modifiedTime: 170,
+            })
+            await onBatch([firstCandidate])
+            await onBatch([secondCandidate])
+            return {
+              complete: true,
+              items: [firstCandidate, secondCandidate],
+            }
+          },
+          async enumerateSelection() {
+            throw new Error('incremental sync should prefer streamEnumerateSelection for remote providers')
+          },
+          async hydrateCandidate(_connection, candidate) {
+            hydrateCalls.push(candidate.pathOrUri)
+            return {
+              candidate,
+              metadata: {
+                title: candidate.fileName.replace('.mp3', ''),
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    notifications: {
+      async showSyncProgress(payload) {
+        progressCalls.push(payload)
+      },
+      async showSyncFinished(payload) {
+        finishedCalls.push(payload)
+      },
+    },
+    now: () => 200,
+  })
+
+  assert.deepEqual(streamCalls, [
+    { directories: ['/Albums'], tracks: [] },
+  ])
+  assert.deepEqual(hydrateCalls, ['/Albums/one.mp3', '/Albums/two.mp3'])
+  assert.ok(progressCalls.some(call => call.phase === 'enumerate'))
+  assert.ok(progressCalls.some(call => call.phase === 'hydrate' || call.phase === 'commit'))
+  assert.deepEqual(finishedCalls, [{
+    connectionName: 'Remote Disk',
+    committedCount: 2,
+    removedCount: 0,
+    totalCount: 2,
+  }])
+  assert.deepEqual(result.nextItems.map(item => item.sourceItemId).sort(), [
+    'conn_1__/Albums/one.mp3',
+    'conn_1__/Albums/two.mp3',
+  ])
+})
+
 test('deleteImportRule rebuilds remaining generated lists and keeps uncovered custom references unavailable', async() => {
   const connection = createConnection()
   const rule1 = {
