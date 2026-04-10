@@ -38,7 +38,7 @@ public class MediaLibrarySyncTaskService extends HeadlessJsTaskService {
   public int onStartCommand(Intent intent, int flags, int startId) {
     startForeground(
         MediaLibrarySyncNotificationHelper.NOTIFICATION_ID,
-        MediaLibrarySyncNotificationHelper.buildNotification(
+        MediaLibrarySyncNotificationHelper.buildForegroundNotification(
             this,
             "媒体库同步",
             "正在准备后台同步",

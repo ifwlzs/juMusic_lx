@@ -16,6 +16,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 进一步修复播放页四周压边出现横竖线的问题，改用连续渐变边层替代离散切片叠加
 - 修复媒体来源默认增量更新在规则缩小范围时残留旧歌曲，以及 metadata 补同步失败会降级覆盖旧信息的问题
 - 修复 WebDAV / OneDrive 媒体库新歌首次播放时下载异常仍被当成成功缓存，并将远端媒体库重试提示从“URL 过期”改为更准确的文件重载提示
+- 修复 Android 前台媒体库同步通知会被重置回“正在准备后台同步”，导致长时间看不到真实同步进度的问题
 
 优化
 

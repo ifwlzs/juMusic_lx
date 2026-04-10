@@ -51,3 +51,18 @@ test('js media library sync registers a headless task and requests native backgr
   assert.match(queueFile, /startBackgroundSync/)
   assert.match(queueFile, /ensureMediaLibraryJobQueue/)
 })
+
+test('android sync foreground service reuses the latest notification state instead of always reverting to the placeholder', () => {
+  const serviceFile = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/medialibrarysync/MediaLibrarySyncTaskService.java')
+  const helperFile = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/medialibrarysync/MediaLibrarySyncNotificationHelper.java')
+  const moduleFile = readFile('android/app/src/main/java/io/ifwlzs/jumusic/lx/medialibrarysync/MediaLibrarySyncNotificationModule.java')
+
+  assert.match(helperFile, /buildForegroundNotification\(/)
+  assert.match(helperFile, /latestTitle|lastTitle/)
+  assert.match(helperFile, /latestMessage|lastMessage/)
+  assert.match(helperFile, /latestOngoing|lastOngoing/)
+  assert.match(helperFile, /clearNotification\(Context context\)[\s\S]*latestTitle|clearNotification\(Context context\)[\s\S]*lastTitle/)
+
+  assert.match(moduleFile, /showNotification\(title, message, true\)/)
+  assert.match(serviceFile, /buildForegroundNotification\(/)
+})

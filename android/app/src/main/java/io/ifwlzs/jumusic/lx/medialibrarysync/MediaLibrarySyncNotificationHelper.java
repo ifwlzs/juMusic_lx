@@ -14,6 +14,9 @@ import io.ifwlzs.jumusic.lx.R;
 public final class MediaLibrarySyncNotificationHelper {
   public static final String CHANNEL_ID = "MediaLibrarySync";
   public static final int NOTIFICATION_ID = 4102;
+  private static volatile String latestTitle = null;
+  private static volatile String latestMessage = null;
+  private static volatile boolean latestOngoing = false;
 
   private MediaLibrarySyncNotificationHelper() {
   }
@@ -31,7 +34,29 @@ public final class MediaLibrarySyncNotificationHelper {
         .build();
   }
 
+  public static Notification buildForegroundNotification(
+      Context context,
+      String fallbackTitle,
+      String fallbackMessage,
+      boolean fallbackOngoing
+  ) {
+    String title = fallbackTitle;
+    String message = fallbackMessage;
+    boolean ongoing = fallbackOngoing;
+
+    if (latestOngoing) {
+      title = latestTitle != null ? latestTitle : fallbackTitle;
+      message = latestMessage != null ? latestMessage : fallbackMessage;
+      ongoing = true;
+    }
+
+    return buildNotification(context, title, message, ongoing);
+  }
+
   public static void showNotification(Context context, String title, String message, boolean ongoing) {
+    latestTitle = title;
+    latestMessage = message;
+    latestOngoing = ongoing;
     NotificationManagerCompat.from(context).notify(
         NOTIFICATION_ID,
         buildNotification(context, title, message, ongoing)
@@ -39,6 +64,9 @@ public final class MediaLibrarySyncNotificationHelper {
   }
 
   public static void clearNotification(Context context) {
+    latestTitle = null;
+    latestMessage = null;
+    latestOngoing = false;
     NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID);
   }
 
