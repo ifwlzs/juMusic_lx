@@ -22,6 +22,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 媒体来源“更新”改为默认增量同步，优先补新增范围、近期新增歌曲与近期更新歌曲
 - 媒体来源新增“全量校验”入口，只有这个动作才处理源端删歌
 
+## [0.26.04100800](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04100053...v0.26.04100800) - 2026-04-10
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04100053](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04091442...v0.26.04100053) - 2026-04-10
 
 修复
