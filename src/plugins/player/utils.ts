@@ -245,7 +245,7 @@ export const onStateChange = async(listener: (state: PlayStatus) => void) => {
 
 export const updateOptions = async(options = {
   // Whether the player should stop running when the app is closed on Android
-  // stopWithApp: true,
+  stopWithApp: true,
 
   // An array of media controls capabilities
   // Can contain CAPABILITY_PLAY, CAPABILITY_PAUSE, CAPABILITY_STOP, CAPABILITY_SEEK_TO,

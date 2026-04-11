@@ -77,7 +77,8 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
-    if (global.lx.gettingUrlId || isTempId()) return
+    const shouldIgnoreTransientState = (global.lx.gettingUrlId || isTempId()) && ![TPState.Playing, TPState.Paused, TPState.Stopped].includes(info.state)
+    if (shouldIgnoreTransientState) return
     // let currentIsPlaying = false
 
     switch (info.state) {
