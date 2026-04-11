@@ -158,3 +158,14 @@ test('Translations include full validation label', () => {
   assert.match(zhTwFile, /"media_source_full_validation":\s*"全量校驗"/)
   assert.match(enUsFile, /"media_source_full_validation":\s*"Full Validation"/)
 })
+
+
+test('Directory browser stops modal polling and reloads only when path or connection identity changes', () => {
+  const modalFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/index.tsx')
+  const browserFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/DirectoryBrowser.tsx')
+
+  assert.match(modalFile, /if \(!visible \|\| page === 'browser'\) return/)
+  assert.match(browserFile, /\[connection\.connectionId, connection\.rootPathOrUri, currentPathOrUri\]/)
+  assert.doesNotMatch(browserFile, /\[connection,\s*currentPathOrUri\]/)
+})
+

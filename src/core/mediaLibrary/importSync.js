@@ -326,7 +326,6 @@ async function runFullSync({
 }) {
   const provider = registry?.get?.(connection.providerType)
   if (
-    connection.providerType !== 'local' &&
     (provider?.streamEnumerateSelection || provider?.enumerateSelection) &&
     provider?.hydrateCandidate
   ) {
@@ -340,6 +339,7 @@ async function runFullSync({
       triggerSource,
       notifications,
       jobControl,
+      skipMissingRemoval,
     })
   }
 

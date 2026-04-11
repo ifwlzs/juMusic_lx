@@ -23,6 +23,8 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 - 媒体来源“更新”改为默认增量同步，优先补新增范围、近期新增歌曲与近期更新歌曲
 - 媒体来源新增“全量校验”入口，只有这个动作才处理源端删歌
+- 选择媒体来源目录时停止后台定时刷新，只在实际切换路径或连接后重读目录内容
+- 优化本地、OneDrive、SMB、WebDAV 媒体来源的流式导入首批可见速度，浅层目录与已就绪批次会更早进入歌单
 
 ## [0.26.04101319](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04101059...v0.26.04101319) - 2026-04-10
 

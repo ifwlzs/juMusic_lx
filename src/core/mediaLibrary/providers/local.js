@@ -1,6 +1,7 @@
 const { buildLocalVersionToken } = require('../versionToken.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
+const STREAM_BATCH_SIZE = 10
 
 function isAudioFile(fileName = '') {
   const parts = String(fileName).split('.')
@@ -59,6 +60,88 @@ async function collectLocalFiles(readDir, rootPath) {
 async function resolveLocalFile(readDir, pathOrUri) {
   const entries = await readDir(getParentPath(pathOrUri))
   return entries.find(entry => !entry.isDirectory && entry.path === pathOrUri) || null
+}
+
+async function collectSelectionFiles(readDir, selection = {}) {
+  const files = []
+  let skipped = 0
+
+  for (const directory of selection.directories || []) {
+    const nested = await collectLocalFiles(readDir, directory.pathOrUri)
+    files.push(...nested.files)
+    skipped += nested.skipped
+  }
+
+  for (const track of selection.tracks || []) {
+    const entry = await resolveLocalFile(readDir, track.pathOrUri)
+    if (!entry) {
+      skipped += 1
+      continue
+    }
+    if (!isAudioFile(entry.name)) {
+      skipped += 1
+      continue
+    }
+    files.push(entry)
+  }
+
+  return {
+    files: [...new Map(files.map(file => [file.path, file])).values()],
+    skipped,
+  }
+}
+
+async function emitCandidateBatch(batch, onBatch) {
+  if (!batch.length || typeof onBatch !== 'function') return
+  await onBatch(batch)
+}
+
+async function streamSelectionCandidates(readDir, connection, selection = {}, onBatch, batchSize = STREAM_BATCH_SIZE) {
+  const items = []
+  const seenPaths = new Set()
+  let pendingBatch = []
+
+  const flush = async() => {
+    if (!pendingBatch.length) return
+    const batch = pendingBatch
+    pendingBatch = []
+    await emitCandidateBatch(batch, onBatch)
+  }
+
+  const pushFile = async(file) => {
+    if (!file?.path || seenPaths.has(file.path)) return
+    seenPaths.add(file.path)
+    const candidate = toCandidate(connection, file)
+    items.push(candidate)
+    pendingBatch.push(candidate)
+    if (pendingBatch.length >= batchSize) await flush()
+  }
+
+  const walkSelectionDirectory = async(pathOrUri) => {
+    const entries = await readDir(pathOrUri)
+    for (const entry of entries) {
+      if (entry.isDirectory) {
+        await walkSelectionDirectory(entry.path)
+        continue
+      }
+      if (isAudioFile(entry.name)) await pushFile(entry)
+    }
+  }
+
+  for (const directory of selection.directories || []) {
+    await walkSelectionDirectory(directory.pathOrUri)
+    await flush()
+  }
+
+  for (const track of selection.tracks || []) {
+    const entry = await resolveLocalFile(readDir, track.pathOrUri)
+    if (!entry || !isAudioFile(entry.name)) continue
+    await pushFile(entry)
+    await flush()
+  }
+
+  await flush()
+  return { items }
 }
 
 function toCandidate(connection, file) {
@@ -155,52 +238,24 @@ function createLocalProvider({ readDir, readMetadata }) {
         .map(toBrowserNode)
     },
     async scanSelection(connection, selection = {}) {
-      const files = []
-      let skipped = 0
-
-      for (const directory of selection.directories || []) {
-        const nested = await collectLocalFiles(readDir, directory.pathOrUri)
-        files.push(...nested.files)
-        skipped += nested.skipped
-      }
-
-      for (const track of selection.tracks || []) {
-        const entry = await resolveLocalFile(readDir, track.pathOrUri)
-        if (!entry) {
-          skipped += 1
-          continue
-        }
-        if (!isAudioFile(entry.name)) {
-          skipped += 1
-          continue
-        }
-        files.push(entry)
-      }
-
-      const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
-      return buildLocalScanItems(dedupedFiles, connection, readMetadata, skipped)
+      const { files, skipped } = await collectSelectionFiles(readDir, selection)
+      return buildLocalScanItems(files, connection, readMetadata, skipped)
     },
-    async enumerateSelection(connection, selection = {}) {
-      const files = []
-
-      for (const directory of selection.directories || []) {
-        const nested = await collectLocalFiles(readDir, directory.pathOrUri)
-        files.push(...nested.files)
-      }
-
-      for (const track of selection.tracks || []) {
-        const entry = await resolveLocalFile(readDir, track.pathOrUri)
-        if (!entry) continue
-        if (!isAudioFile(entry.name)) continue
-        files.push(entry)
-      }
-
-      const items = [...new Map(files.map(file => [file.path, file])).values()]
-        .map(file => toCandidate(connection, file))
-
+    async streamEnumerateSelection(connection, selection = {}, onBatch) {
+      const { items } = await streamSelectionCandidates(readDir, connection, selection, onBatch)
       return {
         complete: true,
         items,
+      }
+    },
+    async enumerateSelection(connection, selection = {}) {
+      const streamed = []
+      const result = await this.streamEnumerateSelection(connection, selection, async batch => {
+        streamed.push(...batch)
+      })
+      return {
+        complete: true,
+        items: result.items.length ? result.items : streamed,
       }
     },
     async hydrateCandidate(connection, candidate, { attempt = 1 } = {}) {

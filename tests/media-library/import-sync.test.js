@@ -1737,3 +1737,222 @@ test('syncImportRule falls back to enumerateSelection when streamEnumerateSelect
     'conn_1__/Albums/new_remote.mp3',
   ])
 })
+
+
+test('syncImportRule routes local providers with enumerateSelection and hydrateCandidate through streaming sync', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  let enumerateCalls = 0
+  let hydrateCalls = 0
+  let syncCandidatesSaved = 0
+
+  const result = await syncImportRule({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: 'rule_1',
+          scannedAt: 1,
+          items: [],
+        }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return []
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates(_runId, items) {
+        syncCandidatesSaved = items.length
+      },
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            enumerateCalls += 1
+            return {
+              complete: true,
+              items: [{
+                sourceStableKey: '/Albums/new_local.mp3',
+                connectionId: 'conn_1',
+                providerType: 'local',
+                pathOrUri: '/Albums/new_local.mp3',
+                fileName: 'new_local.mp3',
+                fileSize: 100,
+                modifiedTime: 1700000000000,
+                versionToken: 'v_new_local',
+                metadataLevelReached: 0,
+              }],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            hydrateCalls += 1
+            return {
+              candidate,
+              metadata: {
+                title: 'new_local',
+                artist: 'artist',
+                album: 'album',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+          async scanSelection() {
+            assert.fail('local streaming-capable providers should not fall back to scanSelection')
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+  })
+
+  assert.equal(enumerateCalls, 1)
+  assert.equal(hydrateCalls, 1)
+  assert.equal(syncCandidatesSaved, 1)
+  assert.equal(result.isComplete, true)
+  assert.deepEqual(result.nextItems.map(item => item.sourceItemId), [
+    'conn_1__/Albums/new_local.mp3',
+  ])
+})
+
+test('updateImportRule keeps scope-change removal semantics when local providers use streaming sync', async() => {
+  const connection = createConnection()
+  const previousRule = createRule({
+    directories: [{
+      selectionId: 'dir_old',
+      kind: 'directory',
+      pathOrUri: '/Albums',
+      displayName: 'Albums',
+    }],
+  })
+  const nextRule = createRule({
+    directories: [{
+      selectionId: 'dir_new',
+      kind: 'directory',
+      pathOrUri: '/Albums/New',
+      displayName: 'New',
+    }],
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 1,
+    items: [
+      createSourceItem({
+        sourceItemId: 'item_scope_removed',
+        pathOrUri: '/Albums/Old/song.mp3',
+      }),
+      createSourceItem({
+        sourceItemId: 'item_source_deleted',
+        pathOrUri: '/Albums/New/missing.mp3',
+      }),
+    ],
+  }
+  const calls = []
+
+  await updateImportRule({
+    connection,
+    rule: nextRule,
+    previousRule,
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() {
+        return [nextRule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return [
+          createSourceItem({
+            sourceItemId: 'item_keep',
+            pathOrUri: '/Albums/New/keep.mp3',
+          }),
+        ]
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [{
+                sourceStableKey: '/Albums/New/keep.mp3',
+                connectionId: 'conn_1',
+                providerType: 'local',
+                pathOrUri: '/Albums/New/keep.mp3',
+                fileName: 'keep.mp3',
+                fileSize: 100,
+                modifiedTime: 1700000000000,
+                versionToken: 'v_keep',
+                metadataLevelReached: 0,
+              }],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: {
+                title: 'keep',
+                artist: '',
+                album: '',
+                durationSec: 180,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+          async scanSelection() {
+            assert.fail('local streaming-capable providers should not fall back to scanSelection')
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists(generatedLists) {
+        calls.push(['reconcile', generatedLists.map(item => item.listInfo.id)])
+      },
+      async removeMissingSongs(ids) {
+        calls.push(['remove', ids])
+      },
+      async markRuleRemoved(ids) {
+        calls.push(['placeholder', ids])
+      },
+    },
+  })
+
+  const removeCalls = calls.filter(([type]) => type === 'remove')
+  const placeholderCalls = calls.filter(([type]) => type === 'placeholder')
+  assert.deepEqual(removeCalls, [['remove', ['item_source_deleted']]])
+  assert.deepEqual(placeholderCalls, [['placeholder', ['item_scope_removed']]])
+})
+

@@ -96,6 +96,47 @@ async function resolveTrackEntry(request, connection, pathOrUri) {
   return entries.find(item => normalizeHref(item.href) === normalizedTarget) || null
 }
 
+async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, onBatch, seenKeys = new Set()) {
+  const entries = await requestPropfind(request, connection, pathOrUri, '1')
+  const normalizedRoot = normalizeHref(pathOrUri)
+  const currentFiles = []
+  const nestedDirectories = []
+
+  for (const entry of entries) {
+    const normalizedEntry = normalizeHref(entry.href)
+    if (!normalizedEntry || normalizedEntry === normalizedRoot) continue
+    if (isDirectoryHref(entry.href)) {
+      nestedDirectories.push(entry)
+      continue
+    }
+    if (isAudioFile(getFileName(entry.href))) currentFiles.push(entry)
+  }
+
+  const currentCandidates = currentFiles
+    .map(item => toCandidate(connection, item))
+    .filter(candidate => {
+      const key = candidate?.sourceStableKey || candidate?.pathOrUri || ''
+      if (!key) return true
+      if (seenKeys.has(key)) return false
+      seenKeys.add(key)
+      return true
+    })
+  if (currentCandidates.length) await emitBatches(currentCandidates, onBatch)
+
+  const items = [...currentCandidates]
+  for (const directory of nestedDirectories) {
+    items.push(...await streamWebdavDirectoryCandidates(
+      request,
+      connection,
+      directory.href,
+      onBatch,
+      seenKeys,
+    ))
+  }
+
+  return items
+}
+
 async function readRemoteMetadata({
   connection,
   item,
@@ -251,21 +292,27 @@ function createWebdavProvider({
         .map(toBrowserNode)
     },
     async streamEnumerateSelection(connection, selection = {}, onBatch) {
-      const entries = []
+      const items = []
+      const seenKeys = new Set()
       for (const directory of selection.directories || []) {
-        entries.push(...await requestPropfind(request, connection, directory.pathOrUri, 'infinity'))
+        items.push(...await streamWebdavDirectoryCandidates(
+          request,
+          connection,
+          directory.pathOrUri,
+          onBatch,
+          seenKeys,
+        ))
       }
       for (const track of selection.tracks || []) {
         const entry = await resolveTrackEntry(request, connection, track.pathOrUri)
-        if (entry) entries.push(entry)
+        if (!entry || isDirectoryHref(entry.href) || !isAudioFile(getFileName(entry.href))) continue
+        const candidate = toCandidate(connection, entry)
+        const key = candidate?.sourceStableKey || candidate?.pathOrUri || ''
+        if (key && seenKeys.has(key)) continue
+        if (key) seenKeys.add(key)
+        items.push(candidate)
+        await emitBatches([candidate], onBatch)
       }
-
-      const dedupedEntries = [...new Map(entries.map(item => [normalizeHref(item.href), item])).values()]
-      const items = dedupedEntries
-        .filter(item => !isDirectoryHref(item.href))
-        .filter(item => isAudioFile(getFileName(item.href)))
-        .map(item => toCandidate(connection, item))
-      await emitBatches(items, onBatch)
       return { complete: true, items }
     },
     async enumerateSelection(connection, selection = {}) {

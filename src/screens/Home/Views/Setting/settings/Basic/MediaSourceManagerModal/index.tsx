@@ -94,14 +94,14 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
   }
 
   useEffect(() => {
-    if (!visible) return
+    if (!visible || page === 'browser') return
     const timer = setInterval(() => {
       void loadData().catch(() => null)
     }, 1500)
     return () => {
       clearInterval(timer)
     }
-  }, [visible])
+  }, [visible, page])
 
   const applyShowOptions = ({
     options,

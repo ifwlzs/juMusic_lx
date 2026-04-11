@@ -261,3 +261,48 @@ test('hydrateCandidate propagates metadata read errors for streaming sync diagno
     /bad metadata/,
   )
 })
+
+
+test('streamEnumerateSelection emits local candidates batch-by-batch while traversing selected directories', async() => {
+  const readDir = async(path) => {
+    if (path === '/root/AlbumA') {
+      return [
+        { path: '/root/AlbumA/song-a.flac', name: 'song-a.flac', isDirectory: false, size: 100, lastModified: 1000 },
+      ]
+    }
+    if (path === '/root/AlbumB') {
+      return [
+        { path: '/root/AlbumB/song-b.mp3', name: 'song-b.mp3', isDirectory: false, size: 200, lastModified: 2000 },
+      ]
+    }
+    return []
+  }
+  const provider = createLocalProvider({
+    readDir,
+    async readMetadata() {
+      throw new Error('streamEnumerateSelection should not read metadata')
+    },
+  })
+  const connection = { connectionId: 'conn_1', rootPathOrUri: '/root' }
+  const batches = []
+
+  const result = await provider.streamEnumerateSelection(connection, {
+    directories: [
+      { pathOrUri: '/root/AlbumA' },
+      { pathOrUri: '/root/AlbumB' },
+    ],
+    tracks: [],
+  }, async batch => {
+    batches.push(batch.map(item => item.pathOrUri))
+  })
+
+  assert.deepEqual(batches, [
+    ['/root/AlbumA/song-a.flac'],
+    ['/root/AlbumB/song-b.mp3'],
+  ])
+  assert.deepEqual(result.items.map(item => item.pathOrUri), [
+    '/root/AlbumA/song-a.flac',
+    '/root/AlbumB/song-b.mp3',
+  ])
+})
+

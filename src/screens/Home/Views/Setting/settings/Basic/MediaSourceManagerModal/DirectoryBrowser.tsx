@@ -70,7 +70,7 @@ export default memo(({
     return () => {
       canceled = true
     }
-  }, [connection, currentPathOrUri])
+  }, [connection.connectionId, connection.rootPathOrUri, currentPathOrUri])
 
   const handleToggle = (node: LX.MediaLibrary.BrowserNode) => {
     const targetPath = normalizePathOrUri(node.pathOrUri)
