@@ -17,7 +17,7 @@ import { normalizeImportSelection } from '@/core/mediaLibrary/browse'
 import { validateConnectionDraft } from '@/core/mediaLibrary/connectionValidation'
 import { createMediaLibraryListApi } from '@/core/mediaLibrary/listApi'
 import { resolveConnectionDisplayName, resolveRuleDisplayName } from '@/core/mediaLibrary/naming'
-import { enqueueDeleteImportRuleJob, enqueueImportRuleSyncJob } from '@/core/mediaLibrary/jobQueue'
+import { enqueueConnectionSyncJob, enqueueDeleteImportRuleJob, enqueueImportRuleSyncJob } from '@/core/mediaLibrary/jobQueue'
 import {
   deleteMediaConnection,
   updateMediaConnection,
@@ -92,16 +92,6 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
       rules: nextRules,
     }
   }
-
-  useEffect(() => {
-    if (!visible) return
-    const timer = setInterval(() => {
-      void loadData().catch(() => null)
-    }, 1500)
-    return () => {
-      clearInterval(timer)
-    }
-  }, [visible])
 
   const applyShowOptions = ({
     options,
@@ -315,14 +305,9 @@ export default forwardRef<MediaSourceManagerModalType, { onUpdated?: () => void 
     try {
       const connectionRules = rules.filter(rule => rule.connectionId === connection.connectionId)
       if (connectionRules.length) {
-        const conflictMode = await resolveImportConflictMode(connection.connectionId)
-        if (!conflictMode) return
-        await Promise.all(connectionRules.map(async rule => enqueueImportRuleSyncJob({
+        await enqueueConnectionSyncJob({
           connectionId: connection.connectionId,
-          ruleId: rule.ruleId,
-          previousRule: rule,
-          conflictMode,
-        })))
+        })
         await loadData()
         await onUpdated?.()
         toast(t('media_source_job_queued'))

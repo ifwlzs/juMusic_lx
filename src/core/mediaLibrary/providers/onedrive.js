@@ -1,4 +1,5 @@
 const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
+const { resolveDownloadResult } = require('../downloadResult.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
 
@@ -97,7 +98,9 @@ async function readRemoteMetadata({
 
   try {
     const downloadResult = await downloadFile(connection, pathOrUri, tempFilePath, item)
-    if (downloadResult?.promise) await downloadResult.promise
+    await resolveDownloadResult(downloadResult, {
+      operation: 'onedrive metadata download',
+    })
     return await readMetadata(tempFilePath, connection, item)
   } catch {
     return null
@@ -239,6 +242,39 @@ function dedupeCandidates(candidates = [], seenKeys = new Set()) {
   })
 }
 
+async function streamDirectoryCandidates(listChildren, connection, pathOrUri, onBatch, seenKeys) {
+  const entries = await collectPagedChildren(listChildren, connection, pathOrUri)
+  const files = []
+  const nestedDirectories = []
+
+  for (const entry of entries) {
+    if (entry?.folder) {
+      nestedDirectories.push(entry)
+      continue
+    }
+    if (isAudioFile(entry?.name)) files.push(entry)
+  }
+
+  const currentCandidates = dedupeCandidates(
+    dedupeItems(files).map(item => toCandidate(connection, item)),
+    seenKeys,
+  )
+  if (currentCandidates.length) await emitBatches(currentCandidates, onBatch)
+
+  const items = [...currentCandidates]
+  for (const entry of dedupeItems(nestedDirectories)) {
+    items.push(...await streamDirectoryCandidates(
+      listChildren,
+      connection,
+      buildPathOrUri(entry),
+      onBatch,
+      seenKeys,
+    ))
+  }
+
+  return items
+}
+
 function createOneDriveProvider({
   listChildren,
   getItemByPath,
@@ -260,14 +296,13 @@ function createOneDriveProvider({
       const items = []
       const seenKeys = new Set()
       for (const directory of selection.directories || []) {
-        const batchItems = await collectDirectoryTracks(listChildren, connection, directory.pathOrUri)
-        const candidates = dedupeCandidates(
-          dedupeItems(batchItems).map(item => toCandidate(connection, item)),
+        items.push(...await streamDirectoryCandidates(
+          listChildren,
+          connection,
+          directory.pathOrUri,
+          onBatch,
           seenKeys,
-        )
-        if (!candidates.length) continue
-        items.push(...candidates)
-        await emitBatches(candidates, onBatch)
+        ))
       }
       for (const track of selection.tracks || []) {
         const entry = await getItemByPath(connection, track.pathOrUri)

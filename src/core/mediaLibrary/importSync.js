@@ -45,6 +45,37 @@ function dedupeIds(ids = []) {
   return [...new Set(ids.filter(Boolean))]
 }
 
+function emitCandidateBatches(items = [], onBatch, batchSize = 10) {
+  if (typeof onBatch !== 'function') return Promise.resolve()
+  return (async() => {
+    for (let index = 0; index < items.length; index += batchSize) {
+      await onBatch(items.slice(index, index + batchSize))
+    }
+  })()
+}
+
+function buildCandidateCacheKey(candidate = {}) {
+  return String(candidate.sourceStableKey || candidate.pathOrUri || '')
+}
+
+function buildHydrationCacheKey(candidate = {}, attempt = 1) {
+  return [
+    buildCandidateCacheKey(candidate),
+    String(candidate.versionToken || ''),
+    String(attempt),
+  ].join('__')
+}
+
+function dedupeSyncCandidates(candidates = []) {
+  const map = new Map()
+  for (const candidate of candidates) {
+    const key = buildCandidateCacheKey(candidate)
+    if (!key) continue
+    map.set(key, candidate)
+  }
+  return [...map.values()]
+}
+
 function upsertRule(rules = [], nextRule) {
   let matched = false
   const nextRules = rules.map(rule => {
@@ -169,6 +200,107 @@ function isSourceItemCoveredByRule(item, rule) {
   return selection.tracks.some(track => normalizePathOrUri(track.pathOrUri) === pathOrUri)
 }
 
+async function collectSharedEnumeratedCandidates({
+  connection,
+  provider,
+  connectionRules = [],
+}) {
+  const sharedSelection = normalizeImportSelection({
+    directories: connectionRules.flatMap(rule => rule.directories || []),
+    tracks: connectionRules.flatMap(rule => rule.tracks || []),
+  })
+
+  if (typeof provider?.streamEnumerateSelection === 'function') {
+    const streamed = []
+    const streamedResult = await provider.streamEnumerateSelection(connection, sharedSelection, async batch => {
+      streamed.push(...(batch || []))
+    })
+    return {
+      complete: streamedResult?.complete !== false,
+      items: dedupeSyncCandidates([
+        ...streamed,
+        ...(streamedResult?.items || []),
+      ]),
+    }
+  }
+
+  const enumerated = await provider.enumerateSelection(connection, sharedSelection)
+  return {
+    complete: enumerated?.complete !== false,
+    items: dedupeSyncCandidates(enumerated?.items || []),
+  }
+}
+
+function filterSharedCandidatesForRule(candidates = [], rule) {
+  const selection = normalizeImportSelection(rule)
+  const trackPaths = new Set((selection.tracks || []).map(track => normalizePathOrUri(track.pathOrUri)))
+  return candidates.filter(candidate => {
+    const pathOrUri = normalizePathOrUri(candidate?.pathOrUri)
+    if (!pathOrUri) return false
+    if ((selection.directories || []).some(directory => isWithinDirectory(pathOrUri, directory.pathOrUri))) return true
+    return trackPaths.has(pathOrUri)
+  })
+}
+
+function createSharedEnumeratedRegistry({
+  registry,
+  connection,
+  provider,
+  connectionRules = [],
+}) {
+  let sharedEnumerationPromise = null
+  const hydrationCache = new Map()
+
+  const getSharedEnumeration = async() => {
+    if (!sharedEnumerationPromise) {
+      sharedEnumerationPromise = collectSharedEnumeratedCandidates({
+        connection,
+        provider,
+        connectionRules,
+      })
+    }
+    return await sharedEnumerationPromise
+  }
+
+  const wrappedProvider = {
+    ...provider,
+    async streamEnumerateSelection(_connection, selection = {}, onBatch) {
+      const sharedEnumeration = await getSharedEnumeration()
+      const items = filterSharedCandidatesForRule(sharedEnumeration.items, selection)
+      await emitCandidateBatches(items, onBatch)
+      return {
+        complete: sharedEnumeration.complete,
+        items,
+      }
+    },
+    async enumerateSelection(_connection, selection = {}) {
+      const sharedEnumeration = await getSharedEnumeration()
+      return {
+        complete: sharedEnumeration.complete,
+        items: filterSharedCandidatesForRule(sharedEnumeration.items, selection),
+      }
+    },
+    async hydrateCandidate(connectionValue, candidate, options = {}) {
+      const attempt = options?.attempt ?? 1
+      const cacheKey = buildHydrationCacheKey(candidate, attempt)
+      if (!hydrationCache.has(cacheKey)) {
+        hydrationCache.set(cacheKey, Promise.resolve().then(async() => {
+          return await provider.hydrateCandidate(connectionValue, candidate, options)
+        }))
+      }
+      return await hydrationCache.get(cacheKey)
+    },
+  }
+
+  return {
+    ...registry,
+    get(providerType) {
+      if (providerType === connection.providerType) return wrappedProvider
+      return registry?.get?.(providerType)
+    },
+  }
+}
+
 function createFallbackConnection(connectionId) {
   return {
     connectionId,
@@ -203,10 +335,10 @@ async function syncImportRule({
   triggerSource = 'manual',
   notifications = null,
   jobControl = null,
+  sharedReusableSourceItems = [],
 }) {
   const provider = registry?.get?.(connection.providerType)
   if (
-    connection.providerType !== 'local' &&
     (provider?.streamEnumerateSelection || provider?.enumerateSelection) &&
     provider?.hydrateCandidate
   ) {
@@ -220,6 +352,8 @@ async function syncImportRule({
       triggerSource,
       notifications,
       jobControl,
+      skipMissingRemoval,
+      sharedReusableSourceItems,
     })
   }
 
@@ -332,6 +466,7 @@ async function updateImportRule({
   triggerSource = 'manual',
   notifications = null,
   jobControl = null,
+  sharedReusableSourceItems = [],
 }) {
   const priorRule = previousRule || (
     typeof repository.getImportRules === 'function'
@@ -355,6 +490,7 @@ async function updateImportRule({
     triggerSource,
     notifications,
     jobControl,
+    sharedReusableSourceItems,
   })
 
   if (!selectionChanged || !result.isComplete) return result
@@ -391,22 +527,48 @@ async function updateMediaConnection({
   registry,
   listApi,
   now = () => Date.now(),
+  triggerSource = 'manual',
+  notifications = null,
+  jobControl = null,
 }) {
   const allRules = typeof repository.getImportRules === 'function'
     ? await repository.getImportRules()
     : []
   const connectionRules = allRules.filter(rule => rule.connectionId === connection.connectionId)
   const results = []
+  const provider = registry?.get?.(connection.providerType)
+  const sharedRegistry = connectionRules.length > 1 &&
+    (provider?.streamEnumerateSelection || provider?.enumerateSelection) &&
+    provider?.hydrateCandidate
+    ? createSharedEnumeratedRegistry({
+      registry,
+      connection,
+      provider,
+      connectionRules,
+    })
+    : registry
+  let sharedReusableSourceItems = typeof repository.getSourceItems === 'function'
+    ? await repository.getSourceItems(connection.connectionId)
+    : []
 
   for (const rule of connectionRules) {
-    results.push(await updateImportRule({
+    const result = await updateImportRule({
       connection,
       rule,
       repository,
-      registry,
+      registry: sharedRegistry,
       listApi,
       now,
-    }))
+      triggerSource,
+      notifications,
+      jobControl,
+      sharedReusableSourceItems,
+    })
+    results.push(result)
+    sharedReusableSourceItems = mergeSourceItems(
+      sharedReusableSourceItems,
+      result?.connectionSourceItems || result?.nextItems || [],
+    )
   }
 
   if (!connectionRules.length && typeof listApi?.reconcileGeneratedLists === 'function') {

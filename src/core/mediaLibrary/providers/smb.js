@@ -114,6 +114,42 @@ async function resolveSmbFile(listDirectory, connection, pathOrUri) {
   return entries.find(entry => !entry.isDirectory && entry.path === pathOrUri) || null
 }
 
+async function streamSmbDirectoryCandidates(listDirectory, connection, pathOrUri, onBatch, seenPaths = new Set()) {
+  const entries = await listDirectory(connection, pathOrUri)
+  const currentFiles = []
+  const nestedDirectories = []
+
+  for (const entry of entries) {
+    if (entry.isDirectory) {
+      nestedDirectories.push(entry)
+      continue
+    }
+    if (isAudioFile(entry.name)) currentFiles.push(entry)
+  }
+
+  const currentCandidates = currentFiles
+    .filter(file => {
+      if (!file?.path || seenPaths.has(file.path)) return false
+      seenPaths.add(file.path)
+      return true
+    })
+    .map(file => toCandidate(connection, file))
+  if (currentCandidates.length) await emitBatches(currentCandidates, onBatch)
+
+  const items = [...currentCandidates]
+  for (const directory of nestedDirectories) {
+    items.push(...await streamSmbDirectoryCandidates(
+      listDirectory,
+      connection,
+      directory.path,
+      onBatch,
+      seenPaths,
+    ))
+  }
+
+  return items
+}
+
 async function buildSmbScanItems(files, connection, readMetadata, skipped = 0, metadataConcurrency = DEFAULT_CONCURRENCY) {
   const lastSeenAt = Date.now()
   const items = await mapWithConcurrency(files, metadataConcurrency, async file => {
@@ -178,21 +214,28 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadata
         .map(toBrowserNode)
     },
     async streamEnumerateSelection(connection, selection = {}, onBatch) {
-      const files = []
+      const items = []
+      const seenPaths = new Set()
 
       for (const directory of selection.directories || []) {
-        const nested = await collectSmbFiles(listDirectory, directory.pathOrUri, connection)
-        files.push(...nested.files)
+        items.push(...await streamSmbDirectoryCandidates(
+          listDirectory,
+          connection,
+          directory.pathOrUri,
+          onBatch,
+          seenPaths,
+        ))
       }
 
       for (const track of selection.tracks || []) {
         const entry = await resolveSmbFile(listDirectory, connection, track.pathOrUri)
-        if (entry && isAudioFile(entry.name)) files.push(entry)
+        if (!entry || !isAudioFile(entry.name) || seenPaths.has(entry.path)) continue
+        seenPaths.add(entry.path)
+        const candidates = [toCandidate(connection, entry)]
+        items.push(...candidates)
+        await emitBatches(candidates, onBatch)
       }
 
-      const dedupedFiles = [...new Map(files.map(file => [file.path, file])).values()]
-      const items = dedupedFiles.map(file => toCandidate(connection, file))
-      await emitBatches(items, onBatch)
       return { complete: true, items }
     },
     async enumerateSelection(connection, selection = {}) {

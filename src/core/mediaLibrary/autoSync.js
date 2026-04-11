@@ -1,3 +1,5 @@
+const { DEFAULT_STALE_HEARTBEAT_MS, isActiveImportRuleSyncJob } = require('./jobs.js')
+
 const AUTO_SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000
 
 function shouldStartAutoSync(target = {}, now = Date.now()) {
@@ -16,15 +18,21 @@ async function runEligibleMediaLibraryAutoSync({
   repository,
   enqueueImportRuleSyncJob,
   now = () => Date.now(),
+  staleHeartbeatMs = DEFAULT_STALE_HEARTBEAT_MS,
 } = {}) {
   if (!repository || typeof enqueueImportRuleSyncJob !== 'function') return []
 
-  const [connections, rules] = await Promise.all([
+  const [connections, rules, importJobs] = await Promise.all([
     typeof repository.getConnections === 'function' ? repository.getConnections() : [],
     typeof repository.getImportRules === 'function' ? repository.getImportRules() : [],
+    typeof repository.getImportJobs === 'function' ? repository.getImportJobs() : [],
   ])
   const connectionMap = new Map((connections || []).map(connection => [connection.connectionId, connection]))
   const currentTime = now()
+  const activeRuleIds = new Set((importJobs || [])
+    .filter(job => isActiveImportRuleSyncJob(job, currentTime, staleHeartbeatMs))
+    .map(job => job.ruleId)
+    .filter(Boolean))
   const enqueued = []
 
   for (const rule of rules || []) {
@@ -33,6 +41,7 @@ async function runEligibleMediaLibraryAutoSync({
 
     const lastSyncFinishedAt = resolveLastSuccessfulSyncAt(rule, connection)
     if (!shouldStartAutoSync({ lastSyncFinishedAt }, currentTime)) continue
+    if (activeRuleIds.has(rule.ruleId)) continue
 
     enqueued.push(await enqueueImportRuleSyncJob({
       connectionId: rule.connectionId,

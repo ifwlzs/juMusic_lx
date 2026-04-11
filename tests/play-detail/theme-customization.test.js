@@ -75,3 +75,17 @@ test('theme settings expose a dedicated play detail background settings entry', 
   assert.match(themeSettingsIndexFile, /import PlayDetailBackgroundSettings from '\.\/PlayDetailBackgroundSettings'/)
   assert.match(themeSettingsIndexFile, /<PlayDetailBackgroundSettings \/>/)
 })
+
+test('theme init does not globally override screen-specific status bar styles after theme updates', () => {
+  const initThemeFile = readFile('src/core/init/theme.ts')
+
+  assert.doesNotMatch(initThemeFile, /StatusBar\.setBarStyle\(/)
+  assert.doesNotMatch(initThemeFile, /import StatusBar from ['"]@\/components\/common\/StatusBar['"]/)
+})
+
+test('theme init does not globally override screen-specific status bar styles after theme updates', () => {
+  const initThemeFile = readFile('src/core/init/theme.ts')
+
+  assert.doesNotMatch(initThemeFile, /StatusBar\.setBarStyle\(/)
+  assert.doesNotMatch(initThemeFile, /import StatusBar from ['"]@\/components\/common\/StatusBar['"]/)
+})

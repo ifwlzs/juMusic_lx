@@ -245,6 +245,91 @@ test('createWebdavProvider streamEnumerateSelection streams candidates before hy
   assert.equal(result.items[0].pathOrUri, '/music/test.mp3')
 })
 
+test('createWebdavProvider streamEnumerateSelection emits shallower directory candidates before deeper traversal finishes', async() => {
+  const batches = []
+  let resolveNestedRequest
+  let releaseNestedDirectory
+  const nestedRequested = new Promise(resolve => {
+    resolveNestedRequest = resolve
+  })
+  const nestedBlocked = new Promise(resolve => {
+    releaseNestedDirectory = resolve
+  })
+
+  const provider = createWebdavProvider({
+    async request(_connection, { pathOrUri }) {
+      if (pathOrUri === '/music/') {
+        return `<?xml version="1.0"?>
+        <d:multistatus xmlns:d="DAV:">
+          <d:response>
+            <d:href>/music/</d:href>
+            <d:propstat><d:prop><d:getetag>"root"</d:getetag></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/music/test.mp3</d:href>
+            <d:propstat>
+              <d:prop>
+                <d:getetag>"abc"</d:getetag>
+                <d:getlastmodified>Sat, 05 Apr 2026 10:00:00 GMT</d:getlastmodified>
+                <d:getcontentlength>321</d:getcontentlength>
+              </d:prop>
+            </d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/music/deep/</d:href>
+            <d:propstat><d:prop><d:getetag>"deep"</d:getetag></d:prop></d:propstat>
+          </d:response>
+        </d:multistatus>`
+      }
+      if (pathOrUri === '/music/deep/') {
+        resolveNestedRequest()
+        await nestedBlocked
+        return `<?xml version="1.0"?>
+        <d:multistatus xmlns:d="DAV:">
+          <d:response>
+            <d:href>/music/deep/</d:href>
+            <d:propstat><d:prop><d:getetag>"deep"</d:getetag></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/music/deep/theme.flac</d:href>
+            <d:propstat>
+              <d:prop>
+                <d:getetag>"theme"</d:getetag>
+                <d:getlastmodified>Sat, 05 Apr 2026 11:00:00 GMT</d:getlastmodified>
+                <d:getcontentlength>1000</d:getcontentlength>
+              </d:prop>
+            </d:propstat>
+          </d:response>
+        </d:multistatus>`
+      }
+      return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />`
+    },
+    async downloadFile() {},
+    async readMetadata() { return null },
+  })
+
+  const streamPromise = provider.streamEnumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music/', displayName: 'music' }],
+    tracks: [],
+  }, async batch => {
+    batches.push(batch.map(item => item.pathOrUri))
+  })
+
+  await nestedRequested
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(batches, [['/music/test.mp3']])
+
+  releaseNestedDirectory()
+  const result = await streamPromise
+  assert.deepEqual(result.items.map(item => item.pathOrUri), [
+    '/music/test.mp3',
+    '/music/deep/theme.flac',
+  ])
+})
+
 test('createWebdavProvider enumerateSelection stays lightweight and avoids metadata downloads', async() => {
   let downloadCount = 0
   let metadataCount = 0

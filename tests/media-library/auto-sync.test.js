@@ -53,6 +53,80 @@ test('runEligibleMediaLibraryAutoSync enqueues only stale remote rules and tags 
   assert.deepEqual(result, calls)
 })
 
+test('runEligibleMediaLibraryAutoSync skips fresh queued/running jobs for the same rule and only re-enqueues stale runs', async() => {
+  const calls = []
+  const now = 3_000_000
+
+  const result = await runEligibleMediaLibraryAutoSync({
+    repository: {
+      async getConnections() {
+        return [
+          { connectionId: 'conn_free', providerType: 'onedrive', lastScanAt: now - (3 * AUTO_SYNC_COOLDOWN_MS), lastScanStatus: 'success' },
+          { connectionId: 'conn_queued', providerType: 'webdav', lastScanAt: now - (3 * AUTO_SYNC_COOLDOWN_MS), lastScanStatus: 'success' },
+          { connectionId: 'conn_running', providerType: 'smb', lastScanAt: now - (3 * AUTO_SYNC_COOLDOWN_MS), lastScanStatus: 'success' },
+          { connectionId: 'conn_stale', providerType: 'onedrive', lastScanAt: now - (3 * AUTO_SYNC_COOLDOWN_MS), lastScanStatus: 'success' },
+        ]
+      },
+      async getImportRules() {
+        return [
+          { ruleId: 'rule_free', connectionId: 'conn_free', lastSyncAt: now - AUTO_SYNC_COOLDOWN_MS, lastSyncStatus: 'success' },
+          { ruleId: 'rule_queued', connectionId: 'conn_queued', lastSyncAt: now - AUTO_SYNC_COOLDOWN_MS, lastSyncStatus: 'success' },
+          { ruleId: 'rule_running', connectionId: 'conn_running', lastSyncAt: now - AUTO_SYNC_COOLDOWN_MS, lastSyncStatus: 'success' },
+          { ruleId: 'rule_stale', connectionId: 'conn_stale', lastSyncAt: now - AUTO_SYNC_COOLDOWN_MS, lastSyncStatus: 'success' },
+        ]
+      },
+      async getImportJobs() {
+        return [
+          {
+            jobId: 'job_queued',
+            type: 'import_rule_sync',
+            connectionId: 'conn_queued',
+            ruleId: 'rule_queued',
+            status: 'queued',
+            createdAt: now - 1000,
+            startedAt: null,
+            finishedAt: null,
+            heartbeatAt: null,
+          },
+          {
+            jobId: 'job_running',
+            type: 'import_rule_sync',
+            connectionId: 'conn_running',
+            ruleId: 'rule_running',
+            status: 'running',
+            createdAt: now - 2000,
+            startedAt: now - 1500,
+            finishedAt: null,
+            heartbeatAt: now - 5000,
+          },
+          {
+            jobId: 'job_stale',
+            type: 'import_rule_sync',
+            connectionId: 'conn_stale',
+            ruleId: 'rule_stale',
+            status: 'running',
+            createdAt: now - 2000,
+            startedAt: now - 1500,
+            finishedAt: null,
+            heartbeatAt: now - 60_000,
+          },
+        ]
+      },
+    },
+    enqueueImportRuleSyncJob: async(job) => {
+      calls.push(job)
+      return job
+    },
+    now: () => now,
+  })
+
+  assert.deepEqual(calls, [
+    { connectionId: 'conn_free', ruleId: 'rule_free', triggerSource: 'auto' },
+    { connectionId: 'conn_stale', ruleId: 'rule_stale', triggerSource: 'auto' },
+  ])
+  assert.deepEqual(result, calls)
+})
+
 test('media library init and settings page trigger eligible auto sync checks', () => {
   const initFile = readFile('src/core/init/mediaLibrary.ts')
   const settingsFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSources.tsx')

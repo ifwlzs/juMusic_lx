@@ -104,6 +104,34 @@ async function buildSnapshotsForConnection({ connectionRules, currentRuleId, cur
   return snapshots
 }
 
+async function buildSnapshotsForConnectionWithCache({
+  connectionRules,
+  currentRuleId,
+  currentSnapshot,
+  repository,
+  previousSnapshots = null,
+  refresh = false,
+}) {
+  const snapshots = new Map()
+  for (const rule of connectionRules) {
+    if (rule.ruleId === currentRuleId) {
+      snapshots.set(rule.ruleId, currentSnapshot)
+      continue
+    }
+    if (!refresh && previousSnapshots?.has(rule.ruleId)) {
+      snapshots.set(rule.ruleId, previousSnapshots.get(rule.ruleId))
+      continue
+    }
+    const snapshot = await repository.getImportSnapshot(rule.ruleId)
+    snapshots.set(rule.ruleId, snapshot || {
+      ruleId: rule.ruleId,
+      scannedAt: null,
+      items: [],
+    })
+  }
+  return snapshots
+}
+
 function collectConnectionSourceItems(connectionRules, snapshots) {
   const items = []
   for (const rule of connectionRules) {
@@ -202,6 +230,8 @@ async function runRemoteStreamingSync({
   maxHydrateAttempts = 3,
   batchCommitterOptions = null,
   jobControl = null,
+  skipMissingRemoval = false,
+  sharedReusableSourceItems = [],
 }) {
   const provider = registry.get(connection.providerType)
   if ((!provider?.streamEnumerateSelection && !provider?.enumerateSelection) || !provider?.hydrateCandidate) {
@@ -215,7 +245,10 @@ async function runRemoteStreamingSync({
     scannedAt: null,
     items: [],
   }
-  const previousItemsByKey = buildSourceItemLookup(previousSnapshot.items)
+  const previousItemsByKey = buildSourceItemLookup([
+    ...(sharedReusableSourceItems || []),
+    ...(previousSnapshot.items || []),
+  ])
   let enumerateResult = {
     complete: true,
     items: [],
@@ -230,6 +263,27 @@ async function runRemoteStreamingSync({
   let readyCount = 0
   let degradedCount = 0
   let failedCount = 0
+  let cachedVisibleStateRules
+  let cachedVisibleStateConnections
+  let cachedSiblingSnapshots = new Map()
+
+  const getVisibleStateRules = async({ refresh = false } = {}) => {
+    if (!refresh && cachedVisibleStateRules !== undefined) return cachedVisibleStateRules
+    const rules = typeof repository.getImportRules === 'function'
+      ? await repository.getImportRules()
+      : []
+    cachedVisibleStateRules = rules
+    return rules
+  }
+
+  const getVisibleStateConnections = async({ refresh = false } = {}) => {
+    if (!refresh && cachedVisibleStateConnections !== undefined) return cachedVisibleStateConnections
+    const connections = typeof repository.getConnections === 'function'
+      ? await repository.getConnections()
+      : [connection]
+    cachedVisibleStateConnections = connections
+    return connections
+  }
 
   const persistCheckpoint = async(currentCommittedItems = committedItems) => {
     const checkpointItems = mergeSourceItems(previousSnapshot.items, dedupeSourceItems(currentCommittedItems))
@@ -279,16 +333,17 @@ async function runRemoteStreamingSync({
       scannedAt: persistFinalState ? scanAt : previousSnapshot.scannedAt,
       items: currentItems,
     }
-    const allRules = typeof repository.getImportRules === 'function'
-      ? await repository.getImportRules()
-      : []
+    const allRules = await getVisibleStateRules({ refresh: persistFinalState })
     const connectionRules = getConnectionRules(allRules, rule, connection.connectionId)
-    const snapshots = await buildSnapshotsForConnection({
+    const snapshots = await buildSnapshotsForConnectionWithCache({
       connectionRules,
       currentRuleId: rule.ruleId,
       currentSnapshot,
       repository,
+      previousSnapshots: cachedSiblingSnapshots,
+      refresh: persistFinalState,
     })
+    cachedSiblingSnapshots = snapshots
 
     generatedLists = buildGeneratedListsForConnection({
       connection,
@@ -313,9 +368,7 @@ async function runRemoteStreamingSync({
     connectionSourceItems = collectConnectionSourceItems(connectionRules, snapshots)
     await repository.saveSourceItems(connection.connectionId, connectionSourceItems)
 
-    const connections = typeof repository.getConnections === 'function'
-      ? await repository.getConnections()
-      : [connection]
+    const connections = await getVisibleStateConnections({ refresh: persistFinalState })
     const connectionIds = [...new Set([
       connection.connectionId,
       ...connections.map(item => item.connectionId).filter(Boolean),
@@ -360,6 +413,7 @@ async function runRemoteStreamingSync({
 
     const processCandidateBatch = async(batch = [], { flushAfterBatch = false } = {}) => {
       if (!batch.length) return
+      let flushedEarlyInBatch = false
 
       await notifications?.showSyncProgress({
         connectionName: connection.displayName,
@@ -393,11 +447,18 @@ async function runRemoteStreamingSync({
         })
 
         await assertJobCanContinue()
+        if (flushAfterBatch && flushedEarlyInBatch && !isReusable) {
+          await committer.flush()
+        }
         if (isReusable) {
           await committer.push({
             ...reusableItem,
             lastSeenAt: scanAt,
           })
+          if (flushAfterBatch && !flushedEarlyInBatch) {
+            await committer.flush()
+            flushedEarlyInBatch = true
+          }
           continue
         }
 
@@ -455,6 +516,10 @@ async function runRemoteStreamingSync({
             hydrateState: 'committed',
           })
           await committer.push(sourceItem)
+          if (flushAfterBatch && !flushedEarlyInBatch) {
+            await committer.flush()
+            flushedEarlyInBatch = true
+          }
         }
       }
 
@@ -493,7 +558,7 @@ async function runRemoteStreamingSync({
       persistFinalState: true,
     })
 
-    if (removedIds.length && typeof listApi?.removeMissingSongs === 'function') {
+    if (!skipMissingRemoval && removedIds.length && typeof listApi?.removeMissingSongs === 'function') {
       await notifications?.showSyncProgress({
         connectionName: connection.displayName,
         phase: 'reconcile_delete',

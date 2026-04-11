@@ -119,6 +119,10 @@ test('repository persists import jobs separately from rules', async() => {
     finishedAt: null,
     summary: '',
     error: '',
+    runtimeOwnerId: null,
+    heartbeatAt: null,
+    pauseRequestedAt: null,
+    resumeAfterJobId: null,
     payload: {
       previousRule: {
         ruleId: 'rule_prev',

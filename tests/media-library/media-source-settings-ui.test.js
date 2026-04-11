@@ -67,11 +67,12 @@ test('Rule save and delete enqueue background jobs instead of blocking the modal
   assert.match(file, /media_source_job_queued/)
 })
 
-test('Account update queues rule sync jobs before falling back to direct rebuilds', () => {
+test('Account update queues a single connection sync job before falling back to direct rebuilds', () => {
   const file = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/index.tsx')
 
   assert.match(file, /const connectionRules = rules\.filter\(rule => rule\.connectionId === connection\.connectionId\)/)
-  assert.match(file, /await Promise\.all\(connectionRules\.map\(async rule => enqueueImportRuleSyncJob\(/)
+  assert.match(file, /enqueueConnectionSyncJob\(/)
+  assert.doesNotMatch(file, /await Promise\.all\(connectionRules\.map\(async rule => enqueueImportRuleSyncJob\(/)
   assert.match(file, /toast\(t\('media_source_job_queued'\)\)/)
 })
 
@@ -129,6 +130,15 @@ test('Media source forms and browsers constrain long text and allow scrolling', 
   assert.match(ruleFile, /flexShrink:\s*1|minWidth:\s*0/)
   assert.match(browserFile, /numberOfLines=\{1\}|numberOfLines=\{2\}/)
   assert.match(browserFile, /flexShrink:\s*1|minWidth:\s*0/)
+})
+
+test('Media source manager does not poll in the modal and directory browser reloads only when path or connection identity changes', () => {
+  const modalFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/index.tsx')
+  const browserFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/DirectoryBrowser.tsx')
+
+  assert.doesNotMatch(modalFile, /setInterval\(/)
+  assert.match(browserFile, /\[connection\.connectionId, connection\.rootPathOrUri, currentPathOrUri\]/)
+  assert.doesNotMatch(browserFile, /\[connection,\s*currentPathOrUri\]/)
 })
 
 test('Generated media playlists expose source-rule and immediate-update actions from mylist header', () => {

@@ -1,3 +1,5 @@
+const DEFAULT_STALE_HEARTBEAT_MS = 15_000
+
 function updateJob(items = [], jobId, patch) {
   return items.map(item => {
     if (item.jobId !== jobId) return item
@@ -23,6 +25,13 @@ function isJobStale(job, now, staleHeartbeatMs) {
   return now - job.heartbeatAt > staleHeartbeatMs
 }
 
+function isActiveImportRuleSyncJob(job, currentTime, staleHeartbeatMs = DEFAULT_STALE_HEARTBEAT_MS) {
+  if (job?.type !== 'import_rule_sync') return false
+  if (job?.status === 'queued') return true
+  if (job?.status !== 'running') return false
+  return !isJobStale(job, currentTime, staleHeartbeatMs)
+}
+
 function createDefaultRuntimeOwnerId(now) {
   return `media_runtime__${now()}__${Math.random().toString(36).slice(2)}`
 }
@@ -30,14 +39,16 @@ function createDefaultRuntimeOwnerId(now) {
 function createMediaImportJobQueue({
   repository,
   runImportRuleJob,
+  runConnectionJob,
   runDeleteRuleJob,
   onImportRuleJobFailed,
   onImportRuleJobPaused,
+  onConnectionJobFailed,
   onDeleteRuleJobFailed,
   now = () => Date.now(),
   finishedJobLimit = 20,
   runtimeOwnerId = createDefaultRuntimeOwnerId(now),
-  staleHeartbeatMs = 15_000,
+  staleHeartbeatMs = DEFAULT_STALE_HEARTBEAT_MS,
   heartbeatIntervalMs = 3_000,
 }) {
   let processingPromise = null
@@ -169,6 +180,11 @@ function createMediaImportJobQueue({
             isPauseRequested: async() => await isPauseRequested(job.jobId),
             heartbeat: async() => await patchJobState(job.jobId, { heartbeatAt: now() }),
           })
+        } else if (job.type === 'connection_sync') {
+          await runConnectionJob?.(job, {
+            isPauseRequested: async() => await isPauseRequested(job.jobId),
+            heartbeat: async() => await patchJobState(job.jobId, { heartbeatAt: now() }),
+          })
         } else if (job.type === 'delete_rule_rebuild') {
           await runDeleteRuleJob?.(job)
         } else {
@@ -213,6 +229,7 @@ function createMediaImportJobQueue({
 
         const errorMessage = String(error?.message || error || 'job failed')
         if (job.type === 'import_rule_sync') await onImportRuleJobFailed?.(job, error)
+        if (job.type === 'connection_sync') await onConnectionJobFailed?.(job, error)
         if (job.type === 'delete_rule_rebuild') await onDeleteRuleJobFailed?.(job, error)
 
         await patchJobState(job.jobId, {
@@ -283,13 +300,35 @@ function createMediaImportJobQueue({
     conflictMode = 'continue_previous',
   }) {
     const job = await withJobsMutation(async() => {
-      let nextJobs = (await getJobs()).filter(item => {
-        return !(item.type === 'import_rule_sync' && item.ruleId === ruleId && item.status === 'queued')
+      const currentTime = now()
+      const jobs = await getJobs()
+      const activeSameRuleJob = jobs.find(item => {
+        return item.type === 'import_rule_sync' &&
+          item.ruleId === ruleId &&
+          item.status === 'running' &&
+          !isJobStale(item, currentTime, staleHeartbeatMs)
+      })
+      if (activeSameRuleJob) {
+        const dedupedJobs = jobs.filter(item => {
+          return !(item.type === 'import_rule_sync' &&
+            item.ruleId === ruleId &&
+            item.jobId !== activeSameRuleJob.jobId &&
+            item.status === 'queued')
+        })
+        if (dedupedJobs.length !== jobs.length) await saveJobs(dedupedJobs)
+        return activeSameRuleJob
+      }
+
+      let nextJobs = jobs.filter(item => {
+        if (item.type !== 'import_rule_sync' || item.ruleId !== ruleId) return true
+        if (item.status === 'queued') return false
+        if (item.status === 'running' && isJobStale(item, currentTime, staleHeartbeatMs)) return false
+        return true
       })
       const activeRunningJob = nextJobs.find(item => {
         return item.type === 'import_rule_sync' &&
           item.status === 'running' &&
-          !isJobStale(item, now(), staleHeartbeatMs)
+          !isJobStale(item, currentTime, staleHeartbeatMs)
       })
       if (activeRunningJob && conflictMode === 'current_first') {
         nextJobs = nextJobs.map(item => {
@@ -362,8 +401,65 @@ function createMediaImportJobQueue({
     return job
   }
 
+  async function enqueueConnectionJob({
+    jobId = `media_job__${now()}`,
+    connectionId,
+    payload = null,
+  }) {
+    const job = await withJobsMutation(async() => {
+      const currentTime = now()
+      const jobs = await getJobs()
+      const activeConnectionJob = jobs.find(item => {
+        return item.type === 'connection_sync' &&
+          item.connectionId === connectionId &&
+          item.status === 'running' &&
+          !isJobStale(item, currentTime, staleHeartbeatMs)
+      })
+      if (activeConnectionJob) {
+        const dedupedJobs = jobs.filter(item => {
+          return !(item.type === 'connection_sync' &&
+            item.connectionId === connectionId &&
+            item.jobId !== activeConnectionJob.jobId &&
+            item.status === 'queued')
+        })
+        if (dedupedJobs.length !== jobs.length) await saveJobs(dedupedJobs)
+        return activeConnectionJob
+      }
+
+      const nextJobs = jobs.filter(item => {
+        if (item.type !== 'connection_sync' || item.connectionId !== connectionId) return true
+        if (item.status === 'queued') return false
+        if (item.status === 'running' && isJobStale(item, currentTime, staleHeartbeatMs)) return false
+        return true
+      })
+      const nextJob = {
+        jobId,
+        type: 'connection_sync',
+        connectionId,
+        ruleId: null,
+        status: 'queued',
+        attempt: 0,
+        createdAt: currentTime,
+        startedAt: null,
+        finishedAt: null,
+        summary: 'queued',
+        error: '',
+        runtimeOwnerId: null,
+        heartbeatAt: null,
+        pauseRequestedAt: null,
+        resumeAfterJobId: null,
+        payload,
+      }
+      await saveJobs([...nextJobs, nextJob])
+      return nextJob
+    })
+    ensureProcessing().catch(() => null)
+    return job
+  }
+
   return {
     ensureProcessing,
+    enqueueConnectionJob,
     enqueueDeleteRuleJob,
     enqueueImportRuleJob,
     getJobs,
@@ -371,5 +467,8 @@ function createMediaImportJobQueue({
 }
 
 module.exports = {
+  DEFAULT_STALE_HEARTBEAT_MS,
   createMediaImportJobQueue,
+  isActiveImportRuleSyncJob,
+  isJobStale,
 }
