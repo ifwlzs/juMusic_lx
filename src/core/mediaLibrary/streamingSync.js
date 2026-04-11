@@ -231,6 +231,7 @@ async function runRemoteStreamingSync({
   batchCommitterOptions = null,
   jobControl = null,
   skipMissingRemoval = false,
+  sharedReusableSourceItems = [],
 }) {
   const provider = registry.get(connection.providerType)
   if ((!provider?.streamEnumerateSelection && !provider?.enumerateSelection) || !provider?.hydrateCandidate) {
@@ -244,7 +245,10 @@ async function runRemoteStreamingSync({
     scannedAt: null,
     items: [],
   }
-  const previousItemsByKey = buildSourceItemLookup(previousSnapshot.items)
+  const previousItemsByKey = buildSourceItemLookup([
+    ...(sharedReusableSourceItems || []),
+    ...(previousSnapshot.items || []),
+  ])
   let enumerateResult = {
     complete: true,
     items: [],

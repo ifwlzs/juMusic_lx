@@ -17,6 +17,16 @@ test('job queue integration forwards conflict mode and job control into remote s
   assert.match(importSyncFile, /jobControl,/)
 })
 
+test('connection sync job queue forwards syncMode into connection-level updates', () => {
+  const jobQueueFile = readFile('src/core/mediaLibrary/jobQueue.ts')
+
+  assert.match(jobQueueFile, /async runConnectionJob\(job: LX\.MediaLibrary\.ImportJob, jobControl\)[\s\S]*const syncMode = job\.payload\?\.syncMode \?\? 'incremental'/)
+  assert.match(jobQueueFile, /async runConnectionJob\(job: LX\.MediaLibrary\.ImportJob, jobControl\)[\s\S]*updateMediaConnection\(\{[\s\S]*syncMode,[\s\S]*\}\)/)
+  assert.match(jobQueueFile, /export const enqueueConnectionSyncJob = async\(\{[\s\S]*syncMode = 'incremental'/)
+  assert.match(jobQueueFile, /export const enqueueConnectionSyncJob = async\(\{[\s\S]*syncMode\?: LX\.MediaLibrary\.SyncMode/)
+  assert.match(jobQueueFile, /export const enqueueConnectionSyncJob = async\(\{[\s\S]*payload:\s*\{[\s\S]*syncMode,[\s\S]*\}/)
+})
+
 test('media source manager offers explicit scan conflict choices and renders paused state copy', () => {
   const managerFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/index.tsx')
   const ruleListFile = readFile('src/screens/Home/Views/Setting/settings/Basic/MediaSourceManagerModal/RuleList.tsx')

@@ -223,6 +223,196 @@ test('media import queue keeps fresh foreign running jobs and only recovers stal
   assert.equal(staleJob.runtimeOwnerId, null)
 })
 
+test('media import queue does not enqueue a duplicate sync job when the same rule is already running', async() => {
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  const queue = createMediaImportJobQueue({
+    repository: repo,
+    runtimeOwnerId: 'runtime_local',
+    staleHeartbeatMs: 50,
+    now: () => 1_000,
+    async runImportRuleJob() {},
+  })
+
+  await repo.saveImportJobs([
+    {
+      jobId: 'job_running',
+      type: 'import_rule_sync',
+      connectionId: 'conn_1',
+      ruleId: 'rule_1',
+      status: 'running',
+      attempt: 1,
+      createdAt: 900,
+      startedAt: 950,
+      heartbeatAt: 990,
+      runtimeOwnerId: 'runtime_foreign',
+      summary: 'running',
+      error: '',
+      payload: null,
+    },
+  ])
+
+  const job = await queue.enqueueImportRuleJob({
+    jobId: 'job_duplicate',
+    connectionId: 'conn_1',
+    ruleId: 'rule_1',
+  })
+
+  const jobs = await repo.getImportJobs()
+  assert.equal(job.jobId, 'job_running')
+  assert.deepEqual(jobs.map(item => item.jobId), ['job_running'])
+  assert.equal(jobs[0].status, 'running')
+})
+
+test('media import queue replaces a stale running sync job for the same rule with the new enqueue', async() => {
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  const queue = createMediaImportJobQueue({
+    repository: repo,
+    runtimeOwnerId: 'runtime_local',
+    staleHeartbeatMs: 50,
+    now: () => 1_000,
+    async runImportRuleJob() {},
+  })
+
+  await repo.saveImportJobs([
+    {
+      jobId: 'job_stale_running',
+      type: 'import_rule_sync',
+      connectionId: 'conn_1',
+      ruleId: 'rule_1',
+      status: 'running',
+      attempt: 1,
+      createdAt: 900,
+      startedAt: 910,
+      heartbeatAt: 920,
+      runtimeOwnerId: 'runtime_crashed',
+      summary: 'running',
+      error: '',
+      payload: null,
+    },
+  ])
+
+  const job = await queue.enqueueImportRuleJob({
+    jobId: 'job_retry',
+    connectionId: 'conn_1',
+    ruleId: 'rule_1',
+  })
+
+  const jobs = await repo.getImportJobs()
+  assert.equal(job.jobId, 'job_retry')
+  assert.deepEqual(jobs.map(item => item.jobId), ['job_retry'])
+  assert.equal(jobs[0].status, 'queued')
+})
+
+test('media import queue dedupes queued connection sync jobs for the same connection and runs only the latest enqueue', async() => {
+  const calls = []
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  const queue = createMediaImportJobQueue({
+    repository: repo,
+    now: (() => {
+      let value = 1_100
+      return () => ++value
+    })(),
+    async runConnectionJob(job) {
+      calls.push(job.connectionId)
+    },
+  })
+
+  await repo.saveImportJobs([{
+    jobId: 'job_existing_connection',
+    type: 'connection_sync',
+    connectionId: 'conn_1',
+    ruleId: null,
+    status: 'queued',
+    attempt: 0,
+    createdAt: 1_000,
+    startedAt: null,
+    finishedAt: null,
+    summary: 'queued',
+    error: '',
+    payload: null,
+  }])
+
+  await queue.enqueueConnectionJob({
+    connectionId: 'conn_1',
+  })
+
+  await waitForQueueToDrain(queue)
+
+  assert.deepEqual(calls, ['conn_1'])
+  const jobs = await repo.getImportJobs()
+  assert.equal(jobs.length, 1)
+  assert.equal(jobs[0].type, 'connection_sync')
+  assert.equal(jobs[0].status, 'success')
+})
+
+test('media import queue does not enqueue a duplicate connection sync job when the same connection is already running', async() => {
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  const queue = createMediaImportJobQueue({
+    repository: repo,
+    runtimeOwnerId: 'runtime_local',
+    staleHeartbeatMs: 50,
+    now: () => 1_200,
+    async runConnectionJob() {},
+  })
+
+  await repo.saveImportJobs([{
+    jobId: 'job_connection_running',
+    type: 'connection_sync',
+    connectionId: 'conn_1',
+    ruleId: null,
+    status: 'running',
+    attempt: 1,
+    createdAt: 1_100,
+    startedAt: 1_150,
+    heartbeatAt: 1_190,
+    runtimeOwnerId: 'runtime_foreign',
+    summary: 'running',
+    error: '',
+    payload: null,
+  }])
+
+  const job = await queue.enqueueConnectionJob({
+    jobId: 'job_connection_duplicate',
+    connectionId: 'conn_1',
+  })
+
+  const jobs = await repo.getImportJobs()
+  assert.equal(job.jobId, 'job_connection_running')
+  assert.deepEqual(jobs.map(item => item.jobId), ['job_connection_running'])
+  assert.equal(jobs[0].status, 'running')
+})
+
+test('media import queue keeps the latest syncMode when deduping the same connection job', async() => {
+  const calls = []
+  const repo = createMediaLibraryRepository(createMemoryStorage())
+  const queue = createMediaImportJobQueue({
+    repository: repo,
+    now: (() => {
+      let value = 1_300
+      return () => ++value
+    })(),
+    async runConnectionJob(job) {
+      calls.push([job.connectionId, job.payload?.syncMode || null])
+    },
+  })
+
+  await queue.enqueueConnectionJob({
+    connectionId: 'conn_1',
+    payload: {
+      syncMode: 'full_validation',
+    },
+  })
+  await queue.enqueueConnectionJob({
+    connectionId: 'conn_1',
+    payload: {
+      syncMode: 'incremental',
+    },
+  })
+
+  await waitForQueueToDrain(queue)
+  assert.deepEqual(calls, [['conn_1', 'incremental']])
+})
+
 test('media import queue current_first marks the active job for pause and prepends the new job', async() => {
   const repo = createMediaLibraryRepository(createMemoryStorage())
   const queue = createMediaImportJobQueue({

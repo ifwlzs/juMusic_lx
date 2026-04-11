@@ -9,7 +9,7 @@ import {
   updateUserList,
   updateUserListPosition,
 } from '@/core/list'
-import { deleteImportRule, updateImportRule } from './importSync'
+import { deleteImportRule, updateImportRule, updateMediaConnection } from './importSync'
 import { runEligibleMediaLibraryAutoSync } from './autoSync'
 import { createMediaImportJobQueue } from './jobs.js'
 import { createMediaLibraryListApi } from './listApi'
@@ -46,6 +46,20 @@ const setRuleStatus = async(ruleId: string, status: LX.MediaLibrary.ConnectionSc
     lastSyncSummary: summary,
     ...(syncAt !== undefined ? { lastSyncAt: syncAt } : {}),
   }))
+}
+
+const setConnectionRulesStatus = async(connectionId: string, status: LX.MediaLibrary.ConnectionScanStatus, summary: string, syncAt?: number | null) => {
+  const rules = await mediaLibraryRepository.getImportRules() as LX.MediaLibrary.ImportRule[]
+  const nextRules = rules.map(rule => {
+    if (rule.connectionId !== connectionId) return rule
+    return {
+      ...rule,
+      lastSyncStatus: status,
+      lastSyncSummary: summary,
+      ...(syncAt !== undefined ? { lastSyncAt: syncAt } : {}),
+    }
+  })
+  await mediaLibraryRepository.saveImportRules(nextRules)
 }
 
 const replaceConnection = async(connectionId: string, updater: (connection: LX.MediaLibrary.SourceConnection) => LX.MediaLibrary.SourceConnection) => {
@@ -108,6 +122,48 @@ const maybeStartBackgroundSync = async(connection?: LX.MediaLibrary.SourceConnec
   }
 }
 
+const buildConnectionResultSummary = (results: Array<{
+  syncStats?: {
+    committedCount?: number
+    removedCount?: number
+    discoveredCount?: number
+  } | null
+  scanResult?: {
+    summary?: {
+      success?: number
+      failed?: number
+      skipped?: number
+    } | null
+  } | null
+} | null | undefined> = []) => {
+  if (!results.length) return 'success'
+
+  const hasStats = results.some(result => result?.syncStats)
+  if (hasStats) {
+    const totals = results.reduce((sum, result) => ({
+      committedCount: sum.committedCount + (result?.syncStats?.committedCount ?? 0),
+      removedCount: sum.removedCount + (result?.syncStats?.removedCount ?? 0),
+      discoveredCount: sum.discoveredCount + (result?.syncStats?.discoveredCount ?? 0),
+    }), {
+      committedCount: 0,
+      removedCount: 0,
+      discoveredCount: 0,
+    })
+    return `rules: ${results.length}, committed: ${totals.committedCount}, removed: ${totals.removedCount}, discovered: ${totals.discoveredCount}`
+  }
+
+  const totals = results.reduce((sum, result) => ({
+    success: sum.success + (result?.scanResult?.summary?.success ?? 0),
+    failed: sum.failed + (result?.scanResult?.summary?.failed ?? 0),
+    skipped: sum.skipped + (result?.scanResult?.summary?.skipped ?? 0),
+  }), {
+    success: 0,
+    failed: 0,
+    skipped: 0,
+  })
+  return `rules: ${results.length}, success: ${totals.success}, failed: ${totals.failed}, skipped: ${totals.skipped}`
+}
+
 const getQueue = () => {
   if (queue) return queue
 
@@ -142,6 +198,27 @@ const getQueue = () => {
       await setRuleStatus(rule.ruleId, result.isComplete ? 'success' : 'failed', summary, Date.now())
       await setConnectionStatus(connection.connectionId, result.isComplete ? 'success' : 'failed', summary, Date.now())
     },
+    async runConnectionJob(job: LX.MediaLibrary.ImportJob, jobControl) {
+      const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
+      const connection = connections.find(item => item.connectionId === job.connectionId)
+      if (!connection) return
+
+      const syncMode = job.payload?.syncMode ?? 'incremental'
+      await maybeStartBackgroundSync(connection)
+      await setConnectionStatus(connection.connectionId, 'running', 'running')
+      const results = await updateMediaConnection({
+        connection,
+        repository: mediaLibraryRepository,
+        registry: getMediaLibraryRuntimeRegistry(),
+        listApi,
+        triggerSource: job.payload?.triggerSource ?? 'manual',
+        notifications: syncNotifications,
+        jobControl,
+        syncMode,
+      })
+      const isComplete = results.every(result => result?.isComplete !== false)
+      await setConnectionStatus(connection.connectionId, isComplete ? 'success' : 'failed', buildConnectionResultSummary(results), Date.now())
+    },
     async runDeleteRuleJob(job: LX.MediaLibrary.ImportJob) {
       await deleteImportRule({
         ruleId: job.ruleId!,
@@ -159,6 +236,10 @@ const getQueue = () => {
       if (!job.ruleId) return
       await setRuleStatus(job.ruleId, 'paused', 'paused', Date.now())
       await setConnectionStatus(job.connectionId, 'paused', 'paused', Date.now())
+    },
+    async onConnectionJobFailed(job: LX.MediaLibrary.ImportJob, error: Error) {
+      const message = String(error?.message || error || 'job failed')
+      await setConnectionStatus(job.connectionId, 'failed', message, Date.now())
     },
     async onDeleteRuleJobFailed(job: LX.MediaLibrary.ImportJob, error: Error) {
       if (!job.ruleId) return
@@ -205,6 +286,32 @@ export const enqueueImportRuleSyncJob = async({
     },
     conflictMode,
   })
+}
+
+export const enqueueConnectionSyncJob = async({
+  connectionId,
+  triggerSource = 'manual',
+  syncMode = 'incremental',
+}: {
+  connectionId: string
+  triggerSource?: LX.MediaLibrary.SyncTriggerSource
+  syncMode?: LX.MediaLibrary.SyncMode
+}) => {
+  const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
+  const connection = connections.find(item => item.connectionId === connectionId)
+  await maybeStartBackgroundSync(connection)
+  const job = await getQueue().enqueueConnectionJob({
+    connectionId,
+    payload: {
+      triggerSource,
+      syncMode,
+    },
+  })
+  if (job.status === 'queued') {
+    await setConnectionRulesStatus(connectionId, 'running', 'queued')
+    await setConnectionStatus(connectionId, 'running', 'queued')
+  }
+  return job
 }
 
 export const triggerEligibleMediaLibraryAutoSync = async(trigger: LX.MediaLibrary.AutoSyncTrigger) => {

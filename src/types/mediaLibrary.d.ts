@@ -4,7 +4,7 @@ declare namespace LX {
     type ConnectionScanStatus = 'idle' | 'running' | 'paused' | 'success' | 'failed'
     type ImportRuleMode = 'account_all_only' | 'per_directory' | 'merged'
     type BrowserNodeKind = 'directory' | 'track'
-    type ImportJobType = 'import_rule_sync' | 'delete_rule_rebuild'
+    type ImportJobType = 'import_rule_sync' | 'delete_rule_rebuild' | 'connection_sync'
     type ImportJobStatus = 'queued' | 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
     type ImportJobConflictMode = 'continue_previous' | 'current_first'
     type SyncTriggerSource = 'manual' | 'auto'

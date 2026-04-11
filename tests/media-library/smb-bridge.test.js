@@ -186,6 +186,61 @@ test('createSmbProvider streamEnumerateSelection streams candidates before hydra
   assert.equal(result.items[0].pathOrUri, '/music/a.mp3')
 })
 
+test('createSmbProvider streamEnumerateSelection emits current-directory candidates before nested SMB traversal finishes', async() => {
+  const batches = []
+  const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
+  let resolveNestedRequest
+  let releaseNestedDirectory
+  const nestedRequested = new Promise(resolve => {
+    resolveNestedRequest = resolve
+  })
+  const nestedBlocked = new Promise(resolve => {
+    releaseNestedDirectory = resolve
+  })
+
+  const provider = createSmbProvider({
+    async listDirectory(_connection, pathOrUri) {
+      if (pathOrUri === '/music') {
+        return [
+          { path: '/music/a.mp3', name: 'a.mp3', isDirectory: false, size: 10, modifiedTime: 1700000000001 },
+          { path: '/music/nested', name: 'nested', isDirectory: true },
+        ]
+      }
+      if (pathOrUri === '/music/nested') {
+        resolveNestedRequest()
+        await nestedBlocked
+        return [
+          { path: '/music/nested/b.flac', name: 'b.flac', isDirectory: false, size: 20, modifiedTime: 1700000000003 },
+        ]
+      }
+      return []
+    },
+    async readMetadata() { return null },
+    async downloadFile() { return null },
+  })
+
+  const streamPromise = provider.streamEnumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'smb',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music', displayName: 'music' }],
+    tracks: [],
+  }, async batch => {
+    batches.push(batch.map(item => item.pathOrUri))
+  })
+
+  await nestedRequested
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(batches, [['/music/a.mp3']])
+
+  releaseNestedDirectory()
+  const result = await streamPromise
+  assert.deepEqual(result.items.map(item => item.pathOrUri), [
+    '/music/a.mp3',
+    '/music/nested/b.flac',
+  ])
+})
+
 test('createSmbProvider hydrateCandidate falls back to the existing metadata read when hints are incomplete', async() => {
   const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
 
