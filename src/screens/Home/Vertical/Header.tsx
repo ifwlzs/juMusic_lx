@@ -3,7 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 // import { navigations } from '@/navigation'
 // import { BorderWidths } from '@/theme'
 import { useTheme } from '@/store/theme/hook'
-import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
+import { useComponentIds, useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import { Icon } from '@/components/common/Icon'
@@ -99,10 +99,11 @@ const RightHeader = () => {
 
 const Header = () => {
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
+  const componentIds = useComponentIds()
 
   return (
     <>
-      <StatusBar />
+      {componentIds.playDetail ? null : <StatusBar />}
       {
         drawerLayoutPosition == 'left'
           ? <LeftHeader />

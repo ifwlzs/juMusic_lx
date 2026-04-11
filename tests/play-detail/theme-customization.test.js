@@ -83,3 +83,13 @@ test('theme init does not globally override screen-specific status bar styles af
   assert.doesNotMatch(initThemeFile, /StatusBar\.setBarStyle\(/)
   assert.doesNotMatch(initThemeFile, /import StatusBar from ['"]@\/components\/common\/StatusBar['"]/)
 })
+
+test('home screen suspends its own status bar while play detail is stacked on top', () => {
+  const homeHorizontalFile = readFile('src/screens/Home/Horizontal/index.tsx')
+  const homeVerticalHeaderFile = readFile('src/screens/Home/Vertical/Header.tsx')
+
+  assert.match(homeHorizontalFile, /useComponentIds/)
+  assert.match(homeHorizontalFile, /componentIds\.playDetail\s*\?\s*null\s*:\s*<StatusBar \/>/)
+  assert.match(homeVerticalHeaderFile, /useComponentIds/)
+  assert.match(homeVerticalHeaderFile, /componentIds\.playDetail\s*\?\s*null\s*:\s*<StatusBar \/>/)
+})

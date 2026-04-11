@@ -5,6 +5,7 @@ import StatusBar from '@/components/common/StatusBar'
 import Header from './Header'
 import Main from './Main'
 import { createStyle } from '@/utils/tools'
+import { useComponentIds } from '@/store/common/hook'
 
 const styles = createStyle({
   container: {
@@ -18,9 +19,11 @@ const styles = createStyle({
 })
 
 export default () => {
+  const componentIds = useComponentIds()
+
   return (
     <>
-      <StatusBar />
+      {componentIds.playDetail ? null : <StatusBar />}
       <View style={styles.container}>
         <Aside />
         <View style={styles.content}>

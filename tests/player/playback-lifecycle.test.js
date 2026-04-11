@@ -19,3 +19,16 @@ test('playback service keeps decisive play states even while a transient track o
   assert.match(serviceFile, /const shouldIgnoreTransientState =[\s\S]*TPState\.Playing[\s\S]*TPState\.Paused[\s\S]*TPState\.Stopped/)
   assert.match(serviceFile, /if\s*\(\s*shouldIgnoreTransientState\s*\)\s*return/)
 })
+
+test('player stop does not advance to the next track after stopping playback', () => {
+  const playerUtilsFile = readFile('src/plugins/player/utils.ts')
+  const playerCoreFile = readFile('src/core/player/player.ts')
+  const setStopBlock = playerUtilsFile.slice(
+    playerUtilsFile.indexOf('export const setStop = async() => {'),
+    playerUtilsFile.indexOf('export const setLoop = async'),
+  )
+
+  assert.match(setStopBlock, /export const setStop = async\(\) => \{\s*[\s\S]*TrackPlayer\.stop\(\)/)
+  assert.doesNotMatch(setStopBlock, /skipToNext\(\)/)
+  assert.match(playerCoreFile, /export const stop = async\(\) => \{\s*[\s\S]*await setStop\(\)/)
+})
