@@ -31,6 +31,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 优化本地、OneDrive、SMB、WebDAV 媒体来源的流式导入首批可见速度，浅层目录与已就绪批次会更早进入歌单
 - 优化媒体来源播放统计，新增单次播放历史记录，并将播放统计与播放历史纳入“所有数据”备份导入导出，便于换机迁移与年终总结
 
+## [0.26.04121611](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04112015...v0.26.04121611) - 2026-04-12
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04112015](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04111351...v0.26.04112015) - 2026-04-11
 
 修复
