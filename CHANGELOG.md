@@ -32,6 +32,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 优化媒体来源播放统计，新增单次播放历史记录，并将播放统计与播放历史纳入“所有数据”备份导入导出，便于换机迁移与年终总结
 - 新增播放历史 JSON 导出入口，支持全部 / 今年 / 最近 30 天 / 自定义时间范围筛选，便于后续生成歌曲年终报告
 
+## [0.26.04122109](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04121611...v0.26.04122109) - 2026-04-12
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04121611](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04112015...v0.26.04121611) - 2026-04-12
 
 修复
