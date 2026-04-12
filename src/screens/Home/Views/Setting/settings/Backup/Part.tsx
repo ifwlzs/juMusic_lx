@@ -8,12 +8,14 @@ import Button from '../../components/Button'
 import { useI18n } from '@/lang'
 import AllDataImportExport, { type AllDataImportExportType } from './AllDataImportExport'
 import ListImportExport, { type ListImportExportType } from './ListImportExport'
+import PlayHistoryExport, { type PlayHistoryExportType } from './PlayHistoryExport'
 
 
 export default memo(() => {
   const t = useI18n()
   const listImportExportRef = useRef<ListImportExportType>(null)
   const allDataImportExportRef = useRef<AllDataImportExportType>(null)
+  const playHistoryExportRef = useRef<PlayHistoryExportType>(null)
 
   return (
     <>
@@ -29,8 +31,14 @@ export default memo(() => {
           <Button onPress={() => allDataImportExportRef.current?.export()}>{t('setting_backup_all_export')}</Button>
         </View>
       </SubTitle>
+      <SubTitle title={t('setting_backup_play_history')}>
+        <View style={styles.list}>
+          <Button onPress={() => playHistoryExportRef.current?.export()}>{t('setting_backup_play_history_export_json')}</Button>
+        </View>
+      </SubTitle>
       <AllDataImportExport ref={allDataImportExportRef} />
       <ListImportExport ref={listImportExportRef} />
+      <PlayHistoryExport ref={playHistoryExportRef} />
     </>
   )
 })

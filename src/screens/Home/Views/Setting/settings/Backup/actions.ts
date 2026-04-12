@@ -1,11 +1,21 @@
 import { LIST_IDS } from '@/config/constant'
 import { createList, getListMusics, overwriteList, overwriteListFull, overwriteListMusics } from '@/core/list'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { writeFile } from '@/utils/fs'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@/utils'
 import { log } from '@/utils/log'
 import { confirmDialog, handleReadFile, handleSaveFile, showImportTip, toast } from '@/utils/tools'
 import listState from '@/store/list/state'
 import { createMediaSourceBackupPayload, restoreMediaSourceBackupPayload } from './mediaSourceBackup'
+import { buildPlayHistoryExportFileName, buildPlayHistoryExportPayload, resolvePlayHistoryExportRange } from './playHistoryExport'
+
+type PlayHistoryExportPreset = 'all' | 'year' | 'last30Days' | 'custom'
+
+interface PlayHistoryExportSelection {
+  preset: PlayHistoryExportPreset
+  startDate?: string
+  endDate?: string
+}
 
 
 const getAllLists = async() => {
@@ -281,5 +291,52 @@ export const handleExportAllData = (path: string) => {
   }).catch((err: any) => {
     log.error(err.message)
     toast(global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string))
+  })
+}
+
+const exportPlayHistoryJson = async(path: string, selection: PlayHistoryExportSelection) => {
+  const range = resolvePlayHistoryExportRange(selection)
+  const [playHistory, aggregateSongs, connections] = await Promise.all([
+    mediaLibraryRepository.getPlayHistory() as Promise<LX.MediaLibrary.PlayHistory[]>,
+    mediaLibraryRepository.getAggregateSongs() as Promise<LX.MediaLibrary.AggregateSong[]>,
+    mediaLibraryRepository.getConnections() as Promise<LX.MediaLibrary.SourceConnection[]>,
+  ])
+
+  const sourceItems = connections.length
+    ? (await mediaLibraryRepository.getAllSourceItems(connections.map(item => item.connectionId))) as LX.MediaLibrary.SourceItem[]
+    : []
+
+  const payload = buildPlayHistoryExportPayload({
+    range,
+    playHistory,
+    aggregateSongs,
+    sourceItems,
+  })
+
+  const fileName = buildPlayHistoryExportFileName(range)
+  await writeFile(path + '/' + fileName, JSON.stringify(payload, null, 2), 'utf8')
+}
+
+const getPlayHistoryExportErrorMessage = (error: any) => {
+  switch (error?.message) {
+    case 'invalid_start_date':
+      return global.i18n.t('setting_backup_play_history_range_invalid_start')
+    case 'invalid_end_date':
+      return global.i18n.t('setting_backup_play_history_range_invalid_end')
+    case 'invalid_date_range':
+      return global.i18n.t('setting_backup_play_history_range_invalid_order')
+    default:
+      return error?.message as string || ''
+  }
+}
+
+export const handleExportPlayHistoryJson = (path: string, selection: PlayHistoryExportSelection) => {
+  toast(global.i18n.t('setting_backup_play_history_export_tip_running'))
+  void exportPlayHistoryJson(path, selection).then(() => {
+    toast(global.i18n.t('setting_backup_play_history_export_tip_success'))
+  }).catch((err: any) => {
+    log.error(err)
+    const message = getPlayHistoryExportErrorMessage(err)
+    toast(global.i18n.t('setting_backup_play_history_export_tip_failed') + (message ? ': ' + message : ''))
   })
 }
