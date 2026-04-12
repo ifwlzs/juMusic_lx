@@ -1,8 +1,29 @@
 const { createPlaySession, updatePlaySession } = require('./playStats.js')
 
-function createAnalyticsRecorder({ save }) {
+function createAnalyticsRecorder({ save, saveHistory }) {
   let session = null
   let stats = null
+  let sessionStartedAt = 0
+
+  const persistCurrentSession = () => {
+    if (!session || !stats || stats.playDurationTotalSec <= 0) return null
+    const endedAt = Date.now()
+    const persistTasks = [
+      save({ ...stats, lastPlayedAt: endedAt }),
+    ]
+    if (typeof saveHistory === 'function') {
+      persistTasks.push(saveHistory({
+        aggregateSongId: stats.aggregateSongId,
+        sourceItemId: stats.lastSourceItemId,
+        startedAt: sessionStartedAt,
+        endedAt,
+        listenedSec: stats.playDurationTotalSec,
+        durationSec: session.durationSec,
+        countedPlay: Boolean(stats.playCount),
+      }))
+    }
+    return Promise.all(persistTasks)
+  }
 
   return {
     startSession({ aggregateSongId, sourceItemId, durationSec }) {
@@ -13,11 +34,10 @@ function createAnalyticsRecorder({ save }) {
         stats?.lastSourceItemId === sourceItemId
       if (isSameSession) return
 
-      if (stats && stats.playDurationTotalSec > 0) {
-        save({ ...stats, lastPlayedAt: Date.now() })
-      }
+      if (stats && stats.playDurationTotalSec > 0) void persistCurrentSession()
 
       session = createPlaySession({ durationSec })
+      sessionStartedAt = Date.now()
       stats = {
         aggregateSongId,
         lastSourceItemId: sourceItemId,
@@ -36,14 +56,14 @@ function createAnalyticsRecorder({ save }) {
     finishSession() {
       if (!stats) {
         session = null
+        sessionStartedAt = 0
         return
       }
 
-      const result = stats.playDurationTotalSec > 0
-        ? save({ ...stats, lastPlayedAt: Date.now() })
-        : null
+      const result = persistCurrentSession()
       session = null
       stats = null
+      sessionStartedAt = 0
       return result
     },
   }

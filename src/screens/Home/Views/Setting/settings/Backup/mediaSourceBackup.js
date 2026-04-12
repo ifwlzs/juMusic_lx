@@ -6,6 +6,8 @@ async function createMediaSourceBackupPayload(repository) {
   const connections = await repository.getConnections() || []
   const importRules = await repository.getImportRules() || []
   const aggregateSongs = await repository.getAggregateSongs() || []
+  const playStats = await repository.getPlayStats() || []
+  const playHistory = await repository.getPlayHistory() || []
 
   const credentials = toRecord(await Promise.all(connections.map(async connection => {
     if (!connection?.credentialRef) return null
@@ -39,6 +41,8 @@ async function createMediaSourceBackupPayload(repository) {
     syncSnapshots,
     sourceItems,
     aggregateSongs,
+    playStats,
+    playHistory,
   }
 }
 
@@ -50,6 +54,8 @@ async function restoreMediaSourceBackupPayload(repository, payload = {}) {
   const syncSnapshots = payload.syncSnapshots && typeof payload.syncSnapshots === 'object' ? payload.syncSnapshots : {}
   const sourceItems = payload.sourceItems && typeof payload.sourceItems === 'object' ? payload.sourceItems : {}
   const aggregateSongs = Array.isArray(payload.aggregateSongs) ? payload.aggregateSongs : []
+  const playStats = Array.isArray(payload.playStats) ? payload.playStats : []
+  const playHistory = Array.isArray(payload.playHistory) ? payload.playHistory : []
 
   const previousConnections = await repository.getConnections() || []
   const previousRules = await repository.getImportRules() || []
@@ -98,6 +104,8 @@ async function restoreMediaSourceBackupPayload(repository, payload = {}) {
     await repository.saveSourceItems(connection.connectionId, sourceItems[connection.connectionId] || [])
   }
   await repository.saveAggregateSongs(aggregateSongs)
+  await repository.savePlayStats(playStats)
+  await repository.savePlayHistory(playHistory)
 }
 
 module.exports = {

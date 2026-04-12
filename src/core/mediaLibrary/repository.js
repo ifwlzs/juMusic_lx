@@ -14,6 +14,7 @@ function createKeyBuilder(prefix = '@media_library__') {
     aggregateSongs: () => `${prefix}aggregate_songs`,
     caches: () => `${prefix}caches`,
     playStats: () => `${prefix}play_stats`,
+    playHistory: () => `${prefix}play_history`,
   }
 }
 
@@ -160,6 +161,28 @@ function sanitizeConnection(connection) {
   }
 }
 
+function sanitizePlayStat(stat = {}) {
+  return {
+    aggregateSongId: stat.aggregateSongId,
+    lastSourceItemId: stat.lastSourceItemId,
+    playCount: Number(stat.playCount) || 0,
+    playDurationTotalSec: Number(stat.playDurationTotalSec) || 0,
+    lastPlayedAt: Number(stat.lastPlayedAt) || 0,
+  }
+}
+
+function sanitizePlayHistory(entry = {}) {
+  return {
+    aggregateSongId: entry.aggregateSongId,
+    sourceItemId: entry.sourceItemId,
+    startedAt: Number(entry.startedAt) || 0,
+    endedAt: Number(entry.endedAt) || 0,
+    listenedSec: Number(entry.listenedSec) || 0,
+    durationSec: Number(entry.durationSec) || 0,
+    countedPlay: entry.countedPlay === true,
+  }
+}
+
 function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
   return {
     async getConnections() {
@@ -283,7 +306,7 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
       const prevStats = await storage.get(keys.playStats()) || []
       const index = prevStats.findIndex(item => item.aggregateSongId === nextStat.aggregateSongId)
       if (index < 0) {
-        prevStats.push(nextStat)
+        prevStats.push(sanitizePlayStat(nextStat))
       } else {
         prevStats[index] = {
           ...prevStats[index],
@@ -297,7 +320,19 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
       return prevStats
     },
     async savePlayStats(items) {
-      await storage.set(keys.playStats(), items)
+      await storage.set(keys.playStats(), Array.isArray(items) ? items.map(sanitizePlayStat) : [])
+    },
+    async getPlayHistory() {
+      return await storage.get(keys.playHistory()) || []
+    },
+    async appendPlayHistory(entry) {
+      const prevHistory = await storage.get(keys.playHistory()) || []
+      prevHistory.push(sanitizePlayHistory(entry))
+      await storage.set(keys.playHistory(), prevHistory)
+      return prevHistory
+    },
+    async savePlayHistory(items) {
+      await storage.set(keys.playHistory(), Array.isArray(items) ? items.map(sanitizePlayHistory) : [])
     },
     async reconcileScannedItems(connectionId, nextItems) {
       const prevItems = await storage.get(keys.sourceItems(connectionId)) || []

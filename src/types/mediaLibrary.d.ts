@@ -226,6 +226,16 @@ declare namespace LX {
       lastPlayedAt: number
     }
 
+    interface PlayHistoryEntry {
+      aggregateSongId: string
+      sourceItemId: string
+      startedAt: number
+      endedAt: number
+      listenedSec: number
+      durationSec: number
+      countedPlay: boolean
+    }
+
     interface DevSeedConnection {
       connection: SourceConnection
       credential?: ConnectionCredential | null

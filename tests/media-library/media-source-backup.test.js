@@ -20,7 +20,7 @@ const createMemoryStorage = () => {
   }
 }
 
-test('media source backup exports credentials, connections, rules, snapshots, source items, and aggregate songs', async() => {
+test('media source backup exports credentials, connections, rules, snapshots, source items, aggregate songs, play stats, and play history', async() => {
   const repo = createMediaLibraryRepository(createMemoryStorage())
 
   await repo.saveConnections([{
@@ -72,6 +72,22 @@ test('media source backup exports credentials, connections, rules, snapshots, so
     preferredSource: 'webdav',
     sourceItemIds: ['item_1'],
   }])
+  await repo.savePlayStats([{
+    aggregateSongId: 'agg_1',
+    lastSourceItemId: 'item_1',
+    playCount: 3,
+    playDurationTotalSec: 540,
+    lastPlayedAt: 123456789,
+  }])
+  await repo.savePlayHistory([{
+    aggregateSongId: 'agg_1',
+    sourceItemId: 'item_1',
+    startedAt: 123456000,
+    endedAt: 123456789,
+    listenedSec: 540,
+    durationSec: 600,
+    countedPlay: true,
+  }])
 
   const payload = await createMediaSourceBackupPayload(repo)
 
@@ -82,6 +98,10 @@ test('media source backup exports credentials, connections, rules, snapshots, so
   assert.equal(payload.syncSnapshots.rule_1.items[0].sourceStableKey, 'webdav::/Albums/song.mp3')
   assert.equal(payload.sourceItems.conn_1[0].sourceItemId, 'item_1')
   assert.equal(payload.aggregateSongs[0].aggregateSongId, 'agg_1')
+  assert.equal(payload.playStats[0].aggregateSongId, 'agg_1')
+  assert.equal(payload.playStats[0].playCount, 3)
+  assert.equal(payload.playHistory[0].aggregateSongId, 'agg_1')
+  assert.equal(payload.playHistory[0].countedPlay, true)
 })
 
 test('restoreMediaSourceBackupPayload replaces removed media source state', async() => {
@@ -129,6 +149,22 @@ test('restoreMediaSourceBackupPayload replaces removed media source state', asyn
     canonicalDurationSec: 120,
     preferredSourceItemId: 'old_item',
     sourceCount: 1,
+  }])
+  await repo.savePlayStats([{
+    aggregateSongId: 'old_agg',
+    lastSourceItemId: 'old_item',
+    playCount: 7,
+    playDurationTotalSec: 888,
+    lastPlayedAt: 99,
+  }])
+  await repo.savePlayHistory([{
+    aggregateSongId: 'old_agg',
+    sourceItemId: 'old_item',
+    startedAt: 10,
+    endedAt: 99,
+    listenedSec: 888,
+    durationSec: 999,
+    countedPlay: false,
   }])
 
   await restoreMediaSourceBackupPayload(repo, {
@@ -189,6 +225,22 @@ test('restoreMediaSourceBackupPayload replaces removed media source state', asyn
       preferredSource: 'onedrive',
       sourceItemIds: ['item_1'],
     }],
+    playStats: [{
+      aggregateSongId: 'agg_1',
+      lastSourceItemId: 'item_1',
+      playCount: 5,
+      playDurationTotalSec: 600,
+      lastPlayedAt: 200,
+    }],
+    playHistory: [{
+      aggregateSongId: 'agg_1',
+      sourceItemId: 'item_1',
+      startedAt: 150,
+      endedAt: 200,
+      listenedSec: 600,
+      durationSec: 620,
+      countedPlay: true,
+    }],
   })
 
   assert.deepEqual((await repo.getConnections()).map(item => item.connectionId), ['conn_1'])
@@ -199,6 +251,22 @@ test('restoreMediaSourceBackupPayload replaces removed media source state', asyn
   assert.equal((await repo.getSyncSnapshot('rule_1')).items[0].sourceStableKey, 'onedrive::item_1')
   assert.deepEqual(await repo.getSourceItems('old_conn'), [])
   assert.deepEqual((await repo.getAggregateSongs()).map(item => item.aggregateSongId), ['agg_1'])
+  assert.deepEqual(await repo.getPlayStats(), [{
+    aggregateSongId: 'agg_1',
+    lastSourceItemId: 'item_1',
+    playCount: 5,
+    playDurationTotalSec: 600,
+    lastPlayedAt: 200,
+  }])
+  assert.deepEqual(await repo.getPlayHistory(), [{
+    aggregateSongId: 'agg_1',
+    sourceItemId: 'item_1',
+    startedAt: 150,
+    endedAt: 200,
+    listenedSec: 600,
+    durationSec: 620,
+    countedPlay: true,
+  }])
 })
 
 test('backup page exposes all-data import and export for list plus media source data', () => {

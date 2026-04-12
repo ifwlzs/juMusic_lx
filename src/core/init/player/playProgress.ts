@@ -27,6 +27,9 @@ const analyticsRecorder = createAnalyticsRecorder({
   async save(stats: LX.MediaLibrary.PlayStat) {
     return await mediaLibraryRepository.mergePlayStat(stats)
   },
+  async saveHistory(entry: LX.MediaLibrary.PlayHistoryEntry) {
+    return await mediaLibraryRepository.appendPlayHistory(entry)
+  },
 })
 
 export default () => {
