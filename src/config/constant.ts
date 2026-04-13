@@ -41,6 +41,7 @@ export const storageDataPrefix = {
   setting: '@setting_v1',
   userList: '@user_list',
   mediaLibrary: '@media_library__',
+  accountSync: '@account_sync',
   viewPrevState: '@view_prev_state',
 
   list: '@list__',
