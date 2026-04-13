@@ -34,6 +34,8 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 完善播放链路埋点上下文，新增 entrySource / endReason / seek 行为统计，并覆盖搜索、deeplink、恢复播放、手动切歌与自动下一曲场景
 - 新增年度聚合缓存（yearSummary/yearTimeStats/yearEntityStats/lifetimeEntityIndex）与备份恢复后的可重建能力，支持歌曲 / 歌手 / 专辑维度年终统计
 - 播放历史 JSON 导出新增时间标签、夜间归属日期、歌手/专辑快照与列表快照字段，便于本地 MSSQL / 帆软等报表工具做二次分析
+- 补充排行榜与歌单详情播放来源埋点（leaderboard/songlist_detail），并预留歌手页/专辑页来源口径（artist_detail/album_detail）
+- 新增 `docs/superpowers/references/year-end-report-mssql.sql` 年终听歌报告 SQL 模板，覆盖年度概览、四季最爱、日历、熬夜、歌手/专辑榜等常见报表
 
 ## [0.26.04122109](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04121611...v0.26.04122109) - 2026-04-12
 

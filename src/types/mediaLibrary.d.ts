@@ -16,7 +16,7 @@ declare namespace LX {
     type CacheOrigin = 'play' | 'prefetch'
     type PrefetchState = 'queued' | 'running' | 'ready' | 'failed'
     type PlaybackEndReason = 'completed' | 'manual_next' | 'manual_prev' | 'manual_stop' | 'switch_music' | 'error' | 'app_exit' | 'unknown'
-    type PlaybackEntrySource = 'search' | 'list_click' | 'auto_next' | 'manual_next_prev' | 'restore' | 'deeplink' | 'temp_play' | 'unknown'
+    type PlaybackEntrySource = 'search' | 'list_click' | 'auto_next' | 'manual_next_prev' | 'restore' | 'deeplink' | 'temp_play' | 'leaderboard' | 'songlist_detail' | 'artist_detail' | 'album_detail' | 'unknown'
     type PlaybackSeason = 'spring' | 'summer' | 'autumn' | 'winter'
     type PlaybackTimeBucket = 'late_night' | 'morning' | 'noon' | 'afternoon' | 'evening' | 'night'
     type PlaybackListType = 'default' | 'love' | 'user' | 'generated_media' | 'search' | 'temp' | 'unknown'
