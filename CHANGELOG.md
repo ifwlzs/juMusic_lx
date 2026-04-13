@@ -39,6 +39,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增 `docs/superpowers/references/year-end-report-mssql.sql` 年终听歌报告 SQL 模板，覆盖年度概览、四季最爱、日历、熬夜、歌手/专辑榜等常见报表
 - 歌单详情页新增 `detailEntrySource` 导航上下文透传，歌手/专辑详情默认口径优先走显式参数，减少仅靠 id 文本启发判断带来的误差
 
+## [0.26.04131202](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04131059...v0.26.04131202) - 2026-04-13
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04131059](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04130954...v0.26.04131059) - 2026-04-13
 
 修复
