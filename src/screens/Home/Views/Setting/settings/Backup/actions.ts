@@ -1,11 +1,24 @@
-import { LIST_IDS } from '@/config/constant'
+import { LIST_IDS, storageDataPrefix } from '@/config/constant'
 import { createList, getListMusics, overwriteList, overwriteListFull, overwriteListMusics } from '@/core/list'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { getData, saveData } from '@/plugins/storage'
+import settingState from '@/store/setting/state'
 import { writeFile } from '@/utils/fs'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@/utils'
 import { log } from '@/utils/log'
+import { AES_MODE, aesEncrypt, hashSHA1 } from '@/utils/nativeModules/crypto'
 import { confirmDialog, handleReadFile, handleSaveFile, showImportTip, toast } from '@/utils/tools'
+import { btoa } from 'react-native-quick-base64'
 import listState from '@/store/list/state'
+import {
+  buildAccountSyncPayload,
+  createAccountSyncValidationKey,
+  createEmptyAccountSyncState,
+  normalizeAccountSyncProfile,
+  normalizeAccountSyncState,
+} from './accountSync'
+import { createAccountSyncEncryptedEnvelope } from './accountSyncCrypto'
+import { uploadAccountSyncEnvelope, validateAccountSyncProfile } from './accountSyncWebdav'
 import { createMediaSourceBackupPayload, restoreMediaSourceBackupPayload } from './mediaSourceBackup'
 import { buildPlayHistoryExportFileName, buildPlayHistoryExportPayload, resolvePlayHistoryExportRange } from './playHistoryExport'
 
@@ -291,6 +304,110 @@ export const handleExportAllData = (path: string) => {
   }).catch((err: any) => {
     log.error(err.message)
     toast(global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string))
+  })
+}
+
+const loadAccountSyncState = async() => {
+  const state = await getData<any>(storageDataPrefix.accountSync)
+  return normalizeAccountSyncState(state ?? createEmptyAccountSyncState())
+}
+
+const saveAccountSyncState = async(state: any) => {
+  const normalizedState = normalizeAccountSyncState(state)
+  await saveData(storageDataPrefix.accountSync, normalizedState)
+  return normalizedState
+}
+
+const getAccountSyncErrorMessage = (error: any) => {
+  switch (error?.message) {
+    case 'account_sync_password_required':
+      return global.i18n.t('setting_backup_account_sync_error_password_required')
+    case 'account_sync_hash_unavailable':
+    case 'account_sync_base64_unavailable':
+    case 'account_sync_encrypt_unavailable':
+      return global.i18n.t('setting_backup_account_sync_error_encrypt_unavailable')
+    case 'account_sync_remote_dir_unreachable':
+      return global.i18n.t('setting_backup_account_sync_error_remote_dir_unreachable')
+    case 'account_sync_remote_dir_parent_unreachable':
+      return global.i18n.t('setting_backup_account_sync_error_remote_dir_parent_unreachable')
+    case 'account_sync_remote_dir_create_failed':
+      return global.i18n.t('setting_backup_account_sync_error_remote_dir_create_failed')
+    case 'account_sync_upload_failed':
+      return global.i18n.t('setting_backup_account_sync_error_upload_failed')
+    default:
+      return error?.message as string || ''
+  }
+}
+
+export const handleValidateAccountSyncProfile = (profile: any, deps: any = {}) => {
+  void (async() => {
+    const prevState = await loadAccountSyncState()
+    const normalizedProfile = normalizeAccountSyncProfile(profile ?? prevState.profile)
+    const result = await validateAccountSyncProfile(normalizedProfile, deps)
+    const message = result.willCreateRemoteDir
+      ? global.i18n.t('setting_backup_account_sync_validate_success_new_dir')
+      : global.i18n.t('setting_backup_account_sync_validate_success')
+
+    await saveAccountSyncState({
+      ...prevState,
+      profile: normalizedProfile,
+      validationKey: createAccountSyncValidationKey(normalizedProfile),
+      lastValidatedAt: Date.now(),
+      lastUploadMessage: message,
+    })
+    toast(message)
+  })().catch((error: any) => {
+    log.error(error)
+    const message = getAccountSyncErrorMessage(error)
+    toast(global.i18n.t('setting_backup_account_sync_validate_failed') + (message ? ': ' + message : ''))
+    void loadAccountSyncState().then(state => saveAccountSyncState({
+      ...state,
+      lastUploadMessage: message,
+    }))
+  })
+}
+
+export const handleUploadAccountSync = (profile?: any, deps: any = {}) => {
+  toast(global.i18n.t('setting_backup_account_sync_upload_tip_running'))
+  void (async() => {
+    const prevState = await loadAccountSyncState()
+    const normalizedProfile = normalizeAccountSyncProfile(profile ?? prevState.profile)
+
+    const payload = await buildAccountSyncPayload({
+      appVersion: '',
+      setting: settingState.setting,
+      repository: mediaLibraryRepository,
+    })
+    const envelope = await createAccountSyncEncryptedEnvelope(payload, normalizedProfile.password, {
+      now: () => Date.now(),
+      random: Math.random,
+      hashSHA1,
+      btoa,
+      aesEncrypt,
+      AES_MODE,
+      ...(deps.crypto || {}),
+    })
+    await uploadAccountSyncEnvelope(normalizedProfile, JSON.stringify(envelope), deps)
+
+    const nextState = await saveAccountSyncState({
+      ...prevState,
+      profile: normalizedProfile,
+      validationKey: createAccountSyncValidationKey(normalizedProfile),
+      lastUploadAt: Date.now(),
+      lastUploadStatus: 'success',
+      lastUploadMessage: global.i18n.t('setting_backup_account_sync_upload_tip_success'),
+    })
+    toast(nextState.lastUploadMessage)
+  })().catch((error: any) => {
+    log.error(error)
+    const message = getAccountSyncErrorMessage(error)
+    toast(global.i18n.t('setting_backup_account_sync_upload_tip_failed') + (message ? ': ' + message : ''))
+    void loadAccountSyncState().then(state => saveAccountSyncState({
+      ...state,
+      lastUploadAt: Date.now(),
+      lastUploadStatus: 'failed',
+      lastUploadMessage: message,
+    }))
   })
 }
 
