@@ -31,6 +31,10 @@ const analyticsRecorder = createAnalyticsRecorder({
   async saveHistory(entry: LX.MediaLibrary.PlayHistoryEntry) {
     return await mediaLibraryRepository.appendPlayHistory(entry)
   },
+  async onHistoryPersisted(entry: LX.MediaLibrary.PlayHistoryEntry) {
+    if (typeof mediaLibraryRepository.updatePlaybackAnalyticsCachesByEntry !== 'function') return
+    await mediaLibraryRepository.updatePlaybackAnalyticsCachesByEntry(entry)
+  },
   resolveSessionContext() {
     return {
       endReason: playbackAnalyticsRuntime.consumePendingEndReason(),

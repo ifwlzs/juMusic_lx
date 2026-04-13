@@ -1,4 +1,9 @@
 const { sanitizeCredential } = require('./credentials.js')
+const {
+  createEmptyPlaybackAnalyticsCaches,
+  applyPlayHistoryEntryToCaches,
+  rebuildPlaybackAnalyticsCaches: rebuildPlaybackAnalyticsCachesFromHistory,
+} = require('./playbackAnalyticsAggregation.js')
 
 function createKeyBuilder(prefix = '@media_library__') {
   return {
@@ -391,6 +396,62 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
     },
     async saveLifetimeEntityIndex(index) {
       await storage.set(keys.lifetimeEntityIndex(), index || null)
+    },
+    async updatePlaybackAnalyticsCachesByEntry(entry) {
+      if (!entry || !entry.startedAt) return
+
+      const year = Number(entry.startYear) || new Date(entry.startedAt).getFullYear()
+      if (!year) return
+
+      const [prevSummary, prevTimeStats, prevEntityStats, prevLifetime] = await Promise.all([
+        this.getYearSummary(year),
+        this.getYearTimeStats(year),
+        this.getYearEntityStats(year),
+        this.getLifetimeEntityIndex(),
+      ])
+
+      const caches = createEmptyPlaybackAnalyticsCaches()
+      if (prevSummary) caches.yearSummary.set(year, prevSummary)
+      if (prevTimeStats) caches.yearTimeStats.set(year, prevTimeStats)
+      if (prevEntityStats) caches.yearEntityStats.set(year, prevEntityStats)
+      if (prevLifetime) caches.lifetimeEntityIndex = prevLifetime
+
+      applyPlayHistoryEntryToCaches(caches, entry)
+
+      await this.saveYearSummary(year, caches.yearSummary.get(year))
+      await this.saveYearTimeStats(year, caches.yearTimeStats.get(year))
+      await this.saveYearEntityStats(year, caches.yearEntityStats.get(year))
+      await this.saveLifetimeEntityIndex(caches.lifetimeEntityIndex)
+    },
+    async rebuildPlaybackAnalyticsCaches() {
+      const [playHistory, aggregateSongs, connections] = await Promise.all([
+        this.getPlayHistory(),
+        this.getAggregateSongs(),
+        this.getConnections(),
+      ])
+      const connectionIds = connections.map(item => item.connectionId).filter(Boolean)
+      const sourceItems = connectionIds.length
+        ? await this.getAllSourceItems(connectionIds)
+        : []
+
+      const caches = rebuildPlaybackAnalyticsCachesFromHistory({
+        playHistory,
+        aggregateSongs,
+        sourceItems,
+      })
+
+      for (const [year, summary] of caches.yearSummary.entries()) {
+        await this.saveYearSummary(year, summary)
+      }
+      for (const [year, timeStats] of caches.yearTimeStats.entries()) {
+        await this.saveYearTimeStats(year, timeStats)
+      }
+      for (const [year, entityStats] of caches.yearEntityStats.entries()) {
+        await this.saveYearEntityStats(year, entityStats)
+      }
+      await this.saveLifetimeEntityIndex(caches.lifetimeEntityIndex)
+
+      return caches
     },
     async reconcileScannedItems(connectionId, nextItems) {
       const prevItems = await storage.get(keys.sourceItems(connectionId)) || []

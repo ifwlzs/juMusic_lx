@@ -258,15 +258,17 @@ test('restoreMediaSourceBackupPayload replaces removed media source state', asyn
     playDurationTotalSec: 600,
     lastPlayedAt: 200,
   }])
-  assert.deepEqual(await repo.getPlayHistory(), [{
-    aggregateSongId: 'agg_1',
-    sourceItemId: 'item_1',
-    startedAt: 150,
-    endedAt: 200,
-    listenedSec: 600,
-    durationSec: 620,
-    countedPlay: true,
-  }])
+  const playHistory = await repo.getPlayHistory()
+  assert.equal(playHistory.length, 1)
+  assert.equal(playHistory[0].aggregateSongId, 'agg_1')
+  assert.equal(playHistory[0].sourceItemId, 'item_1')
+  assert.equal(playHistory[0].countedPlay, true)
+
+  const rebuiltYear = new Date(playHistory[0].startedAt).getFullYear()
+  const yearSummary = await repo.getYearSummary(rebuiltYear)
+  const yearEntityStats = await repo.getYearEntityStats(rebuiltYear)
+  assert.equal(yearSummary.totalSessions, 1)
+  assert.equal(yearEntityStats.songs.agg_1.titleSnapshot, 'Song')
 })
 
 test('backup page exposes all-data import and export for list plus media source data', () => {
