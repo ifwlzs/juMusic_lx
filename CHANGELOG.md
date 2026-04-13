@@ -39,6 +39,10 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增 `docs/superpowers/references/year-end-report-mssql.sql` 年终听歌报告 SQL 模板，覆盖年度概览、四季最爱、日历、熬夜、歌手/专辑榜等常见报表
 - 歌单详情页新增 `detailEntrySource` 导航上下文透传，歌手/专辑详情默认口径优先走显式参数，减少仅靠 id 文本启发判断带来的误差
 
+文档
+
+- 补充归档 `2026-04-09-media-library-incremental-sync` 与 `2026-04-09-play-detail-background-extended-range` 两份历史实现计划，便于后续追溯增量同步和播放页背景调参范围设计
+
 ## [0.26.04131202](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04131059...v0.26.04131202) - 2026-04-13
 
 修复
