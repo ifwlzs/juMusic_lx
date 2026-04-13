@@ -151,15 +151,16 @@ async function buildCredentials(connections = [], repository) {
 }
 
 async function buildAccountSyncPayload(payload = {}) {
+  const inputPayload = isObject(payload) ? payload : {}
   const {
     appVersion = '',
     exportedAt = Date.now(),
     setting,
     settings = {},
     repository,
-  } = payload
+  } = inputPayload
 
-  const hasSettingInput = Object.prototype.hasOwnProperty.call(payload, 'setting')
+  const hasSettingInput = Object.prototype.hasOwnProperty.call(inputPayload, 'setting')
   const rawSettings = hasSettingInput ? setting : settings
 
   const [rawConnections, rawImportRules] = await Promise.all([

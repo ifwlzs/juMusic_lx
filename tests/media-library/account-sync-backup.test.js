@@ -430,3 +430,20 @@ test('buildAccountSyncPayload ignores non-object connection/rule items and norma
   })
   assert.deepEqual(credentialCalls, ['cred_1'])
 })
+
+test('buildAccountSyncPayload accepts null payload and returns default structure', async() => {
+  let payload = null
+  await assert.doesNotReject(async() => {
+    payload = await buildAccountSyncPayload(null)
+  })
+
+  assert.equal(payload.type, 'accountSyncPlain_v1')
+  assert.equal(payload.appVersion, '')
+  assert.equal(typeof payload.exportedAt, 'number')
+  assert.deepEqual(payload.settings, {})
+  assert.deepEqual(payload.mediaSource, {
+    connections: [],
+    credentials: {},
+    importRules: [],
+  })
+})
