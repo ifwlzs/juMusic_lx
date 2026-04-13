@@ -37,6 +37,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 补充排行榜与歌单详情播放来源埋点（leaderboard/songlist_detail），并预留歌手页/专辑页来源口径（artist_detail/album_detail）
 - 新增 `docs/superpowers/references/year-end-report-mssql.sql` 年终听歌报告 SQL 模板，覆盖年度概览、四季最爱、日历、熬夜、歌手/专辑榜等常见报表
 
+## [0.26.04130954](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04130917...v0.26.04130954) - 2026-04-13
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04130917](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04122109...v0.26.04130917) - 2026-04-13
 
 修复
