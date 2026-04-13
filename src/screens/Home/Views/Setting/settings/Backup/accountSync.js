@@ -28,32 +28,38 @@ function normalizeRemoteDir(remoteDir = '') {
 }
 
 function normalizeSelection(selection = {}) {
+  const input = isObject(selection) ? selection : {}
   return {
-    selectionId: selection.selectionId,
-    kind: selection.kind,
-    pathOrUri: selection.pathOrUri,
-    displayName: selection.displayName,
+    selectionId: input.selectionId,
+    kind: input.kind,
+    pathOrUri: input.pathOrUri,
+    displayName: input.displayName,
   }
 }
 
 function normalizeConnection(connection = {}) {
+  const input = isObject(connection) ? connection : {}
+  const credentialRef = typeof input.credentialRef === 'string' ? input.credentialRef.trim() : ''
+
   return {
-    connectionId: connection.connectionId,
-    providerType: connection.providerType,
-    displayName: connection.displayName,
-    rootPathOrUri: connection.rootPathOrUri,
-    credentialRef: connection.credentialRef ?? null,
+    connectionId: input.connectionId,
+    providerType: input.providerType,
+    displayName: input.displayName,
+    rootPathOrUri: input.rootPathOrUri,
+    credentialRef: credentialRef || null,
   }
 }
 
 function normalizeImportRule(rule = {}) {
+  const input = isObject(rule) ? rule : {}
+
   return {
-    ruleId: rule.ruleId,
-    connectionId: rule.connectionId,
-    name: rule.name,
-    mode: rule.mode,
-    directories: Array.isArray(rule.directories) ? rule.directories.map(normalizeSelection) : [],
-    tracks: Array.isArray(rule.tracks) ? rule.tracks.map(normalizeSelection) : [],
+    ruleId: input.ruleId,
+    connectionId: input.connectionId,
+    name: input.name,
+    mode: input.mode,
+    directories: Array.isArray(input.directories) ? input.directories.filter(isObject).map(normalizeSelection) : [],
+    tracks: Array.isArray(input.tracks) ? input.tracks.filter(isObject).map(normalizeSelection) : [],
   }
 }
 
@@ -162,10 +168,10 @@ async function buildAccountSyncPayload(payload = {}) {
   ])
 
   const connections = Array.isArray(rawConnections)
-    ? rawConnections.map(normalizeConnection)
+    ? rawConnections.filter(isObject).map(normalizeConnection)
     : []
   const importRules = Array.isArray(rawImportRules)
-    ? rawImportRules.map(normalizeImportRule)
+    ? rawImportRules.filter(isObject).map(normalizeImportRule)
     : []
   const credentials = await buildCredentials(connections, repository)
 

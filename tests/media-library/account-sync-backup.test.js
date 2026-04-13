@@ -277,3 +277,156 @@ test('buildAccountSyncPayload keeps output key as settings and supports setting 
   })
   assert.deepEqual(payloadFallbackPlural.settings, { from: 'plural' })
 })
+
+test('buildAccountSyncPayload deep clones settings to avoid nested reference sharing', async() => {
+  const repository = {
+    async getConnections() { return [] },
+    async getImportRules() { return [] },
+    async getCredential() { return null },
+  }
+  const settingInput = {
+    profile: {
+      serverUrl: 'https://example.com/',
+      auth: {
+        username: 'demo',
+      },
+    },
+  }
+
+  const payload = await buildAccountSyncPayload({
+    setting: settingInput,
+    repository,
+  })
+
+  assert.notEqual(payload.settings, settingInput)
+  assert.notEqual(payload.settings.profile, settingInput.profile)
+  assert.notEqual(payload.settings.profile.auth, settingInput.profile.auth)
+
+  settingInput.profile.auth.username = 'changed_after_build'
+  assert.equal(payload.settings.profile.auth.username, 'demo')
+})
+
+test('buildAccountSyncPayload ignores non-object connection/rule items and normalizes credentialRef', async() => {
+  const credentialCalls = []
+  const repository = {
+    async getConnections() {
+      return [
+        null,
+        123,
+        {
+          connectionId: 'conn_1',
+          providerType: 'webdav',
+          displayName: 'NAS',
+          rootPathOrUri: '/Music',
+          credentialRef: '  cred_1  ',
+        },
+        {
+          connectionId: 'conn_2',
+          providerType: 'smb',
+          displayName: 'SMB',
+          rootPathOrUri: '/Share',
+          credentialRef: '   ',
+        },
+        {
+          connectionId: 'conn_3',
+          providerType: 'local',
+          displayName: 'Local',
+          rootPathOrUri: '/storage',
+          credentialRef: 123,
+        },
+      ]
+    },
+    async getImportRules() {
+      return [
+        null,
+        'bad_rule',
+        {
+          ruleId: 'rule_1',
+          connectionId: 'conn_1',
+          name: 'Albums',
+          mode: 'merged',
+          directories: [
+            null,
+            {
+              selectionId: 'dir_1',
+              kind: 'directory',
+              pathOrUri: '/Albums',
+              displayName: 'Albums',
+            },
+          ],
+          tracks: [
+            1,
+            {
+              selectionId: 'track_1',
+              kind: 'track',
+              pathOrUri: '/Singles/song.mp3',
+              displayName: 'song.mp3',
+            },
+          ],
+        },
+      ]
+    },
+    async getCredential(credentialRef) {
+      credentialCalls.push(credentialRef)
+      if (credentialRef === 'cred_1') return { password: 'secret' }
+      return null
+    },
+  }
+
+  const payload = await buildAccountSyncPayload({
+    setting: { enabled: true },
+    repository,
+  })
+
+  assert.deepEqual(payload.mediaSource.connections, [
+    {
+      connectionId: 'conn_1',
+      providerType: 'webdav',
+      displayName: 'NAS',
+      rootPathOrUri: '/Music',
+      credentialRef: 'cred_1',
+    },
+    {
+      connectionId: 'conn_2',
+      providerType: 'smb',
+      displayName: 'SMB',
+      rootPathOrUri: '/Share',
+      credentialRef: null,
+    },
+    {
+      connectionId: 'conn_3',
+      providerType: 'local',
+      displayName: 'Local',
+      rootPathOrUri: '/storage',
+      credentialRef: null,
+    },
+  ])
+  assert.deepEqual(payload.mediaSource.importRules, [
+    {
+      ruleId: 'rule_1',
+      connectionId: 'conn_1',
+      name: 'Albums',
+      mode: 'merged',
+      directories: [
+        {
+          selectionId: 'dir_1',
+          kind: 'directory',
+          pathOrUri: '/Albums',
+          displayName: 'Albums',
+        },
+      ],
+      tracks: [
+        {
+          selectionId: 'track_1',
+          kind: 'track',
+          pathOrUri: '/Singles/song.mp3',
+          displayName: 'song.mp3',
+        },
+      ],
+    },
+  ])
+  assert.deepEqual(payload.mediaSource.credentials, {
+    cred_1: { password: 'secret' },
+  })
+  assert.deepEqual(credentialCalls, ['cred_1'])
+})
