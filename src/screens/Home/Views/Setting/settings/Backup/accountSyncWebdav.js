@@ -80,6 +80,12 @@ function buildAccountSyncRemoteFilePath(remoteDir = '/') {
   return `${prefix}/jumusic-sync/account-sync.latest.json`
 }
 
+function buildAccountSyncRemoteDirPath(remoteDir = '/') {
+  const normalized = normalizeRemoteDir(remoteDir)
+  const prefix = normalized === '/' ? '' : normalized
+  return `${prefix}/jumusic-sync`
+}
+
 async function callWebdav(profile, deps, input) {
   const request = typeof deps.requestWebdav === 'function'
     ? deps.requestWebdav
@@ -131,10 +137,7 @@ async function validateAccountSyncProfile(profile = {}, deps = {}) {
 
 async function ensureAccountSyncRemoteDir(profile = {}, deps = {}) {
   const normalizedProfile = isObject(profile) ? profile : {}
-  const remoteDir = normalizeRemoteDir(normalizedProfile.remoteDir)
-  const ensureDir = remoteDir === '/'
-    ? '/jumusic-sync'
-    : `${remoteDir}/jumusic-sync`
+  const ensureDir = buildAccountSyncRemoteDirPath(normalizedProfile.remoteDir)
 
   const segments = ensureDir.split('/').filter(Boolean)
   let currentPath = ''

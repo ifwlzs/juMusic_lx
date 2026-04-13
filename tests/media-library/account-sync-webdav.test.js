@@ -118,11 +118,32 @@ test('uploadAccountSyncEnvelope runs ensure then PUT with fixed latest file path
   ])
 })
 
+test('ensureAccountSyncRemoteDir ensures jumusic-sync when base dir exists', async() => {
+  const calls = []
+  await ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
+    async requestWebdav(input) {
+      calls.push(`${input.method} ${input.path}`)
+      if (input.path === '/Apps') return { status: 207 }
+      if (input.path === '/Apps/juMusicSync') return { status: 207 }
+      if (input.path === '/Apps/juMusicSync/jumusic-sync' && input.method === 'PROPFIND') return { status: 404 }
+      if (input.path === '/Apps/juMusicSync/jumusic-sync' && input.method === 'MKCOL') return { status: 201 }
+      return { status: 207 }
+    },
+  })
+
+  assert.deepEqual(calls, [
+    'PROPFIND /Apps',
+    'PROPFIND /Apps/juMusicSync',
+    'PROPFIND /Apps/juMusicSync/jumusic-sync',
+    'MKCOL /Apps/juMusicSync/jumusic-sync',
+  ])
+})
+
 test('ensureAccountSyncRemoteDir maps non-404 PROPFIND and invalid MKCOL status to create_failed', async() => {
   await assert.rejects(
     ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
       async requestWebdav(input) {
-        if (input.method === 'PROPFIND' && input.path === '/Apps') return { status: 500 }
+        if (input.method === 'PROPFIND' && input.path === '/Apps') return { status: 403 }
         return { status: 207 }
       },
     }),
@@ -133,7 +154,7 @@ test('ensureAccountSyncRemoteDir maps non-404 PROPFIND and invalid MKCOL status 
     ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
       async requestWebdav(input) {
         if (input.method === 'PROPFIND') return { status: 404 }
-        if (input.method === 'MKCOL') return { status: 409 }
+        if (input.method === 'MKCOL') return { status: 500 }
         return { status: 500 }
       },
     }),
@@ -146,7 +167,7 @@ test('uploadAccountSyncEnvelope maps PUT non-success status to account_sync_uplo
     uploadAccountSyncEnvelope({ remoteDir: '/Apps/juMusicSync' }, '{"x":1}', {
       async requestWebdav(input) {
         if (input.method === 'PROPFIND') return { status: 207 }
-        if (input.method === 'PUT') return { status: 500 }
+        if (input.method === 'PUT') return { status: 202 }
         return { status: 201 }
       },
     }),
