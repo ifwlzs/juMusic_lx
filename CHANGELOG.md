@@ -35,6 +35,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增年度聚合缓存（yearSummary/yearTimeStats/yearEntityStats/lifetimeEntityIndex）与备份恢复后的可重建能力，支持歌曲 / 歌手 / 专辑维度年终统计
 - 播放历史 JSON 导出新增时间标签、夜间归属日期、歌手/专辑快照与列表快照字段，便于本地 MSSQL / 帆软等报表工具做二次分析
 
+## [0.26.04130917](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04122109...v0.26.04130917) - 2026-04-13
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04122109](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04121611...v0.26.04122109) - 2026-04-12
 
 修复
