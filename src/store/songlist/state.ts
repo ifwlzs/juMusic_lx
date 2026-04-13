@@ -24,6 +24,7 @@ export declare interface TagInfo<Source extends LX.OnlineSource = LX.OnlineSourc
 }
 
 type Tags = Partial<Record<LX.OnlineSource, TagInfo>>
+export type SonglistDetailEntrySource = Extract<LX.MediaLibrary.PlaybackEntrySource, 'songlist_detail' | 'artist_detail' | 'album_detail'>
 
 export declare interface ListInfoItem {
   play_count?: string
@@ -36,6 +37,7 @@ export declare interface ListInfoItem {
   desc?: string
   source: LX.OnlineSource
   total?: string
+  detailEntrySource?: SonglistDetailEntrySource
 }
 export declare interface ListInfo {
   list: ListInfoItem[]

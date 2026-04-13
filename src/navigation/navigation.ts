@@ -207,7 +207,10 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
       component: {
         name: SONGLIST_DETAIL_SCREEN,
         passProps: {
-          info,
+          info: {
+            ...info,
+            detailEntrySource: info.detailEntrySource ?? 'songlist_detail',
+          },
         },
         options: {
           topBar: {
