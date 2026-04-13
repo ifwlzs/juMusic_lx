@@ -9,14 +9,22 @@ import { type Source } from '@/store/songlist/state'
 
 const getListId = (id: string, source: LX.OnlineSource) => `${source}__${id}`
 
+const resolveDetailEntrySource = (id: string): LX.MediaLibrary.PlaybackEntrySource => {
+  const normalized = String(id || '').toLowerCase()
+  if (normalized.includes('singer') || normalized.includes('artist')) return 'artist_detail'
+  if (normalized.includes('album')) return 'album_detail'
+  return 'songlist_detail'
+}
+
 export const handlePlay = async(id: string, source: Source, list?: LX.Music.MusicInfoOnline[], index = 0) => {
   const listId = getListId(id, source)
+  const entrySource = resolveDetailEntrySource(id)
   let isPlayingList = false
   // console.log(list)
   if (!list?.length) list = (await getListDetail(id, source, 1)).list
   if (list?.length) {
     await setTempList(listId, [...list])
-    void playList(LIST_IDS.TEMP, index)
+    void playList(LIST_IDS.TEMP, index, { entrySource })
     isPlayingList = true
   }
   const fullList = await getListDetailAll(source, id)
@@ -27,7 +35,7 @@ export const handlePlay = async(id: string, source: Source, list?: LX.Music.Musi
     }
   } else {
     await setTempList(listId, [...fullList])
-    void playList(LIST_IDS.TEMP, index)
+    void playList(LIST_IDS.TEMP, index, { entrySource })
   }
 }
 
