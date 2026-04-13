@@ -24,14 +24,14 @@ const playSongListDetail = async(source: LX.OnlineSource, link: string, playInde
   if (playIndex == null || list.length > playIndex) {
     isPlayingList = true
     await setTempList(playListId, list)
-    await playList(LIST_IDS.TEMP, getListPlayIndex(list, playIndex))
+    await playList(LIST_IDS.TEMP, getListPlayIndex(list, playIndex), { entrySource: 'deeplink' })
   }
   list = await getListDetailAll(source, id)
   if (isPlayingList) {
     if (listState.tempListMeta.id == id) await setTempList(playListId, list)
   } else {
     await setTempList(playListId, list)
-    await playList(LIST_IDS.TEMP, getListPlayIndex(list, playIndex))
+    await playList(LIST_IDS.TEMP, getListPlayIndex(list, playIndex), { entrySource: 'deeplink' })
   }
 }
 export const playSonglist = async(source: LX.OnlineSource, link: string, playIndex?: number) => {

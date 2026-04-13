@@ -6,6 +6,7 @@ import { setStop } from '@/plugins/player'
 import { delayUpdateMusicInfo } from '@/plugins/player/playList'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -25,7 +26,8 @@ export default async(setting: LX.AppSetting) => {
     }
     // resetPlayerMusicInfo()
     // global.app_event.stop()
-    global.app_event.setProgress(0)
+    playbackAnalyticsRuntime.setPendingEndReason('completed')
+    global.app_event.setProgress(0, undefined, { isSeek: false, reason: 'auto_end_reset' })
     setStatusText(global.i18n.t('player__end'))
     void playNext(true)
     // })

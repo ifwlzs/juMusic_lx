@@ -28,6 +28,7 @@ import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounce
 import { LIST_IDS } from '@/config/constant'
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/core/dislikeList'
+import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
@@ -58,6 +59,14 @@ const createDelayNextTimeout = (delay: number) => {
 }
 const { addDelayNextTimeout, clearDelayNextTimeout } = createDelayNextTimeout(5000)
 const { addDelayNextTimeout: addLoadTimeout, clearDelayNextTimeout: clearLoadTimeout } = createDelayNextTimeout(100000)
+
+const resolveListTypeSnapshot = (listId: string | null): LX.MediaLibrary.PlaybackListType => {
+  if (!listId) return 'unknown'
+  if (listId === LIST_IDS.DEFAULT) return 'default'
+  if (listId === LIST_IDS.LOVE) return 'love'
+  if (listId === LIST_IDS.TEMP || listId === LIST_IDS.PLAY_LATER) return 'temp'
+  return 'unknown'
+}
 
 const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem) => {
   const tInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.meta.toggleMusicInfo : musicInfo.meta.toggleMusicInfo
@@ -270,11 +279,34 @@ const handlePlay = async() => {
  * @param listId 列表id
  * @param id 歌曲id
  */
-export const playListById = async(listId: string, id: string) => {
+export const playListById = async(
+  listId: string,
+  id: string,
+  options: {
+    entrySource?: LX.MediaLibrary.PlaybackEntrySource
+    listTypeSnapshot?: LX.MediaLibrary.PlaybackListType
+  } = {},
+) => {
   const prevListId = playerState.playInfo.playerListId
   setPlayListId(listId)
   const musicInfo = getList(listId).find(m => m.id == id)
   if (!musicInfo) return
+  if (options.entrySource) {
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: options.entrySource,
+      listIdSnapshot: listId,
+      listTypeSnapshot: options.listTypeSnapshot || resolveListTypeSnapshot(listId),
+    })
+  } else {
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: 'list_click',
+      listIdSnapshot: listId,
+      listTypeSnapshot: options.listTypeSnapshot || resolveListTypeSnapshot(listId),
+    })
+  }
+  if (playerState.playMusicInfo.musicInfo && playerState.playMusicInfo.musicInfo.id !== id) {
+    playbackAnalyticsRuntime.setPendingEndReason('switch_music')
+  }
   setPlayMusicInfo(listId, musicInfo)
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
@@ -286,10 +318,35 @@ export const playListById = async(listId: string, id: string) => {
  * @param listId 列表id
  * @param index 播放的歌曲位置
  */
-export const playList = async(listId: string, index: number) => {
+export const playList = async(
+  listId: string,
+  index: number,
+  options: {
+    entrySource?: LX.MediaLibrary.PlaybackEntrySource
+    listTypeSnapshot?: LX.MediaLibrary.PlaybackListType
+  } = {},
+) => {
   const prevListId = playerState.playInfo.playerListId
   setPlayListId(listId)
-  setPlayMusicInfo(listId, getList(listId)[index])
+  const targetMusic = getList(listId)[index]
+  if (!targetMusic) return
+  if (options.entrySource) {
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: options.entrySource,
+      listIdSnapshot: listId,
+      listTypeSnapshot: options.listTypeSnapshot || resolveListTypeSnapshot(listId),
+    })
+  } else {
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: 'list_click',
+      listIdSnapshot: listId,
+      listTypeSnapshot: options.listTypeSnapshot || resolveListTypeSnapshot(listId),
+    })
+  }
+  if (playerState.playMusicInfo.musicInfo && playerState.playMusicInfo.musicInfo.id !== targetMusic.id) {
+    playbackAnalyticsRuntime.setPendingEndReason('switch_music')
+  }
+  setPlayMusicInfo(listId, targetMusic)
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
   await handlePlay()
@@ -400,7 +457,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 }
 
 const handlePlayNext = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
-  setPlayMusicInfo(playMusicInfo.listId, playMusicInfo.musicInfo, playMusicInfo.isTempPlay)
+  setPlayMusicInfo(playMusicInfo.listId, playMusicInfo.musicInfo, playMusicInfo.isTempPlay, playMusicInfo.analyticsContext)
   await handlePlay()
 }
 /**
@@ -409,8 +466,15 @@ const handlePlayNext = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
  * @returns
  */
 export const playNext = async(isAutoToggle = false): Promise<void> => {
+  if (!isAutoToggle) playbackAnalyticsRuntime.setPendingEndReason('manual_next')
   if (playerState.tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = playerState.tempPlayList[0]
+    const analyticsContext = playMusicInfo.analyticsContext || {}
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: analyticsContext.entrySource || 'temp_play',
+      listIdSnapshot: analyticsContext.listIdSnapshot ?? playMusicInfo.listId ?? null,
+      listTypeSnapshot: analyticsContext.listTypeSnapshot || 'temp',
+    })
     removeTempPlayList(0)
     await handlePlayNext(playMusicInfo)
     return
@@ -423,6 +487,19 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
   // console.log(playInfo.playerListId)
   const currentListId = playInfo.playerListId
   if (!currentListId) return handleToggleStop()
+  if (isAutoToggle) {
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: 'auto_next',
+      listIdSnapshot: currentListId,
+      listTypeSnapshot: resolveListTypeSnapshot(currentListId),
+    })
+  } else {
+    playbackAnalyticsRuntime.setPendingEntryContext({
+      entrySource: 'manual_next_prev',
+      listIdSnapshot: currentListId,
+      listTypeSnapshot: resolveListTypeSnapshot(currentListId),
+    })
+  }
   const currentList = getList(currentListId)
 
   const playedList = playerState.playedList
@@ -508,12 +585,18 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
  * 上一曲
  */
 export const playPrev = async(isAutoToggle = false): Promise<void> => {
+  if (!isAutoToggle) playbackAnalyticsRuntime.setPendingEndReason('manual_prev')
   const playMusicInfo = playerState.playMusicInfo
   if (playMusicInfo.musicInfo == null) return handleToggleStop()
   const playInfo = playerState.playInfo
 
   const currentListId = playInfo.playerListId
   if (!currentListId) return handleToggleStop()
+  playbackAnalyticsRuntime.setPendingEntryContext({
+    entrySource: 'manual_next_prev',
+    listIdSnapshot: currentListId,
+    listTypeSnapshot: resolveListTypeSnapshot(currentListId),
+  })
   const currentList = getList(currentListId)
 
   const playedList = playerState.playedList
@@ -614,6 +697,7 @@ export const pause = async() => {
  * 停止播放
  */
 export const stop = async() => {
+  playbackAnalyticsRuntime.setPendingEndReason('manual_stop')
   await setStop()
   setTimeout(() => {
     global.app_event.stop()

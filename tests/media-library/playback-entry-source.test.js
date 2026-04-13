@@ -1,0 +1,23 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const read = p => fs.readFileSync(path.resolve(__dirname, '../../', p), 'utf8')
+
+test('player/deeplink/search wiring contains entrySource and endReason markers', () => {
+  assert.match(read('src/core/player/player.ts'), /setPendingEntryContext\(\{[\s\S]*entrySource: 'list_click'/)
+  assert.match(read('src/core/player/player.ts'), /setPendingEntryContext\(\{[\s\S]*entrySource: 'manual_next_prev'/)
+  assert.match(read('src/core/player/player.ts'), /setPendingEntryContext\(\{[\s\S]*entrySource: 'auto_next'/)
+  assert.match(read('src/core/player/player.ts'), /setPendingEndReason\('manual_next'\)/)
+  assert.match(read('src/core/player/player.ts'), /setPendingEndReason\('manual_prev'\)/)
+  assert.match(read('src/core/player/player.ts'), /setPendingEndReason\('manual_stop'\)/)
+  assert.match(read('src/core/init/player/playInfo.ts'), /entrySource: 'restore'/)
+  assert.match(read('src/core/init/deeplink/musicAction.js'), /entrySource: 'temp_play'/)
+  assert.match(read('src/core/init/deeplink/fileAction.ts'), /entrySource: 'temp_play'/)
+  assert.match(read('src/core/init/deeplink/playSonglist.ts'), /entrySource: 'deeplink'/)
+  assert.match(read('src/plugins/player/service.ts'), /setPendingEndReason\('error'\)/)
+  assert.match(read('src/plugins/player/service.ts'), /setPendingEndReason\('app_exit'\)/)
+  assert.match(read('src/screens/Home/Views/Search/MusicList.tsx'), /entrySource='search'/)
+  assert.match(read('src/screens/Home/Views/Search\/LibraryMusicList.tsx'), /entrySource='search'/)
+})

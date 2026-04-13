@@ -10,11 +10,14 @@ import playerState from '@/store/player/state'
 import musicSdk from '@/utils/musicSdk'
 import { toOldMusicInfo } from '@/utils'
 
-export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline) => {
+export const handlePlay = (
+  musicInfo: LX.Music.MusicInfoOnline,
+  entrySource: LX.MediaLibrary.PlaybackEntrySource = 'list_click',
+) => {
   void addListMusics(LIST_IDS.DEFAULT, [musicInfo], settingState.setting['list.addMusicLocationType']).then(() => {
     const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex(m => m.id == musicInfo.id)
     if (index < 0) return
-    void playList(LIST_IDS.DEFAULT, index)
+    void playList(LIST_IDS.DEFAULT, index, { entrySource })
   })
 }
 export const handlePlayLater = (musicInfo: LX.Music.MusicInfoOnline, selectedList: LX.Music.MusicInfoOnline[], onCancelSelect: () => void) => {
