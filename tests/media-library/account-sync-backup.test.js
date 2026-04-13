@@ -20,40 +20,80 @@ test('storageDataPrefix exposes accountSync key', () => {
 })
 
 test('normalizeRemoteDir returns normalized absolute directory form', () => {
-  assert.equal(normalizeRemoteDir('  \\Music\\Albums//Pop  '), '/Music/Albums/Pop/')
+  assert.equal(normalizeRemoteDir('  \\Music\\Albums//Pop  '), '/Music/Albums/Pop')
+  assert.equal(normalizeRemoteDir(' /Apps/juMusicSync/ '), '/Apps/juMusicSync')
   assert.equal(normalizeRemoteDir('/'), '/')
   assert.equal(normalizeRemoteDir(''), '/')
 })
 
-test('normalizeAccountSyncProfile trims string fields and normalizes serverUrl/remoteDir', () => {
+test('normalizeAccountSyncProfile trims profile fields and normalizes serverUrl/remoteDir', () => {
   const profile = normalizeAccountSyncProfile({
+    displayName: '  Home NAS ',
     serverUrl: '  https://example.com/webdav  ',
     remoteDir: ' \\backup\\juMusic//daily ',
     username: '  demo_user  ',
-    customTag: '  hello  ',
-    enabled: true,
+    password: '  secret  ',
   })
 
-  assert.equal(profile.serverUrl, 'https://example.com/webdav/')
-  assert.equal(profile.remoteDir, '/backup/juMusic/daily/')
-  assert.equal(profile.username, 'demo_user')
-  assert.equal(profile.customTag, 'hello')
-  assert.equal(profile.enabled, true)
+  assert.deepEqual(profile, {
+    displayName: 'Home NAS',
+    serverUrl: 'https://example.com/webdav/',
+    remoteDir: '/backup/juMusic/daily',
+    username: 'demo_user',
+    password: 'secret',
+  })
 })
 
-test('normalizeAccountSyncState limits status to idle/success/failed', () => {
-  assert.equal(normalizeAccountSyncState({ status: 'idle' }).status, 'idle')
-  assert.equal(normalizeAccountSyncState({ status: 'success' }).status, 'success')
-  assert.equal(normalizeAccountSyncState({ status: 'failed' }).status, 'failed')
-  assert.equal(normalizeAccountSyncState({ status: 'running' }).status, 'idle')
+test('normalizeAccountSyncState keeps canonical structure and limits lastUploadStatus to idle/success/failed', () => {
+  const normalized = normalizeAccountSyncState({
+    version: 2,
+    profile: {
+      displayName: '  Home NAS ',
+      serverUrl: ' https://example.com/webdav ',
+      username: ' demo ',
+      password: ' secret ',
+      remoteDir: ' /Apps/juMusicSync/ ',
+    },
+    validationKey: 'key_1',
+    lastValidatedAt: 100,
+    lastUploadAt: 200,
+    lastUploadStatus: 'running',
+    lastUploadMessage: '  failed ',
+    extraField: 'should_not_exist',
+  })
+
+  assert.deepEqual(normalized, {
+    version: 1,
+    profile: {
+      displayName: 'Home NAS',
+      serverUrl: 'https://example.com/webdav/',
+      username: 'demo',
+      password: 'secret',
+      remoteDir: '/Apps/juMusicSync',
+    },
+    validationKey: 'key_1',
+    lastValidatedAt: 100,
+    lastUploadAt: 200,
+    lastUploadStatus: 'idle',
+    lastUploadMessage: 'failed',
+  })
 })
 
 test('createEmptyAccountSyncState returns an idle state baseline', () => {
   assert.deepEqual(createEmptyAccountSyncState(), {
-    status: 'idle',
-    validationKey: '',
-    updatedAt: null,
-    message: '',
+    version: 1,
+    profile: {
+      displayName: '',
+      serverUrl: '',
+      username: '',
+      password: '',
+      remoteDir: '/',
+    },
+    validationKey: null,
+    lastValidatedAt: null,
+    lastUploadAt: null,
+    lastUploadStatus: 'idle',
+    lastUploadMessage: '',
   })
 })
 
@@ -62,23 +102,31 @@ test('createAccountSyncValidationKey is stable across equivalent profile inputs'
     serverUrl: 'https://example.com/webdav',
     remoteDir: 'backup/list',
     username: ' demo ',
+    password: ' secret ',
   })
   const keyB = createAccountSyncValidationKey({
     serverUrl: ' https://example.com/webdav/ ',
     remoteDir: '/backup/list/',
     username: 'demo',
+    password: 'secret',
   })
 
   assert.equal(keyA, keyB)
+  assert.equal(keyA, JSON.stringify({
+    serverUrl: 'https://example.com/webdav/',
+    username: 'demo',
+    password: 'secret',
+    remoteDir: '/backup/list',
+  }))
 })
 
-test('buildAccountSyncPayload only exports settings and sanitized media source data', async() => {
+test('buildAccountSyncPayload exports accountSyncPlain_v1 with appVersion/exportedAt/settings/sanitized media source', async() => {
   const credentialCalls = []
   const credentials = {
     cred_1: {
       username: 'admin',
       password: 'secret',
-      ignoreMe: true,
+      meta: { region: 'cn' },
     },
   }
   const repository = {
@@ -136,6 +184,8 @@ test('buildAccountSyncPayload only exports settings and sanitized media source d
   }
 
   const payload = await buildAccountSyncPayload({
+    appVersion: '2.9.0',
+    exportedAt: 1711111111111,
     settings: {
       enable: true,
       profile: {
@@ -145,7 +195,10 @@ test('buildAccountSyncPayload only exports settings and sanitized media source d
     repository,
   })
 
-  assert.deepEqual(Object.keys(payload).sort(), ['mediaSource', 'settings'])
+  assert.deepEqual(Object.keys(payload).sort(), ['appVersion', 'exportedAt', 'mediaSource', 'settings', 'type'])
+  assert.equal(payload.type, 'accountSyncPlain_v1')
+  assert.equal(payload.appVersion, '2.9.0')
+  assert.equal(payload.exportedAt, 1711111111111)
   assert.deepEqual(payload.settings, {
     enable: true,
     profile: {
@@ -176,7 +229,7 @@ test('buildAccountSyncPayload only exports settings and sanitized media source d
       cred_1: {
         username: 'admin',
         password: 'secret',
-        ignoreMe: true,
+        meta: { region: 'cn' },
       },
     },
     importRules: [{
@@ -199,4 +252,7 @@ test('buildAccountSyncPayload only exports settings and sanitized media source d
     }],
   })
   assert.deepEqual(credentialCalls, ['cred_1', 'missing_ref'])
+  assert.notEqual(payload.mediaSource.credentials.cred_1, credentials.cred_1)
+  credentials.cred_1.meta.region = 'us'
+  assert.equal(payload.mediaSource.credentials.cred_1.meta.region, 'cn')
 })

@@ -4,10 +4,6 @@ function isObject(value) {
   return value != null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : value
-}
-
 function toRecord(entries = []) {
   return Object.fromEntries(entries.filter(Boolean))
 }
@@ -28,7 +24,7 @@ function normalizeRemoteDir(remoteDir = '') {
   const segments = normalized.split('/').filter(Boolean)
   if (!segments.length) return '/'
 
-  return `/${segments.join('/')}/`
+  return `/${segments.join('/')}`
 }
 
 function normalizeSelection(selection = {}) {
@@ -61,15 +57,25 @@ function normalizeImportRule(rule = {}) {
   }
 }
 
-function normalizeAccountSyncProfile(profile = {}) {
-  const nextProfile = isObject(profile) ? { ...profile } : {}
-
-  for (const [key, value] of Object.entries(nextProfile)) {
-    nextProfile[key] = trimString(value)
+function createEmptyAccountSyncProfile() {
+  return {
+    displayName: '',
+    serverUrl: '',
+    username: '',
+    password: '',
+    remoteDir: '/',
   }
+}
 
-  nextProfile.serverUrl = normalizeServerUrl(nextProfile.serverUrl)
-  nextProfile.remoteDir = normalizeRemoteDir(nextProfile.remoteDir)
+function normalizeAccountSyncProfile(profile = {}) {
+  const nextProfile = createEmptyAccountSyncProfile()
+  const inputProfile = isObject(profile) ? profile : {}
+
+  nextProfile.displayName = typeof inputProfile.displayName === 'string' ? inputProfile.displayName.trim() : ''
+  nextProfile.serverUrl = normalizeServerUrl(inputProfile.serverUrl)
+  nextProfile.username = typeof inputProfile.username === 'string' ? inputProfile.username.trim() : ''
+  nextProfile.password = typeof inputProfile.password === 'string' ? inputProfile.password.trim() : ''
+  nextProfile.remoteDir = normalizeRemoteDir(inputProfile.remoteDir)
 
   return nextProfile
 }
@@ -77,25 +83,52 @@ function normalizeAccountSyncProfile(profile = {}) {
 function createAccountSyncValidationKey(profile = {}) {
   const nextProfile = normalizeAccountSyncProfile(profile)
   return JSON.stringify({
-    serverUrl: nextProfile.serverUrl || '',
-    remoteDir: nextProfile.remoteDir || '/',
-    username: typeof nextProfile.username === 'string' ? nextProfile.username : '',
+    serverUrl: nextProfile.serverUrl,
+    username: nextProfile.username,
+    password: nextProfile.password,
+    remoteDir: nextProfile.remoteDir,
   })
 }
 
 function createEmptyAccountSyncState() {
   return {
-    status: 'idle',
-    validationKey: '',
-    updatedAt: null,
-    message: '',
+    version: 1,
+    profile: createEmptyAccountSyncProfile(),
+    validationKey: null,
+    lastValidatedAt: null,
+    lastUploadAt: null,
+    lastUploadStatus: 'idle',
+    lastUploadMessage: '',
   }
 }
 
+function normalizeTimestamp(value) {
+  return Number.isFinite(value) ? value : null
+}
+
 function normalizeAccountSyncState(state = {}) {
-  const nextState = isObject(state) ? { ...state } : createEmptyAccountSyncState()
-  nextState.status = VALID_SYNC_STATUS.has(nextState.status) ? nextState.status : 'idle'
+  const inputState = isObject(state) ? state : {}
+  const nextState = createEmptyAccountSyncState()
+
+  nextState.version = 1
+  nextState.profile = normalizeAccountSyncProfile(inputState.profile)
+  nextState.validationKey =
+    typeof inputState.validationKey === 'string' || inputState.validationKey === null
+      ? inputState.validationKey
+      : null
+  nextState.lastValidatedAt = normalizeTimestamp(inputState.lastValidatedAt)
+  nextState.lastUploadAt = normalizeTimestamp(inputState.lastUploadAt)
+  nextState.lastUploadStatus = VALID_SYNC_STATUS.has(inputState.lastUploadStatus) ? inputState.lastUploadStatus : 'idle'
+  nextState.lastUploadMessage = typeof inputState.lastUploadMessage === 'string' ? inputState.lastUploadMessage.trim() : ''
+
   return nextState
+}
+
+function deepClone(value) {
+  if (Array.isArray(value)) return value.map(deepClone)
+  if (!isObject(value)) return value
+
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, deepClone(entry)]))
 }
 
 async function buildCredentials(connections = [], repository) {
@@ -105,13 +138,15 @@ async function buildCredentials(connections = [], repository) {
   const credentialEntries = await Promise.all(credentialRefs.map(async credentialRef => {
     const credential = await repository.getCredential(credentialRef)
     if (!credential) return null
-    return [credentialRef, credential]
+    return [credentialRef, deepClone(credential)]
   }))
 
   return toRecord(credentialEntries)
 }
 
 async function buildAccountSyncPayload({
+  appVersion = '',
+  exportedAt = Date.now(),
   settings = {},
   repository,
 } = {}) {
@@ -129,7 +164,10 @@ async function buildAccountSyncPayload({
   const credentials = await buildCredentials(connections, repository)
 
   return {
-    settings: isObject(settings) ? settings : {},
+    type: 'accountSyncPlain_v1',
+    appVersion,
+    exportedAt,
+    settings: isObject(settings) ? deepClone(settings) : {},
     mediaSource: {
       connections,
       credentials,
