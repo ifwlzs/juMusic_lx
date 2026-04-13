@@ -48,8 +48,8 @@ export class AppEvent extends Event {
    * 手动改变进度
    * @param progress 进度
    */
-  setProgress(progress: number, maxPlayTime?: number) {
-    this.emit('setProgress', progress, maxPlayTime)
+  setProgress(progress: number, maxPlayTime?: number, context?: { isSeek?: boolean; reason?: string }) {
+    this.emit('setProgress', progress, maxPlayTime, context)
   }
 
   /**

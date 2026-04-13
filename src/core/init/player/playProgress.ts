@@ -1,5 +1,6 @@
 import { updateListMusics } from '@/core/list'
 import { createAnalyticsRecorder } from '@/core/mediaLibrary/analytics'
+import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 import { resolvePendingSeekState, shouldWaitForRemoteSeek } from '@/core/mediaLibrary/pendingSeek'
 import { setStatusText } from '@/core/player/playStatus'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
@@ -29,6 +30,11 @@ const analyticsRecorder = createAnalyticsRecorder({
   },
   async saveHistory(entry: LX.MediaLibrary.PlayHistoryEntry) {
     return await mediaLibraryRepository.appendPlayHistory(entry)
+  },
+  resolveSessionContext() {
+    return {
+      endReason: playbackAnalyticsRuntime.consumePendingEndReason(),
+    }
   },
 })
 
@@ -71,11 +77,23 @@ export default () => {
     const musicInfo = getAnalyticsMusicInfo()
     const mediaLibraryInfo = musicInfo?.meta.mediaLibrary
     if (!musicInfo || !mediaLibraryInfo) return
+    const entryContext = playbackAnalyticsRuntime.consumePendingEntryContext()
 
     analyticsRecorder.startSession({
       aggregateSongId: mediaLibraryInfo.aggregateSongId,
       sourceItemId: mediaLibraryInfo.sourceItemId,
       durationSec: playerState.progress.maxPlayTime || 0,
+    })
+    analyticsRecorder.updateSessionContext({
+      entrySource: entryContext.entrySource || 'unknown',
+      listIdSnapshot: entryContext.listIdSnapshot ?? playerState.playMusicInfo.listId ?? null,
+      listTypeSnapshot: entryContext.listTypeSnapshot || 'unknown',
+      titleSnapshot: musicInfo.name || '',
+      artistSnapshot: musicInfo.singer || '',
+      albumSnapshot: musicInfo.album || '',
+      providerTypeSnapshot: mediaLibraryInfo.providerType || '',
+      fileNameSnapshot: mediaLibraryInfo.fileName || '',
+      remotePathSnapshot: mediaLibraryInfo.remotePathOrUri || mediaLibraryInfo.pathOrUri || '',
     })
 
     if (playerState.progress.nowPlayTime > 0) {
@@ -152,14 +170,16 @@ export default () => {
     getCurrentTime()
   }
 
-  const setProgress = (time: number, maxTime?: number) => {
+  const setProgress = (time: number, maxTime?: number, context?: { isSeek?: boolean }) => {
     if (!playerState.musicInfo.id) return
     const requestId = ++pendingSeekRequestId
     const musicId = playerState.musicInfo.id
     const musicInfo = getAnalyticsMusicInfo()
     const duration = maxTime ?? playerState.progress.maxPlayTime
     const shouldResumePlayback = playerState.isPlay || resumeAfterPendingSeek
+    const previousTime = playerState.progress.nowPlayTime
     // console.log('setProgress', time, maxTime)
+    if (context?.isSeek !== false) analyticsRecorder.recordSeek(previousTime, time)
     setNowPlayTime(time)
     analyticsRecorder.updateProgress(time, playerState.isPlay, true)
     if (maxTime != null) setMaxplayTime(maxTime)
