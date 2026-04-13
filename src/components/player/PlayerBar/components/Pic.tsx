@@ -25,7 +25,8 @@ export default ({ isHome }: { isHome: boolean }) => {
     // console.log('')
     // console.log(playMusicInfo)
     if (!musicInfo.id) return
-    navigations.pushPlayDetailScreen(commonState.componentIds.home!)
+    const targetComponentId = isHome ? commonState.componentIds.home! : commonState.componentIds.songlistDetail!
+    navigations.pushPlayDetailScreen(targetComponentId)
 
     // toast(global.i18n.t('play_detail_todo_tip'), 'long')
   }

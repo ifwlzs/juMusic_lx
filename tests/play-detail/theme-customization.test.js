@@ -93,3 +93,15 @@ test('home screen suspends its own status bar while play detail is stacked on to
   assert.match(homeVerticalHeaderFile, /useComponentIds/)
   assert.match(homeVerticalHeaderFile, /componentIds\.playDetail\s*\?\s*null\s*:\s*<StatusBar \/>/)
 })
+
+test('mini player opens play detail from the current host screen instead of always pushing from home', () => {
+  const playerBarTitleFile = readFile('src/components/player/PlayerBar/components/Title.tsx')
+  const playerBarPicFile = readFile('src/components/player/PlayerBar/components/Pic.tsx')
+
+  assert.match(playerBarTitleFile, /const targetComponentId = isHome \? commonState\.componentIds\.home! : commonState\.componentIds\.songlistDetail!/)
+  assert.match(playerBarTitleFile, /navigations\.pushPlayDetailScreen\(targetComponentId\)/)
+  assert.match(playerBarPicFile, /const targetComponentId = isHome \? commonState\.componentIds\.home! : commonState\.componentIds\.songlistDetail!/)
+  assert.match(playerBarPicFile, /navigations\.pushPlayDetailScreen\(targetComponentId\)/)
+  assert.doesNotMatch(playerBarTitleFile, /pushPlayDetailScreen\(commonState\.componentIds\.home!\)/)
+  assert.doesNotMatch(playerBarPicFile, /pushPlayDetailScreen\(commonState\.componentIds\.home!\)/)
+})
