@@ -50,8 +50,8 @@ async function deriveAccountSyncKey(password, salt, deps = {}) {
   return encodeFirst16HexBytesToBase64(sha1Hex, btoa)
 }
 
-function createRandomSeed(now, random) {
-  return `${now}\n${random()}`
+function createRandomHashInput(kind, now, random) {
+  return `account-sync::${kind}::${now()}::${random()}::${random()}`
 }
 
 async function createAccountSyncEncryptedEnvelope(payload = {}, password, deps = {}) {
@@ -62,13 +62,12 @@ async function createAccountSyncEncryptedEnvelope(payload = {}, password, deps =
   const aesEncrypt = resolveEncryptFn(inputDeps)
   const now = typeof inputDeps.now === 'function' ? inputDeps.now : () => Date.now()
   const random = typeof inputDeps.random === 'function' ? inputDeps.random : Math.random
-  const exportedAt = now()
+  const exportedAt = inputPayload.exportedAt ?? now()
+  const appVersion = typeof inputPayload.appVersion === 'string' ? inputPayload.appVersion : ''
   const mode = inputDeps.AES_MODE?.CBC_128_PKCS7Padding ?? 'CBC_128_PKCS7Padding'
 
-  const saltSeed = createRandomSeed(exportedAt, random)
-  const ivSeed = createRandomSeed(exportedAt, random)
-  const saltHash = await hashSHA1(`salt\n${saltSeed}`)
-  const ivHash = await hashSHA1(`iv\n${ivSeed}`)
+  const saltHash = await hashSHA1(createRandomHashInput('salt', now, random))
+  const ivHash = await hashSHA1(createRandomHashInput('iv', now, random))
   const salt = encodeFirst16HexBytesToBase64(saltHash, btoa)
   const iv = encodeFirst16HexBytesToBase64(ivHash, btoa)
   const key = await deriveAccountSyncKey(password, salt, { hashSHA1, btoa })
@@ -77,6 +76,7 @@ async function createAccountSyncEncryptedEnvelope(payload = {}, password, deps =
 
   return {
     type: 'accountSyncEncrypted_v1',
+    appVersion,
     exportedAt,
     cipher: {
       algorithm: 'AES-128-CBC',
