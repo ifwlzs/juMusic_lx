@@ -65,10 +65,66 @@ test('analytics recorder 在结束会话时写入单次播放历史记录', () =
       listenedSec: 120,
       durationSec: 300,
       countedPlay: true,
+      completionRate: 0.4,
+      endReason: 'unknown',
+      entrySource: 'unknown',
+      seekCount: 0,
+      seekForwardSec: 0,
+      seekBackwardSec: 0,
+      startYear: 1970,
+      startMonth: 1,
+      startDay: 1,
+      startDateKey: '1970-01-01',
+      startWeekday: 4,
+      startHour: 8,
+      startSeason: 'winter',
+      startTimeBucket: 'morning',
+      nightOwningDateKey: '1970-01-01',
+      nightSortMinute: 480,
+      titleSnapshot: '',
+      artistSnapshot: '',
+      albumSnapshot: '',
+      providerTypeSnapshot: '',
+      fileNameSnapshot: '',
+      remotePathSnapshot: '',
+      listIdSnapshot: null,
+      listTypeSnapshot: 'unknown',
     }])
   } finally {
     Date.now = rawNow
   }
+})
+
+test('recorder writes extended fields and seek accumulators', async() => {
+  const historyWrites = []
+  const recorder = createAnalyticsRecorder({
+    save() {},
+    saveHistory(entry) { historyWrites.push(entry) },
+    resolveSessionContext() {
+      return {
+        entrySource: 'search',
+        endReason: 'manual_next',
+        listIdSnapshot: 'default',
+        listTypeSnapshot: 'search',
+        titleSnapshot: 'Song',
+        artistSnapshot: 'Singer',
+        albumSnapshot: 'Album',
+      }
+    },
+  })
+
+  recorder.startSession({ aggregateSongId: 'agg_1', sourceItemId: 'item_1', durationSec: 300 })
+  recorder.updateProgress(60, true)
+  recorder.recordSeek(60, 150)
+  recorder.recordSeek(150, 90)
+  recorder.updateProgress(120, true)
+  await recorder.finishSession()
+
+  assert.equal(historyWrites[0].entrySource, 'search')
+  assert.equal(historyWrites[0].endReason, 'manual_next')
+  assert.equal(historyWrites[0].seekCount, 2)
+  assert.equal(historyWrites[0].seekForwardSec, 90)
+  assert.equal(historyWrites[0].seekBackwardSec, 60)
 })
 
 test('playProgress 初始化文件接入媒体库统计', () => {

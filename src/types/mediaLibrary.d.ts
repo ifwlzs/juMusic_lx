@@ -15,6 +15,11 @@ declare namespace LX {
     type SyncCandidateState = 'discovered' | 'hydrating' | 'ready' | 'degraded' | 'committed' | 'dropped'
     type CacheOrigin = 'play' | 'prefetch'
     type PrefetchState = 'queued' | 'running' | 'ready' | 'failed'
+    type PlaybackEndReason = 'completed' | 'manual_next' | 'manual_prev' | 'manual_stop' | 'switch_music' | 'error' | 'app_exit' | 'unknown'
+    type PlaybackEntrySource = 'search' | 'list_click' | 'auto_next' | 'manual_next_prev' | 'restore' | 'deeplink' | 'temp_play' | 'unknown'
+    type PlaybackSeason = 'spring' | 'summer' | 'autumn' | 'winter'
+    type PlaybackTimeBucket = 'late_night' | 'morning' | 'noon' | 'afternoon' | 'evening' | 'night'
+    type PlaybackListType = 'default' | 'love' | 'user' | 'generated_media' | 'search' | 'temp' | 'unknown'
 
     interface ConnectionCredential {
       host?: string
@@ -234,6 +239,82 @@ declare namespace LX {
       listenedSec: number
       durationSec: number
       countedPlay: boolean
+      completionRate: number
+      endReason: PlaybackEndReason
+      entrySource: PlaybackEntrySource
+      seekCount: number
+      seekForwardSec: number
+      seekBackwardSec: number
+      startYear: number
+      startMonth: number
+      startDay: number
+      startDateKey: string
+      startWeekday: number
+      startHour: number
+      startSeason: PlaybackSeason
+      startTimeBucket: PlaybackTimeBucket
+      nightOwningDateKey: string
+      nightSortMinute: number
+      titleSnapshot: string
+      artistSnapshot: string
+      albumSnapshot: string
+      providerTypeSnapshot: ProviderType | ''
+      fileNameSnapshot: string
+      remotePathSnapshot: string
+      listIdSnapshot: string | null
+      listTypeSnapshot: PlaybackListType
+    }
+
+    interface YearSummary {
+      year: number
+      totalSessions: number
+      totalListenedSec?: number
+      countedPlayCount?: number
+      activeDaysCount?: number
+      distinctSongs?: number
+      distinctArtists?: number
+      distinctAlbums?: number
+    }
+
+    interface YearTimeStats {
+      year: number
+      monthSessions?: Record<string, number>
+      weekdaySessions?: Record<string, number>
+      hourSessions?: Record<string, number>
+      seasonSessions?: Record<string, number>
+      timeBucketSessions?: Record<string, number>
+      nightSessions?: Record<string, number>
+    }
+
+    interface YearEntityStatsItem {
+      key: string
+      sessions: number
+      countedPlayCount?: number
+      listenedSec?: number
+      firstStartedAt?: number
+      lastStartedAt?: number
+      titleSnapshot?: string
+      artistSnapshot?: string
+      albumSnapshot?: string
+    }
+
+    interface YearEntityStats {
+      year: number
+      songs: Record<string, YearEntityStatsItem>
+      artists: Record<string, YearEntityStatsItem>
+      albums: Record<string, YearEntityStatsItem>
+    }
+
+    interface LifetimeEntityFirstSeen {
+      firstYear: number
+      firstStartedAt: number
+      firstDateKey: string
+    }
+
+    interface LifetimeEntityIndex {
+      songFirstSeen: Record<string, LifetimeEntityFirstSeen>
+      artistFirstSeen: Record<string, LifetimeEntityFirstSeen>
+      albumFirstSeen: Record<string, LifetimeEntityFirstSeen>
     }
 
     interface DevSeedConnection {

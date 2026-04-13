@@ -141,7 +141,16 @@ const handlePlayMusic = ({ data: _musicInfo }) => {
   }
   musicInfo = toNewMusicInfo(musicInfo)
   const isPlaying = !!playerState.playMusicInfo.musicInfo
-  addTempPlayList([{ listId: LIST_IDS.PLAY_LATER, musicInfo, isTop: true }])
+  addTempPlayList([{
+    listId: LIST_IDS.PLAY_LATER,
+    musicInfo,
+    isTop: true,
+    analyticsContext: {
+      entrySource: 'temp_play',
+      listTypeSnapshot: 'temp',
+      listIdSnapshot: LIST_IDS.PLAY_LATER,
+    },
+  }])
   if (isPlaying) playNext()
 }
 
@@ -188,9 +197,26 @@ const handleSearchPlayMusic = async({ paths, data }) => {
     const musicInfo = musicList[0]
     const isPlaying = !!playerState.playMusicInfo.musicInfo
     if (info.playLater) {
-      addTempPlayList([{ listId: LIST_IDS.PLAY_LATER, musicInfo }])
+      addTempPlayList([{
+        listId: LIST_IDS.PLAY_LATER,
+        musicInfo,
+        analyticsContext: {
+          entrySource: 'temp_play',
+          listTypeSnapshot: 'temp',
+          listIdSnapshot: LIST_IDS.PLAY_LATER,
+        },
+      }])
     } else {
-      addTempPlayList([{ listId: LIST_IDS.PLAY_LATER, musicInfo, isTop: true }])
+      addTempPlayList([{
+        listId: LIST_IDS.PLAY_LATER,
+        musicInfo,
+        isTop: true,
+        analyticsContext: {
+          entrySource: 'temp_play',
+          listTypeSnapshot: 'temp',
+          listIdSnapshot: LIST_IDS.PLAY_LATER,
+        },
+      }])
       if (isPlaying) playNext()
     }
   } else {

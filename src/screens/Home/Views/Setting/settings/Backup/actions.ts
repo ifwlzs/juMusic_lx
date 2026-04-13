@@ -297,7 +297,7 @@ export const handleExportAllData = (path: string) => {
 const exportPlayHistoryJson = async(path: string, selection: PlayHistoryExportSelection) => {
   const range = resolvePlayHistoryExportRange(selection)
   const [playHistory, aggregateSongs, connections] = await Promise.all([
-    mediaLibraryRepository.getPlayHistory() as Promise<LX.MediaLibrary.PlayHistory[]>,
+    mediaLibraryRepository.getPlayHistory() as Promise<LX.MediaLibrary.PlayHistoryEntry[]>,
     mediaLibraryRepository.getAggregateSongs() as Promise<LX.MediaLibrary.AggregateSong[]>,
     mediaLibraryRepository.getConnections() as Promise<LX.MediaLibrary.SourceConnection[]>,
   ])

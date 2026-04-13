@@ -7,6 +7,7 @@ import { isTempId, isEmpty } from './utils'
 import { exitApp } from '@/core/common'
 import { getCurrentTrackId } from './playList'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
+import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 
 let isInitialized = false
 
@@ -20,6 +21,7 @@ let isInitialized = false
 // 销毁播放器并退出
 const handleExitApp = async(reason: string) => {
   global.lx.isPlayedStop = false
+  playbackAnalyticsRuntime.setPendingEndReason('app_exit')
   exitApp(reason)
 }
 
@@ -68,6 +70,7 @@ const registerPlaybackService = async() => {
 
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
     console.log('playback-error', err)
+    playbackAnalyticsRuntime.setPendingEndReason('error')
     global.app_event.error()
     global.app_event.playerError()
   })

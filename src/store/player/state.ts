@@ -12,6 +12,10 @@ export interface InitState {
      * 是否属于 “稍后播放”
      */
     isTempPlay: boolean
+    /**
+     * 播放分析上下文
+     */
+    analyticsContext?: LX.Player.PlayMusicInfo['analyticsContext']
   }
   playInfo: LX.Player.PlayInfo
   musicInfo: LX.Player.MusicInfo
@@ -48,6 +52,7 @@ const state: InitState = {
     listId: null,
     musicInfo: null,
     isTempPlay: false,
+    analyticsContext: undefined,
   },
   musicInfo: {
     id: null,

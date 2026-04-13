@@ -1,4 +1,9 @@
 const { sanitizeCredential } = require('./credentials.js')
+const {
+  createEmptyPlaybackAnalyticsCaches,
+  applyPlayHistoryEntryToCaches,
+  rebuildPlaybackAnalyticsCaches: rebuildPlaybackAnalyticsCachesFromHistory,
+} = require('./playbackAnalyticsAggregation.js')
 
 function createKeyBuilder(prefix = '@media_library__') {
   return {
@@ -15,6 +20,10 @@ function createKeyBuilder(prefix = '@media_library__') {
     caches: () => `${prefix}caches`,
     playStats: () => `${prefix}play_stats`,
     playHistory: () => `${prefix}play_history`,
+    yearSummary: year => `${prefix}year_summary__${year}`,
+    yearTimeStats: year => `${prefix}year_time_stats__${year}`,
+    yearEntityStats: year => `${prefix}year_entity_stats__${year}`,
+    lifetimeEntityIndex: () => `${prefix}lifetime_entity_index`,
   }
 }
 
@@ -180,6 +189,30 @@ function sanitizePlayHistory(entry = {}) {
     listenedSec: Number(entry.listenedSec) || 0,
     durationSec: Number(entry.durationSec) || 0,
     countedPlay: entry.countedPlay === true,
+    completionRate: Number(entry.completionRate) || 0,
+    endReason: entry.endReason || 'unknown',
+    entrySource: entry.entrySource || 'unknown',
+    seekCount: Number(entry.seekCount) || 0,
+    seekForwardSec: Number(entry.seekForwardSec) || 0,
+    seekBackwardSec: Number(entry.seekBackwardSec) || 0,
+    startYear: Number(entry.startYear) || 0,
+    startMonth: Number(entry.startMonth) || 0,
+    startDay: Number(entry.startDay) || 0,
+    startDateKey: typeof entry.startDateKey === 'string' ? entry.startDateKey : '',
+    startWeekday: Number(entry.startWeekday) || 0,
+    startHour: Number(entry.startHour) || 0,
+    startSeason: entry.startSeason || 'winter',
+    startTimeBucket: entry.startTimeBucket || 'late_night',
+    nightOwningDateKey: typeof entry.nightOwningDateKey === 'string' ? entry.nightOwningDateKey : '',
+    nightSortMinute: Number(entry.nightSortMinute) || 0,
+    titleSnapshot: entry.titleSnapshot || '',
+    artistSnapshot: entry.artistSnapshot || '',
+    albumSnapshot: entry.albumSnapshot || '',
+    providerTypeSnapshot: entry.providerTypeSnapshot || '',
+    fileNameSnapshot: entry.fileNameSnapshot || '',
+    remotePathSnapshot: entry.remotePathSnapshot || '',
+    listIdSnapshot: entry.listIdSnapshot ?? null,
+    listTypeSnapshot: entry.listTypeSnapshot || 'unknown',
   }
 }
 
@@ -333,6 +366,92 @@ function createMediaLibraryRepository(storage, keys = createKeyBuilder()) {
     },
     async savePlayHistory(items) {
       await storage.set(keys.playHistory(), Array.isArray(items) ? items.map(sanitizePlayHistory) : [])
+    },
+    async getYearSummary(year) {
+      if (!year) return null
+      return await storage.get(keys.yearSummary(year)) || null
+    },
+    async saveYearSummary(year, summary) {
+      if (!year) throw new Error('year is required')
+      await storage.set(keys.yearSummary(year), summary || null)
+    },
+    async getYearTimeStats(year) {
+      if (!year) return null
+      return await storage.get(keys.yearTimeStats(year)) || null
+    },
+    async saveYearTimeStats(year, stats) {
+      if (!year) throw new Error('year is required')
+      await storage.set(keys.yearTimeStats(year), stats || null)
+    },
+    async getYearEntityStats(year) {
+      if (!year) return null
+      return await storage.get(keys.yearEntityStats(year)) || null
+    },
+    async saveYearEntityStats(year, stats) {
+      if (!year) throw new Error('year is required')
+      await storage.set(keys.yearEntityStats(year), stats || null)
+    },
+    async getLifetimeEntityIndex() {
+      return await storage.get(keys.lifetimeEntityIndex()) || null
+    },
+    async saveLifetimeEntityIndex(index) {
+      await storage.set(keys.lifetimeEntityIndex(), index || null)
+    },
+    async updatePlaybackAnalyticsCachesByEntry(entry) {
+      if (!entry || !entry.startedAt) return
+
+      const year = Number(entry.startYear) || new Date(entry.startedAt).getFullYear()
+      if (!year) return
+
+      const [prevSummary, prevTimeStats, prevEntityStats, prevLifetime] = await Promise.all([
+        this.getYearSummary(year),
+        this.getYearTimeStats(year),
+        this.getYearEntityStats(year),
+        this.getLifetimeEntityIndex(),
+      ])
+
+      const caches = createEmptyPlaybackAnalyticsCaches()
+      if (prevSummary) caches.yearSummary.set(year, prevSummary)
+      if (prevTimeStats) caches.yearTimeStats.set(year, prevTimeStats)
+      if (prevEntityStats) caches.yearEntityStats.set(year, prevEntityStats)
+      if (prevLifetime) caches.lifetimeEntityIndex = prevLifetime
+
+      applyPlayHistoryEntryToCaches(caches, entry)
+
+      await this.saveYearSummary(year, caches.yearSummary.get(year))
+      await this.saveYearTimeStats(year, caches.yearTimeStats.get(year))
+      await this.saveYearEntityStats(year, caches.yearEntityStats.get(year))
+      await this.saveLifetimeEntityIndex(caches.lifetimeEntityIndex)
+    },
+    async rebuildPlaybackAnalyticsCaches() {
+      const [playHistory, aggregateSongs, connections] = await Promise.all([
+        this.getPlayHistory(),
+        this.getAggregateSongs(),
+        this.getConnections(),
+      ])
+      const connectionIds = connections.map(item => item.connectionId).filter(Boolean)
+      const sourceItems = connectionIds.length
+        ? await this.getAllSourceItems(connectionIds)
+        : []
+
+      const caches = rebuildPlaybackAnalyticsCachesFromHistory({
+        playHistory,
+        aggregateSongs,
+        sourceItems,
+      })
+
+      for (const [year, summary] of caches.yearSummary.entries()) {
+        await this.saveYearSummary(year, summary)
+      }
+      for (const [year, timeStats] of caches.yearTimeStats.entries()) {
+        await this.saveYearTimeStats(year, timeStats)
+      }
+      for (const [year, entityStats] of caches.yearEntityStats.entries()) {
+        await this.saveYearEntityStats(year, entityStats)
+      }
+      await this.saveLifetimeEntityIndex(caches.lifetimeEntityIndex)
+
+      return caches
     },
     async reconcileScannedItems(connectionId, nextItems) {
       const prevItems = await storage.get(keys.sourceItems(connectionId)) || []

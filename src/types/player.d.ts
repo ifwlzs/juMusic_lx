@@ -36,6 +36,14 @@ declare global {
           * 是否属于 “稍后播放”
           */
         isTempPlay: boolean
+        /**
+         * 播放分析上下文
+         */
+        analyticsContext?: {
+          entrySource?: LX.MediaLibrary.PlaybackEntrySource
+          listTypeSnapshot?: LX.MediaLibrary.PlaybackListType
+          listIdSnapshot?: string | null
+        }
       }>
 
       interface PlayInfo {
@@ -66,6 +74,14 @@ declare global {
          * 是否添加到列表顶部
          */
         isTop?: boolean
+        /**
+         * 播放分析上下文
+         */
+        analyticsContext?: {
+          entrySource?: LX.MediaLibrary.PlaybackEntrySource
+          listTypeSnapshot?: LX.MediaLibrary.PlaybackListType
+          listIdSnapshot?: string | null
+        }
       }
 
       interface SavedPlayInfo {

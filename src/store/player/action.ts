@@ -16,8 +16,13 @@ export default {
 
     global.state_event.playInfoChanged({ ...state.playInfo })
   },
-  setPlayMusicInfo(listId: string | null, musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null, isTempPlay: boolean = false) {
-    state.playMusicInfo = { listId, musicInfo, isTempPlay }
+  setPlayMusicInfo(
+    listId: string | null,
+    musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null,
+    isTempPlay: boolean = false,
+    analyticsContext?: LX.Player.PlayMusicInfo['analyticsContext'],
+  ) {
+    state.playMusicInfo = { listId, musicInfo, isTempPlay, analyticsContext }
 
     global.state_event.playMusicInfoChanged(state.playMusicInfo)
   },
@@ -81,7 +86,11 @@ export default {
     global.state_event.playPlayedListChanged({ ...state.playedList })
   },
   addTempPlayList(list: LX.Player.TempPlayListItem[]) {
-    const topList: Array<{ listId: string | null, musicInfo: LX.Music.MusicInfo | LX.Download.ListItem }> = []
+    const topList: Array<{
+      listId: string | null
+      musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
+      analyticsContext?: LX.Player.PlayMusicInfo['analyticsContext']
+    }> = []
     const bottomList = list.filter(({ isTop, ...musicInfo }) => {
       if (isTop) {
         topList.push(musicInfo)
@@ -89,8 +98,22 @@ export default {
       }
       return true
     })
-    if (topList.length) arrUnshift(state.tempPlayList, topList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })))
-    if (bottomList.length) arrPush(state.tempPlayList, bottomList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })))
+    if (topList.length) {
+      arrUnshift(state.tempPlayList, topList.map(({ musicInfo, listId, analyticsContext }) => ({
+        musicInfo,
+        listId,
+        isTempPlay: true,
+        analyticsContext,
+      })))
+    }
+    if (bottomList.length) {
+      arrPush(state.tempPlayList, bottomList.map(({ musicInfo, listId, analyticsContext }) => ({
+        musicInfo,
+        listId,
+        isTempPlay: true,
+        analyticsContext,
+      })))
+    }
 
     global.state_event.playTempPlayListChanged({ ...state.tempPlayList })
   },

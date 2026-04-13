@@ -119,8 +119,13 @@ const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
  * @param musicInfo 歌曲信息
  * @param isTempPlay 是否临时播放
  */
-export const setPlayMusicInfo = (listId: string | null, musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null, isTempPlay: boolean = false) => {
-  playerActions.setPlayMusicInfo(listId, musicInfo, isTempPlay)
+export const setPlayMusicInfo = (
+  listId: string | null,
+  musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null,
+  isTempPlay: boolean = false,
+  analyticsContext?: LX.Player.PlayMusicInfo['analyticsContext'],
+) => {
+  playerActions.setPlayMusicInfo(listId, musicInfo, isTempPlay, analyticsContext)
   setPlayerMusicInfo(musicInfo)
 
   setProgress(0, 0)

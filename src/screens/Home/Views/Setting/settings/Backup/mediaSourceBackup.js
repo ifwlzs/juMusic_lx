@@ -106,6 +106,13 @@ async function restoreMediaSourceBackupPayload(repository, payload = {}) {
   await repository.saveAggregateSongs(aggregateSongs)
   await repository.savePlayStats(playStats)
   await repository.savePlayHistory(playHistory)
+  if (typeof repository.rebuildPlaybackAnalyticsCaches === 'function') {
+    try {
+      await repository.rebuildPlaybackAnalyticsCaches()
+    } catch (error) {
+      console.warn('rebuildPlaybackAnalyticsCaches failed:', error)
+    }
+  }
 }
 
 module.exports = {

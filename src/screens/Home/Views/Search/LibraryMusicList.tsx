@@ -34,5 +34,10 @@ export default forwardRef<LibraryMusicListType, {}>((_, ref) => {
     }
   }, [])
 
-  return <LibraryMusicListView list={list.length ? list : searchMusicState.listInfos[searchInfoRef.current.source]!.list} />
+  return (
+    <LibraryMusicListView
+      list={list.length ? list : searchMusicState.listInfos[searchInfoRef.current.source]!.list}
+      entrySource='search'
+    />
+  )
 })
