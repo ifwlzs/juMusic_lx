@@ -132,9 +132,11 @@ async function validateAccountSyncProfile(profile = {}, deps = {}) {
 async function ensureAccountSyncRemoteDir(profile = {}, deps = {}) {
   const normalizedProfile = isObject(profile) ? profile : {}
   const remoteDir = normalizeRemoteDir(normalizedProfile.remoteDir)
-  if (remoteDir === '/') return
+  const ensureDir = remoteDir === '/'
+    ? '/jumusic-sync'
+    : `${remoteDir}/jumusic-sync`
 
-  const segments = remoteDir.split('/').filter(Boolean)
+  const segments = ensureDir.split('/').filter(Boolean)
   let currentPath = ''
   for (const segment of segments) {
     currentPath = `${currentPath}/${segment}`

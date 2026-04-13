@@ -95,6 +95,10 @@ test('uploadAccountSyncEnvelope runs ensure then PUT with fixed latest file path
           return { status: 404 }
         case 'MKCOL /Apps/juMusicSync':
           return { status: 201 }
+        case 'PROPFIND /Apps/juMusicSync/jumusic-sync':
+          return { status: 404 }
+        case 'MKCOL /Apps/juMusicSync/jumusic-sync':
+          return { status: 201 }
         case 'PUT /Apps/juMusicSync/jumusic-sync/account-sync.latest.json':
           return { status: 201 }
         default:
@@ -108,8 +112,46 @@ test('uploadAccountSyncEnvelope runs ensure then PUT with fixed latest file path
     'MKCOL /Apps',
     'PROPFIND /Apps/juMusicSync',
     'MKCOL /Apps/juMusicSync',
+    'PROPFIND /Apps/juMusicSync/jumusic-sync',
+    'MKCOL /Apps/juMusicSync/jumusic-sync',
     'PUT /Apps/juMusicSync/jumusic-sync/account-sync.latest.json',
   ])
+})
+
+test('ensureAccountSyncRemoteDir maps non-404 PROPFIND and invalid MKCOL status to create_failed', async() => {
+  await assert.rejects(
+    ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
+      async requestWebdav(input) {
+        if (input.method === 'PROPFIND' && input.path === '/Apps') return { status: 500 }
+        return { status: 207 }
+      },
+    }),
+    /account_sync_remote_dir_create_failed/,
+  )
+
+  await assert.rejects(
+    ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
+      async requestWebdav(input) {
+        if (input.method === 'PROPFIND') return { status: 404 }
+        if (input.method === 'MKCOL') return { status: 409 }
+        return { status: 500 }
+      },
+    }),
+    /account_sync_remote_dir_create_failed/,
+  )
+})
+
+test('uploadAccountSyncEnvelope maps PUT non-success status to account_sync_upload_failed', async() => {
+  await assert.rejects(
+    uploadAccountSyncEnvelope({ remoteDir: '/Apps/juMusicSync' }, '{"x":1}', {
+      async requestWebdav(input) {
+        if (input.method === 'PROPFIND') return { status: 207 }
+        if (input.method === 'PUT') return { status: 500 }
+        return { status: 201 }
+      },
+    }),
+    /account_sync_upload_failed/,
+  )
 })
 
 test('actions.ts exposes account sync handlers and upload pipeline contracts', () => {
