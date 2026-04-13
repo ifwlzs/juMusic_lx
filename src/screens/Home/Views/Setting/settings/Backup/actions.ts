@@ -320,6 +320,8 @@ const saveAccountSyncState = async(state: any) => {
 
 const getAccountSyncErrorMessage = (error: any) => {
   switch (error?.message) {
+    case 'account_sync_validation_required':
+      return global.i18n.t('setting_backup_account_sync_error_validation_required')
     case 'account_sync_password_required':
       return global.i18n.t('setting_backup_account_sync_error_password_required')
     case 'account_sync_hash_unavailable':
@@ -367,18 +369,22 @@ export const handleValidateAccountSyncProfile = (profile: any, deps: any = {}) =
   })
 }
 
-export const handleUploadAccountSync = (profile?: any, deps: any = {}) => {
+export const handleUploadAccountSync = (profile?: any, syncPassword?: string, deps: any = {}) => {
   toast(global.i18n.t('setting_backup_account_sync_upload_tip_running'))
-  void (async() => {
+  return void (async() => {
     const prevState = await loadAccountSyncState()
     const normalizedProfile = normalizeAccountSyncProfile(profile ?? prevState.profile)
+    const computedValidationKey = createAccountSyncValidationKey(normalizedProfile)
+    if (prevState.validationKey !== computedValidationKey || !prevState.lastValidatedAt) {
+      throw new Error('account_sync_validation_required')
+    }
 
     const payload = await buildAccountSyncPayload({
       appVersion: '',
       setting: settingState.setting,
       repository: mediaLibraryRepository,
     })
-    const envelope = await createAccountSyncEncryptedEnvelope(payload, normalizedProfile.password, {
+    const envelope = await createAccountSyncEncryptedEnvelope(payload, syncPassword, {
       now: () => Date.now(),
       random: Math.random,
       hashSHA1,
@@ -387,17 +393,19 @@ export const handleUploadAccountSync = (profile?: any, deps: any = {}) => {
       AES_MODE,
       ...(deps.crypto || {}),
     })
-    await uploadAccountSyncEnvelope(normalizedProfile, JSON.stringify(envelope), deps)
+    const { remoteFilePath } = await uploadAccountSyncEnvelope(normalizedProfile, JSON.stringify(envelope), deps)
+    const successMessage = `${global.i18n.t('setting_backup_account_sync_upload_tip_success')}: ${remoteFilePath}`
 
     const nextState = await saveAccountSyncState({
       ...prevState,
       profile: normalizedProfile,
-      validationKey: createAccountSyncValidationKey(normalizedProfile),
+      validationKey: computedValidationKey,
       lastUploadAt: Date.now(),
       lastUploadStatus: 'success',
-      lastUploadMessage: global.i18n.t('setting_backup_account_sync_upload_tip_success'),
+      lastUploadMessage: successMessage,
     })
     toast(nextState.lastUploadMessage)
+    return remoteFilePath
   })().catch((error: any) => {
     log.error(error)
     const message = getAccountSyncErrorMessage(error)
