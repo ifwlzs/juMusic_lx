@@ -175,3 +175,35 @@ test('createAccountSyncEncryptedEnvelope throws explicit errors for missing pass
     /account_sync_encrypt_unavailable/,
   )
 })
+
+test('createAccountSyncEncryptedEnvelope uses UTF-8 safe base64 for payload plaintext', async() => {
+  const payload = {
+    type: 'accountSyncPlain_v1',
+    title: '中文✅',
+    emoji: '🎵',
+  }
+  const encryptCalls = []
+  const deps = {
+    now: () => 1,
+    random: () => 0.5,
+    async hashSHA1(text) {
+      if (text === 'account-sync::salt::1::0.5::0.5') return '11111111111111111111111111111111aabbccdd'
+      if (text === 'account-sync::iv::1::0.5::0.5') return '22222222222222222222222222222222aabbccdd'
+      if (text === 'pass\nEREREREREREREREREREREQ==') return '00112233445566778899aabbccddeeff12345678'
+      throw new Error(`unexpected_hash_input:${text}`)
+    },
+    btoa: toB64,
+    AES_MODE: { CBC_128_PKCS7Padding: 'CBC_128_PKCS7Padding' },
+    async aesEncrypt(text, key, iv, mode) {
+      encryptCalls.push({ text, key, iv, mode })
+      return 'cipher_utf8'
+    },
+  }
+
+  await createAccountSyncEncryptedEnvelope(payload, 'pass', deps)
+
+  assert.equal(
+    encryptCalls[0].text,
+    Buffer.from(JSON.stringify(payload), 'utf8').toString('base64'),
+  )
+})

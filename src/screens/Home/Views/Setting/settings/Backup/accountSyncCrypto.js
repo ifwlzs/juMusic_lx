@@ -41,6 +41,17 @@ function encodeFirst16HexBytesToBase64(hex, btoa) {
   return btoa(binary)
 }
 
+function encodeUtf8Base64(text, btoa) {
+  if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+    return Buffer.from(text, 'utf8').toString('base64')
+  }
+
+  const byteString = encodeURIComponent(text).replace(/%([0-9a-f]{2})/gi, (_, hex) => {
+    return String.fromCharCode(parseInt(hex, 16))
+  })
+  return btoa(byteString)
+}
+
 async function deriveAccountSyncKey(password, salt, deps = {}) {
   const nextPassword = ensurePassword(password)
   const hashSHA1 = resolveHashFn(deps)
@@ -71,7 +82,7 @@ async function createAccountSyncEncryptedEnvelope(payload = {}, password, deps =
   const salt = encodeFirst16HexBytesToBase64(saltHash, btoa)
   const iv = encodeFirst16HexBytesToBase64(ivHash, btoa)
   const key = await deriveAccountSyncKey(password, salt, { hashSHA1, btoa })
-  const plainText = btoa(JSON.stringify(inputPayload))
+  const plainText = encodeUtf8Base64(JSON.stringify(inputPayload), btoa)
   const ciphertext = await aesEncrypt(plainText, key, iv, mode)
 
   return {
