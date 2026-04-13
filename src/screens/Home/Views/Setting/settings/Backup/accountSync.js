@@ -144,12 +144,18 @@ async function buildCredentials(connections = [], repository) {
   return toRecord(credentialEntries)
 }
 
-async function buildAccountSyncPayload({
-  appVersion = '',
-  exportedAt = Date.now(),
-  settings = {},
-  repository,
-} = {}) {
+async function buildAccountSyncPayload(payload = {}) {
+  const {
+    appVersion = '',
+    exportedAt = Date.now(),
+    setting,
+    settings = {},
+    repository,
+  } = payload
+
+  const hasSettingInput = Object.prototype.hasOwnProperty.call(payload, 'setting')
+  const rawSettings = hasSettingInput ? setting : settings
+
   const [rawConnections, rawImportRules] = await Promise.all([
     typeof repository?.getConnections === 'function' ? repository.getConnections() : [],
     typeof repository?.getImportRules === 'function' ? repository.getImportRules() : [],
@@ -167,7 +173,7 @@ async function buildAccountSyncPayload({
     type: 'accountSyncPlain_v1',
     appVersion,
     exportedAt,
-    settings: isObject(settings) ? deepClone(settings) : {},
+    settings: isObject(rawSettings) ? deepClone(rawSettings) : {},
     mediaSource: {
       connections,
       credentials,

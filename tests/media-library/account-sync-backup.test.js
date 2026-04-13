@@ -186,7 +186,7 @@ test('buildAccountSyncPayload exports accountSyncPlain_v1 with appVersion/export
   const payload = await buildAccountSyncPayload({
     appVersion: '2.9.0',
     exportedAt: 1711111111111,
-    settings: {
+    setting: {
       enable: true,
       profile: {
         serverUrl: 'https://example.com/webdav/',
@@ -255,4 +255,25 @@ test('buildAccountSyncPayload exports accountSyncPlain_v1 with appVersion/export
   assert.notEqual(payload.mediaSource.credentials.cred_1, credentials.cred_1)
   credentials.cred_1.meta.region = 'us'
   assert.equal(payload.mediaSource.credentials.cred_1.meta.region, 'cn')
+})
+
+test('buildAccountSyncPayload keeps output key as settings and supports setting input with higher priority', async() => {
+  const repository = {
+    async getConnections() { return [] },
+    async getImportRules() { return [] },
+    async getCredential() { return null },
+  }
+
+  const payloadPreferSingular = await buildAccountSyncPayload({
+    setting: { preferred: 'singular' },
+    settings: { preferred: 'plural' },
+    repository,
+  })
+  assert.deepEqual(payloadPreferSingular.settings, { preferred: 'singular' })
+
+  const payloadFallbackPlural = await buildAccountSyncPayload({
+    settings: { from: 'plural' },
+    repository,
+  })
+  assert.deepEqual(payloadFallbackPlural.settings, { from: 'plural' })
 })
