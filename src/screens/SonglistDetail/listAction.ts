@@ -5,20 +5,27 @@ import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
 import syncSourceList from '@/core/syncSourceList'
 import { confirmDialog, toMD5, toast } from '@/utils/tools'
-import { type Source } from '@/store/songlist/state'
+import { type Source, type SonglistDetailEntrySource } from '@/store/songlist/state'
 
 const getListId = (id: string, source: LX.OnlineSource) => `${source}__${id}`
 
-const resolveDetailEntrySource = (id: string): LX.MediaLibrary.PlaybackEntrySource => {
+const resolveDetailEntrySource = (id: string, detailEntrySource?: SonglistDetailEntrySource): SonglistDetailEntrySource => {
+  if (detailEntrySource) return detailEntrySource
   const normalized = String(id || '').toLowerCase()
   if (normalized.includes('singer') || normalized.includes('artist')) return 'artist_detail'
   if (normalized.includes('album')) return 'album_detail'
   return 'songlist_detail'
 }
 
-export const handlePlay = async(id: string, source: Source, list?: LX.Music.MusicInfoOnline[], index = 0) => {
+export const handlePlay = async(
+  id: string,
+  source: Source,
+  list?: LX.Music.MusicInfoOnline[],
+  index = 0,
+  detailEntrySource?: SonglistDetailEntrySource,
+) => {
   const listId = getListId(id, source)
-  const entrySource = resolveDetailEntrySource(id)
+  const entrySource = resolveDetailEntrySource(id, detailEntrySource)
   let isPlayingList = false
   // console.log(list)
   if (!list?.length) list = (await getListDetail(id, source, 1)).list
