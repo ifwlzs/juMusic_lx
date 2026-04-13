@@ -82,8 +82,7 @@ function buildAccountSyncRemoteFilePath(remoteDir = '/') {
 
 function buildAccountSyncRemoteDirPath(remoteDir = '/') {
   const normalized = normalizeRemoteDir(remoteDir)
-  const prefix = normalized === '/' ? '' : normalized
-  return `${prefix}/jumusic-sync`
+  return normalizeRemoteDir(`${normalized}/jumusic-sync`)
 }
 
 async function callWebdav(profile, deps, input) {

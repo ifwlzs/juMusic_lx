@@ -118,44 +118,47 @@ test('uploadAccountSyncEnvelope runs ensure then PUT with fixed latest file path
   ])
 })
 
-test('ensureAccountSyncRemoteDir ensures jumusic-sync when base dir exists', async() => {
+test('ensureAccountSyncRemoteDir ensures jumusic-sync through parent creation', async() => {
   const calls = []
   await ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
     async requestWebdav(input) {
       calls.push(`${input.method} ${input.path}`)
-      if (input.path === '/Apps') return { status: 207 }
-      if (input.path === '/Apps/juMusicSync') return { status: 207 }
-      if (input.path === '/Apps/juMusicSync/jumusic-sync' && input.method === 'PROPFIND') return { status: 404 }
-      if (input.path === '/Apps/juMusicSync/jumusic-sync' && input.method === 'MKCOL') return { status: 201 }
+      if (input.method === 'PROPFIND') return { status: 404 }
+      if (input.method === 'MKCOL') return { status: 201 }
       return { status: 207 }
     },
   })
 
   assert.deepEqual(calls, [
     'PROPFIND /Apps',
+    'MKCOL /Apps',
     'PROPFIND /Apps/juMusicSync',
+    'MKCOL /Apps/juMusicSync',
     'PROPFIND /Apps/juMusicSync/jumusic-sync',
     'MKCOL /Apps/juMusicSync/jumusic-sync',
   ])
 })
 
-test('ensureAccountSyncRemoteDir maps non-404 PROPFIND and invalid MKCOL status to create_failed', async() => {
+test('ensureAccountSyncRemoteDir maps PROPFIND non-success non-404 to create_failed', async() => {
   await assert.rejects(
     ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
       async requestWebdav(input) {
-        if (input.method === 'PROPFIND' && input.path === '/Apps') return { status: 403 }
+        if (input.method === 'PROPFIND') return { status: 500 }
         return { status: 207 }
       },
     }),
     /account_sync_remote_dir_create_failed/,
   )
+})
 
+test('ensureAccountSyncRemoteDir maps MKCOL invalid status to create_failed', async() => {
   await assert.rejects(
     ensureAccountSyncRemoteDir({ remoteDir: '/Apps/juMusicSync' }, {
       async requestWebdav(input) {
-        if (input.method === 'PROPFIND') return { status: 404 }
+        if (input.method === 'PROPFIND' && input.path === '/Apps/juMusicSync/jumusic-sync') return { status: 404 }
+        if (input.method === 'PROPFIND') return { status: 207 }
         if (input.method === 'MKCOL') return { status: 500 }
-        return { status: 500 }
+        return { status: 207 }
       },
     }),
     /account_sync_remote_dir_create_failed/,
