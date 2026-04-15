@@ -9,6 +9,7 @@ import { useI18n } from '@/lang'
 import AllDataImportExport, { type AllDataImportExportType } from './AllDataImportExport'
 import ListImportExport, { type ListImportExportType } from './ListImportExport'
 import PlayHistoryExport, { type PlayHistoryExportType } from './PlayHistoryExport'
+import AccountSync from './AccountSync'
 
 
 export default memo(() => {
@@ -35,6 +36,9 @@ export default memo(() => {
         <View style={styles.list}>
           <Button onPress={() => playHistoryExportRef.current?.export()}>{t('setting_backup_play_history_export_json')}</Button>
         </View>
+      </SubTitle>
+      <SubTitle title={t('setting_backup_account_sync')}>
+        <AccountSync />
       </SubTitle>
       <AllDataImportExport ref={allDataImportExportRef} />
       <ListImportExport ref={listImportExportRef} />

@@ -307,12 +307,12 @@ export const handleExportAllData = (path: string) => {
   })
 }
 
-const loadAccountSyncState = async() => {
+export const loadAccountSyncState = async() => {
   const state = await getData<any>(storageDataPrefix.accountSync)
   return normalizeAccountSyncState(state ?? createEmptyAccountSyncState())
 }
 
-const saveAccountSyncState = async(state: any) => {
+export const saveAccountSyncState = async(state: any) => {
   const normalizedState = normalizeAccountSyncState(state)
   await saveData(storageDataPrefix.accountSync, normalizedState)
   return normalizedState
