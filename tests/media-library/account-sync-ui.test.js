@@ -54,3 +54,10 @@ test('account sync i18n keys exist in zh-cn/zh-tw/en-us', () => {
     assert.match(content, /"setting_backup_account_sync_error_upload_failed"\s*:/)
   }
 })
+
+test('changelog notes the new encrypted webdav account sync upload flow', () => {
+  const changelog = readFile('CHANGELOG.md')
+  assert.match(changelog, /WebDAV/)
+  assert.match(changelog, /账号同步/)
+  assert.match(changelog, /同步密码/)
+})
