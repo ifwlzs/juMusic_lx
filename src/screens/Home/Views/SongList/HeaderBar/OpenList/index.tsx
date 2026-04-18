@@ -3,7 +3,8 @@ import { useRef, forwardRef, useImperativeHandle } from 'react'
 import Button from '@/components/common/Button'
 // import { navigations } from '@/navigation'
 import Modal, { type ModalType } from './Modal'
-import { type Source, type SonglistDetailEntrySource } from '@/store/songlist/state'
+import { type Source } from '@/store/songlist/state'
+import { resolveDetailEntrySourceById } from '@/store/songlist/detailEntrySource'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
@@ -16,13 +17,6 @@ import commonState from '@/store/common/state'
 
 export interface OpenListType {
   setInfo: (source: Source) => void
-}
-
-const resolveDetailEntrySourceById = (id: string): SonglistDetailEntrySource => {
-  const normalized = String(id || '').toLowerCase()
-  if (normalized.includes('singer') || normalized.includes('artist')) return 'artist_detail'
-  if (normalized.includes('album')) return 'album_detail'
-  return 'songlist_detail'
 }
 
 export default forwardRef<OpenListType, {}>((props, ref) => {

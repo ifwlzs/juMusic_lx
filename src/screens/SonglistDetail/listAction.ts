@@ -6,16 +6,9 @@ import listState from '@/store/list/state'
 import syncSourceList from '@/core/syncSourceList'
 import { confirmDialog, toMD5, toast } from '@/utils/tools'
 import { type Source, type SonglistDetailEntrySource } from '@/store/songlist/state'
+import { resolveDetailEntrySourceById } from '@/store/songlist/detailEntrySource'
 
 const getListId = (id: string, source: LX.OnlineSource) => `${source}__${id}`
-
-const resolveDetailEntrySource = (id: string, detailEntrySource?: SonglistDetailEntrySource): SonglistDetailEntrySource => {
-  if (detailEntrySource) return detailEntrySource
-  const normalized = String(id || '').toLowerCase()
-  if (normalized.includes('singer') || normalized.includes('artist')) return 'artist_detail'
-  if (normalized.includes('album')) return 'album_detail'
-  return 'songlist_detail'
-}
 
 export const handlePlay = async(
   id: string,
@@ -25,7 +18,7 @@ export const handlePlay = async(
   detailEntrySource?: SonglistDetailEntrySource,
 ) => {
   const listId = getListId(id, source)
-  const entrySource = resolveDetailEntrySource(id, detailEntrySource)
+  const entrySource = resolveDetailEntrySourceById(id, detailEntrySource)
   let isPlayingList = false
   // console.log(list)
   if (!list?.length) list = (await getListDetail(id, source, 1)).list

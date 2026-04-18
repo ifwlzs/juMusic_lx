@@ -14,6 +14,7 @@ import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
 import { windowSizeTools } from '@/utils/windowSizeTools'
 import { type ListInfoItem } from '@/store/songlist/state'
+import { resolveDetailEntrySourceById } from '@/store/songlist/detailEntrySource'
 
 // const store = getStore()
 // const getTheme = () => getter('common', 'theme')(store.getState())
@@ -209,7 +210,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
         passProps: {
           info: {
             ...info,
-            detailEntrySource: info.detailEntrySource ?? 'songlist_detail',
+            detailEntrySource: resolveDetailEntrySourceById(info.id, info.detailEntrySource),
           },
         },
         options: {
