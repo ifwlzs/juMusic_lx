@@ -46,6 +46,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 - 补充归档 `2026-04-09-media-library-incremental-sync` 与 `2026-04-09-play-detail-background-extended-range` 两份历史实现计划，便于后续追溯增量同步和播放页背景调参范围设计
 
+## [0.26.04190047](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04150904...v0.26.04190047) - 2026-04-19
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04150904](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04131221...v0.26.04150904) - 2026-04-15
 
 修复
