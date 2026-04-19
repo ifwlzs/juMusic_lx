@@ -316,3 +316,49 @@ def test_collect_music_rows_builds_rows_for_each_supported_file(monkeypatch, tmp
     assert len(rows) == 2
     assert stats == {'scanned': 2, 'success': 2, 'failed': 0}
     assert {row['file_path'] for row in rows} == {str(first), str(second)}
+
+def test_main_runs_table_creation_collection_and_upsert(monkeypatch, capsys):
+    module = load_module()
+    calls = []
+
+    class DummyConn:
+        pass
+
+    monkeypatch.setattr(module, 'connect_db', lambda config: calls.append(('connect', config)) or DummyConn())
+    monkeypatch.setattr(module, 'ensure_table', lambda conn: calls.append(('ensure_table', conn)))
+    monkeypatch.setattr(module, 'collect_music_rows', lambda root_path, batch_id=None, now=None, limit=None: (
+        [{'file_path': 'Z:/Music/a.mp3', 'scan_status': 'SUCCESS'}],
+        {'scanned': 1, 'success': 1, 'failed': 0},
+    ))
+    monkeypatch.setattr(module, 'upsert_music_rows', lambda conn, rows: calls.append(('upsert', conn, rows)) or {'updated': 0, 'inserted': 1})
+
+    module.main(root_path='Z:/Music', db_config={'server': 'x'})
+    output = capsys.readouterr().out
+
+    assert calls[0][0] == 'connect'
+    assert calls[1][0] == 'ensure_table'
+    assert calls[2][0] == 'upsert'
+    assert 'scanned=1' in output
+    assert 'inserted=1' in output
+
+
+def test_collect_music_rows_respects_limit(monkeypatch):
+    module = load_module()
+    files = ['a.mp3', 'b.mp3', 'c.mp3']
+    monkeypatch.setattr(module, 'iter_music_files', lambda _root: files)
+    monkeypatch.setattr(module, 'extract_file_info', lambda path, root_path: {
+        'root_path': str(root_path),
+        'file_path': str(path),
+        'file_name': str(path),
+        'file_ext': '.mp3',
+        'file_size': 1,
+        'file_mtime': None,
+        'file_md5': str(path),
+        'is_readable': True,
+    })
+    monkeypatch.setattr(module, 'extract_audio_metadata', lambda _path: module.empty_audio_metadata())
+
+    rows, stats = module.collect_music_rows('Z:/Music', batch_id='batch-1', limit=2)
+
+    assert len(rows) == 2
+    assert stats['scanned'] == 2
