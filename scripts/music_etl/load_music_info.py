@@ -6,6 +6,7 @@ from pathlib import Path
 
 from mutagen import File as MutagenFile
 
+TABLE_NAME = 'ods_jumusic_music_info'
 SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg', '.opus'}
 
 
@@ -104,3 +105,58 @@ def extract_audio_metadata(file_path):
         'channels': getattr(info, 'channels', None),
     })
     return result
+
+
+def ensure_table(conn):
+    cursor = conn.cursor()
+    cursor.execute(f"""
+IF OBJECT_ID(N'dbo.{TABLE_NAME}', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.{TABLE_NAME} (
+        id bigint identity(1,1) primary key,
+        batch_id varchar(64) not null,
+        root_path nvarchar(260) not null,
+        file_path nvarchar(1024) not null,
+        file_name nvarchar(260) not null,
+        file_ext varchar(20) null,
+        file_size bigint null,
+        file_mtime datetime2 null,
+        file_md5 varchar(32) null,
+        is_readable bit not null default 1,
+        title nvarchar(500) null,
+        artist nvarchar(500) null,
+        album nvarchar(500) null,
+        album_artist nvarchar(500) null,
+        track_no int null,
+        disc_no int null,
+        genre nvarchar(200) null,
+        year varchar(20) null,
+        duration_sec decimal(18,3) null,
+        bitrate int null,
+        sample_rate int null,
+        channels int null,
+        scan_status varchar(20) not null,
+        scan_error nvarchar(2000) null,
+        etl_created_at datetime2 not null,
+        etl_updated_at datetime2 not null
+    )
+END
+""")
+    cursor.execute(f"""
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes WHERE name = 'ux_{TABLE_NAME}_file_path' AND object_id = OBJECT_ID(N'dbo.{TABLE_NAME}')
+)
+BEGIN
+    CREATE UNIQUE INDEX ux_{TABLE_NAME}_file_path ON dbo.{TABLE_NAME}(file_path)
+END
+""")
+    cursor.execute(f"""
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes WHERE name = 'ix_{TABLE_NAME}_batch_id' AND object_id = OBJECT_ID(N'dbo.{TABLE_NAME}')
+)
+BEGIN
+    CREATE INDEX ix_{TABLE_NAME}_batch_id ON dbo.{TABLE_NAME}(batch_id)
+END
+""")
+    conn.commit()
+    cursor.close()
