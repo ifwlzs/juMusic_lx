@@ -49,3 +49,49 @@ def test_extract_file_info_returns_basic_fields(tmp_path):
     assert info['file_md5'] == hashlib.md5(payload).hexdigest()
     assert info['is_readable'] is True
     assert info['file_mtime'] is not None
+
+def test_extract_audio_metadata_maps_common_fields(monkeypatch, tmp_path):
+    module = load_module()
+    music_file = tmp_path / 'track.flac'
+    music_file.write_bytes(b'x')
+
+    class FakeInfo:
+        length = 245.123
+        bitrate = 320000
+        sample_rate = 44100
+        channels = 2
+
+    class FakeAudio(dict):
+        info = FakeInfo()
+
+    fake_audio = FakeAudio({
+        'title': ['Song'],
+        'artist': ['Singer'],
+        'album': ['Album'],
+        'albumartist': ['Various'],
+        'tracknumber': ['3/12'],
+        'discnumber': ['1/2'],
+        'genre': ['Pop'],
+        'date': ['2024'],
+    })
+
+    monkeypatch.setattr(module, 'MutagenFile', lambda *_args, **_kwargs: fake_audio)
+
+    info = module.extract_audio_metadata(music_file)
+
+    assert info == {
+        'title': 'Song',
+        'artist': 'Singer',
+        'album': 'Album',
+        'album_artist': 'Various',
+        'track_no': 3,
+        'disc_no': 1,
+        'genre': 'Pop',
+        'year': '2024',
+        'duration_sec': 245.123,
+        'bitrate': 320000,
+        'sample_rate': 44100,
+        'channels': 2,
+        'scan_status': 'SUCCESS',
+        'scan_error': None,
+    }

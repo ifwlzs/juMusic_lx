@@ -4,6 +4,8 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
+from mutagen import File as MutagenFile
+
 SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg', '.opus'}
 
 
@@ -39,4 +41,43 @@ def extract_file_info(file_path, root_path):
         'file_mtime': datetime.fromtimestamp(stat.st_mtime),
         'file_md5': compute_md5(path),
         'is_readable': True,
+    }
+
+
+def _first_value(tags, *keys):
+    for key in keys:
+        value = tags.get(key)
+        if value:
+            if isinstance(value, (list, tuple)):
+                return str(value[0]).strip()
+            return str(value).strip()
+    return None
+
+
+def _parse_int_prefix(value):
+    if not value:
+        return None
+    head = str(value).split('/', 1)[0].strip()
+    return int(head) if head.isdigit() else None
+
+
+def extract_audio_metadata(file_path):
+    audio = MutagenFile(file_path, easy=True)
+    tags = audio or {}
+    info = getattr(audio, 'info', None)
+    return {
+        'title': _first_value(tags, 'title'),
+        'artist': _first_value(tags, 'artist'),
+        'album': _first_value(tags, 'album'),
+        'album_artist': _first_value(tags, 'albumartist', 'album artist'),
+        'track_no': _parse_int_prefix(_first_value(tags, 'tracknumber')),
+        'disc_no': _parse_int_prefix(_first_value(tags, 'discnumber')),
+        'genre': _first_value(tags, 'genre'),
+        'year': _first_value(tags, 'date', 'year'),
+        'duration_sec': round(getattr(info, 'length', 0) or 0, 3) or None,
+        'bitrate': getattr(info, 'bitrate', None),
+        'sample_rate': getattr(info, 'sample_rate', None),
+        'channels': getattr(info, 'channels', None),
+        'scan_status': 'SUCCESS',
+        'scan_error': None,
     }
