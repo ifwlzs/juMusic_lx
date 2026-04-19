@@ -1,6 +1,7 @@
 """Load local music info into SQL Server."""
 
 import hashlib
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -195,3 +196,19 @@ def upsert_music_rows(conn, rows):
     conn.commit()
     cursor.close()
     return {'updated': updated, 'inserted': inserted}
+
+
+def new_batch_id(now=None):
+    current = now or datetime.now()
+    return current.strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:8]
+
+
+def build_music_row(file_info, metadata, batch_id, now=None):
+    current = now or datetime.now()
+    row = {}
+    row.update(file_info)
+    row.update(metadata)
+    row['batch_id'] = batch_id
+    row['etl_created_at'] = current
+    row['etl_updated_at'] = current
+    return row
