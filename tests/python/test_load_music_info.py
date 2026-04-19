@@ -233,3 +233,44 @@ def test_upsert_music_rows_updates_then_inserts():
     assert 'INSERT INTO dbo.ods_jumusic_music_info' in sql_text
     assert stats == {'updated': 1, 'inserted': 1}
     assert conn.commit_count == 1
+
+
+def test_build_row_combines_file_and_metadata_fields():
+    from datetime import datetime
+
+    module = load_module()
+    now = datetime(2026, 4, 19, 12, 0, 0)
+    file_info = {
+        'root_path': 'Z:/Music',
+        'file_path': 'Z:/Music/a.mp3',
+        'file_name': 'a.mp3',
+        'file_ext': '.mp3',
+        'file_size': 123,
+        'file_mtime': now,
+        'file_md5': 'abc',
+        'is_readable': True,
+    }
+    metadata = {
+        'title': 'Song',
+        'artist': 'Singer',
+        'album': 'Album',
+        'album_artist': 'Various',
+        'track_no': 1,
+        'disc_no': 1,
+        'genre': 'Pop',
+        'year': '2024',
+        'duration_sec': 200.0,
+        'bitrate': 320000,
+        'sample_rate': 44100,
+        'channels': 2,
+        'scan_status': 'SUCCESS',
+        'scan_error': None,
+    }
+
+    row = module.build_music_row(file_info, metadata, batch_id='batch-1', now=now)
+
+    assert row['batch_id'] == 'batch-1'
+    assert row['file_path'] == 'Z:/Music/a.mp3'
+    assert row['title'] == 'Song'
+    assert row['etl_created_at'] == now
+    assert row['etl_updated_at'] == now
