@@ -112,3 +112,39 @@ def test_extract_audio_metadata_marks_failed_when_parser_raises(monkeypatch, tmp
     assert info['scan_error'] == 'broken tag'
     assert info['title'] is None
     assert info['duration_sec'] is None
+
+class FakeCursor:
+    def __init__(self):
+        self.executed = []
+
+    def execute(self, sql, params=None):
+        self.executed.append((sql, params))
+
+    def close(self):
+        pass
+
+
+class FakeConnection:
+    def __init__(self):
+        self.cursor_obj = FakeCursor()
+        self.commit_count = 0
+
+    def cursor(self):
+        return self.cursor_obj
+
+    def commit(self):
+        self.commit_count += 1
+
+
+def test_ensure_table_creates_target_table_and_indexes():
+    module = load_module()
+    conn = FakeConnection()
+
+    module.ensure_table(conn)
+
+    sql_text = '\n'.join(item[0] for item in conn.cursor_obj.executed)
+    assert 'ods_jumusic_music_info' in sql_text
+    assert 'CREATE TABLE' in sql_text
+    assert 'CREATE UNIQUE INDEX' in sql_text
+    assert 'file_path' in sql_text
+    assert conn.commit_count == 1
