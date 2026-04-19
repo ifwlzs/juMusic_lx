@@ -61,11 +61,35 @@ def _parse_int_prefix(value):
     return int(head) if head.isdigit() else None
 
 
+def empty_audio_metadata(status='SUCCESS', error=None):
+    return {
+        'title': None,
+        'artist': None,
+        'album': None,
+        'album_artist': None,
+        'track_no': None,
+        'disc_no': None,
+        'genre': None,
+        'year': None,
+        'duration_sec': None,
+        'bitrate': None,
+        'sample_rate': None,
+        'channels': None,
+        'scan_status': status,
+        'scan_error': error,
+    }
+
+
 def extract_audio_metadata(file_path):
-    audio = MutagenFile(file_path, easy=True)
+    try:
+        audio = MutagenFile(file_path, easy=True)
+    except Exception as exc:
+        return empty_audio_metadata(status='FAILED', error=str(exc))
+
     tags = audio or {}
     info = getattr(audio, 'info', None)
-    return {
+    result = empty_audio_metadata()
+    result.update({
         'title': _first_value(tags, 'title'),
         'artist': _first_value(tags, 'artist'),
         'album': _first_value(tags, 'album'),
@@ -78,6 +102,5 @@ def extract_audio_metadata(file_path):
         'bitrate': getattr(info, 'bitrate', None),
         'sample_rate': getattr(info, 'sample_rate', None),
         'channels': getattr(info, 'channels', None),
-        'scan_status': 'SUCCESS',
-        'scan_error': None,
-    }
+    })
+    return result
