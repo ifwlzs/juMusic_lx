@@ -212,3 +212,19 @@ def build_music_row(file_info, metadata, batch_id, now=None):
     row['etl_created_at'] = current
     row['etl_updated_at'] = current
     return row
+
+
+def collect_music_rows(root_path, batch_id=None, now=None):
+    batch = batch_id or new_batch_id(now=now)
+    rows = []
+    stats = {'scanned': 0, 'success': 0, 'failed': 0}
+    for file_path in iter_music_files(root_path):
+        stats['scanned'] += 1
+        file_info = extract_file_info(file_path, root_path=root_path)
+        metadata = extract_audio_metadata(file_path)
+        if metadata['scan_status'] == 'FAILED':
+            stats['failed'] += 1
+        else:
+            stats['success'] += 1
+        rows.append(build_music_row(file_info, metadata, batch_id=batch, now=now))
+    return rows, stats

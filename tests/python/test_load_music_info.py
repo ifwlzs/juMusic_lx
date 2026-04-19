@@ -274,3 +274,45 @@ def test_build_row_combines_file_and_metadata_fields():
     assert row['title'] == 'Song'
     assert row['etl_created_at'] == now
     assert row['etl_updated_at'] == now
+
+def test_collect_music_rows_builds_rows_for_each_supported_file(monkeypatch, tmp_path):
+    module = load_module()
+    music_dir = tmp_path / 'Music'
+    music_dir.mkdir()
+    first = music_dir / 'a.mp3'
+    second = music_dir / 'b.flac'
+    first.write_bytes(b'a')
+    second.write_bytes(b'b')
+
+    monkeypatch.setattr(module, 'extract_file_info', lambda path, root_path: {
+        'root_path': str(root_path),
+        'file_path': str(path),
+        'file_name': path.name,
+        'file_ext': path.suffix,
+        'file_size': 1,
+        'file_mtime': None,
+        'file_md5': path.stem,
+        'is_readable': True,
+    })
+    monkeypatch.setattr(module, 'extract_audio_metadata', lambda _path: {
+        'title': 'Song',
+        'artist': 'Singer',
+        'album': 'Album',
+        'album_artist': 'Various',
+        'track_no': 1,
+        'disc_no': 1,
+        'genre': 'Pop',
+        'year': '2024',
+        'duration_sec': 1.0,
+        'bitrate': 320000,
+        'sample_rate': 44100,
+        'channels': 2,
+        'scan_status': 'SUCCESS',
+        'scan_error': None,
+    })
+
+    rows, stats = module.collect_music_rows(music_dir, batch_id='batch-1')
+
+    assert len(rows) == 2
+    assert stats == {'scanned': 2, 'success': 2, 'failed': 0}
+    assert {row['file_path'] for row in rows} == {str(first), str(second)}
