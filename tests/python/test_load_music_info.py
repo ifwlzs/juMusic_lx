@@ -13,3 +13,19 @@ def load_module():
 
 def test_module_file_exists():
     assert MODULE_PATH.exists()
+
+def test_iter_music_files_filters_supported_extensions(tmp_path):
+    module = load_module()
+    music_dir = tmp_path / 'Music'
+    music_dir.mkdir()
+    keep_1 = music_dir / 'a.mp3'
+    keep_2 = music_dir / 'sub' / 'b.flac'
+    skip = music_dir / 'note.txt'
+    keep_2.parent.mkdir()
+    keep_1.write_bytes(b'a')
+    keep_2.write_bytes(b'b')
+    skip.write_text('x', encoding='utf-8')
+
+    result = list(module.iter_music_files(music_dir))
+
+    assert result == [keep_1, keep_2]
