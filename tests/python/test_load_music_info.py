@@ -148,3 +148,88 @@ def test_ensure_table_creates_target_table_and_indexes():
     assert 'CREATE UNIQUE INDEX' in sql_text
     assert 'file_path' in sql_text
     assert conn.commit_count == 1
+
+class FakeUpsertCursor(FakeCursor):
+    def __init__(self, rowcounts):
+        super().__init__()
+        self._rowcounts = list(rowcounts)
+        self.rowcount = 0
+
+    def execute(self, sql, params=None):
+        super().execute(sql, params)
+        self.rowcount = self._rowcounts.pop(0)
+
+
+class FakeUpsertConnection(FakeConnection):
+    def __init__(self, rowcounts):
+        self.cursor_obj = FakeUpsertCursor(rowcounts)
+        self.commit_count = 0
+
+
+def test_upsert_music_rows_updates_then_inserts():
+    module = load_module()
+    conn = FakeUpsertConnection([1, 0, 1])
+    rows = [
+        {
+            'batch_id': 'b1',
+            'root_path': 'Z:/Music',
+            'file_path': 'Z:/Music/a.mp3',
+            'file_name': 'a.mp3',
+            'file_ext': '.mp3',
+            'file_size': 1,
+            'file_mtime': None,
+            'file_md5': 'a',
+            'is_readable': True,
+            'title': 'A',
+            'artist': 'AA',
+            'album': 'AL',
+            'album_artist': 'VA',
+            'track_no': 1,
+            'disc_no': 1,
+            'genre': 'Pop',
+            'year': '2024',
+            'duration_sec': 1.0,
+            'bitrate': 320000,
+            'sample_rate': 44100,
+            'channels': 2,
+            'scan_status': 'SUCCESS',
+            'scan_error': None,
+            'etl_created_at': 'created',
+            'etl_updated_at': 'updated',
+        },
+        {
+            'batch_id': 'b1',
+            'root_path': 'Z:/Music',
+            'file_path': 'Z:/Music/b.mp3',
+            'file_name': 'b.mp3',
+            'file_ext': '.mp3',
+            'file_size': 1,
+            'file_mtime': None,
+            'file_md5': 'b',
+            'is_readable': True,
+            'title': 'B',
+            'artist': 'BB',
+            'album': 'BL',
+            'album_artist': 'VB',
+            'track_no': 2,
+            'disc_no': 1,
+            'genre': 'Rock',
+            'year': '2023',
+            'duration_sec': 2.0,
+            'bitrate': 128000,
+            'sample_rate': 48000,
+            'channels': 2,
+            'scan_status': 'SUCCESS',
+            'scan_error': None,
+            'etl_created_at': 'created',
+            'etl_updated_at': 'updated',
+        },
+    ]
+
+    stats = module.upsert_music_rows(conn, rows)
+
+    sql_text = '\n'.join(item[0] for item in conn.cursor_obj.executed)
+    assert 'UPDATE dbo.ods_jumusic_music_info' in sql_text
+    assert 'INSERT INTO dbo.ods_jumusic_music_info' in sql_text
+    assert stats == {'updated': 1, 'inserted': 1}
+    assert conn.commit_count == 1
