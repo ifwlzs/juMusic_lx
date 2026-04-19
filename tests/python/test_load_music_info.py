@@ -324,15 +324,16 @@ def test_main_runs_table_creation_collection_and_upsert(monkeypatch, capsys):
     class DummyConn:
         pass
 
+    monkeypatch.setattr(module, 'load_db_config_from_env', lambda: {'server': 'x'})
     monkeypatch.setattr(module, 'connect_db', lambda config: calls.append(('connect', config)) or DummyConn())
     monkeypatch.setattr(module, 'ensure_table', lambda conn: calls.append(('ensure_table', conn)))
     monkeypatch.setattr(module, 'collect_music_rows', lambda root_path, batch_id=None, now=None, limit=None: (
-        [{'file_path': 'Z:/Music/a.mp3', 'scan_status': 'SUCCESS'}],
+        [{'file_path': 'masked', 'scan_status': 'SUCCESS'}],
         {'scanned': 1, 'success': 1, 'failed': 0},
     ))
     monkeypatch.setattr(module, 'upsert_music_rows', lambda conn, rows: calls.append(('upsert', conn, rows)) or {'updated': 0, 'inserted': 1})
 
-    module.main(root_path='Z:/Music', db_config={'server': 'x'})
+    module.main(root_path='X:/Sample', limit=1)
     output = capsys.readouterr().out
 
     assert calls[0][0] == 'connect'
@@ -340,6 +341,7 @@ def test_main_runs_table_creation_collection_and_upsert(monkeypatch, capsys):
     assert calls[2][0] == 'upsert'
     assert 'scanned=1' in output
     assert 'inserted=1' in output
+    assert 'X:/Sample' not in output
 
 
 def test_collect_music_rows_respects_limit(monkeypatch):
@@ -362,3 +364,30 @@ def test_collect_music_rows_respects_limit(monkeypatch):
 
     assert len(rows) == 2
     assert stats['scanned'] == 2
+
+def test_parse_args_does_not_hardcode_music_root(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr('sys.argv', ['load_music_info.py'])
+
+    args = module.parse_args()
+
+    assert args.root_path is None
+
+
+def test_load_db_config_from_env_reads_only_environment(monkeypatch):
+    module = load_module()
+    monkeypatch.setenv('JUMUSIC_DB_SERVER', 'server')
+    monkeypatch.setenv('JUMUSIC_DB_PORT', '1433')
+    monkeypatch.setenv('JUMUSIC_DB_USER', 'user')
+    monkeypatch.setenv('JUMUSIC_DB_PASSWORD', 'password')
+    monkeypatch.setenv('JUMUSIC_DB_DATABASE', 'database')
+
+    config = module.load_db_config_from_env()
+
+    assert config == {
+        'server': 'server',
+        'port': 1433,
+        'user': 'user',
+        'password': 'password',
+        'database': 'database',
+    }

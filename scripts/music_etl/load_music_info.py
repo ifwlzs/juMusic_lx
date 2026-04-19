@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -234,6 +235,16 @@ def collect_music_rows(root_path, batch_id=None, now=None, limit=None):
     return rows, stats
 
 
+def load_db_config_from_env():
+    return {
+        'server': os.environ['JUMUSIC_DB_SERVER'],
+        'port': int(os.environ.get('JUMUSIC_DB_PORT', '1433')),
+        'user': os.environ['JUMUSIC_DB_USER'],
+        'password': os.environ['JUMUSIC_DB_PASSWORD'],
+        'database': os.environ['JUMUSIC_DB_DATABASE'],
+    }
+
+
 def connect_db(db_config):
     return pymssql.connect(
         server=db_config['server'],
@@ -248,20 +259,21 @@ def connect_db(db_config):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root-path', default=r'Z:\Music')
+    parser.add_argument('--root-path', default=None)
     parser.add_argument('--limit', type=int, default=None)
     return parser.parse_args()
 
 
-def main(root_path=r'Z:\Music', db_config=None, limit=None):
-    if db_config is None:
-        raise ValueError('db_config is required')
+def main(root_path, limit=None):
+    if not root_path:
+        raise ValueError('root_path is required')
+    db_config = load_db_config_from_env()
     conn = connect_db(db_config)
     ensure_table(conn)
     rows, scan_stats = collect_music_rows(root_path, limit=limit)
     load_stats = upsert_music_rows(conn, rows)
     print(
-        f"done root_path={root_path} scanned={scan_stats['scanned']} success={scan_stats['success']} "
+        f"done scanned={scan_stats['scanned']} success={scan_stats['success']} "
         f"failed={scan_stats['failed']} updated={load_stats['updated']} inserted={load_stats['inserted']}"
     )
     return {'scan': scan_stats, 'load': load_stats}
