@@ -8,6 +8,11 @@ from mutagen import File as MutagenFile
 
 TABLE_NAME = 'ods_jumusic_music_info'
 SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg', '.opus'}
+WAREHOUSE_COLUMNS = [
+    'batch_id', 'root_path', 'file_path', 'file_name', 'file_ext', 'file_size', 'file_mtime', 'file_md5',
+    'is_readable', 'title', 'artist', 'album', 'album_artist', 'track_no', 'disc_no', 'genre', 'year',
+    'duration_sec', 'bitrate', 'sample_rate', 'channels', 'scan_status', 'scan_error', 'etl_created_at', 'etl_updated_at'
+]
 
 
 def iter_music_files(root_path):
@@ -60,6 +65,10 @@ def _parse_int_prefix(value):
         return None
     head = str(value).split('/', 1)[0].strip()
     return int(head) if head.isdigit() else None
+
+
+def _row_values(row, columns):
+    return [row.get(column) for column in columns]
 
 
 def empty_audio_metadata(status='SUCCESS', error=None):
@@ -160,3 +169,29 @@ END
 """)
     conn.commit()
     cursor.close()
+
+
+def upsert_music_rows(conn, rows):
+    cursor = conn.cursor()
+    updated = 0
+    inserted = 0
+    update_columns = [column for column in WAREHOUSE_COLUMNS if column not in {'file_path', 'etl_created_at'}]
+    update_assignments = ', '.join(f"{column} = %s" for column in update_columns)
+    insert_columns = ', '.join(WAREHOUSE_COLUMNS)
+    insert_placeholders = ', '.join(['%s'] * len(WAREHOUSE_COLUMNS))
+
+    for row in rows:
+        update_params = _row_values(row, update_columns) + [row['file_path']]
+        cursor.execute(f"UPDATE dbo.{TABLE_NAME} SET {update_assignments} WHERE file_path = %s", update_params)
+        if cursor.rowcount:
+            updated += 1
+            continue
+        cursor.execute(
+            f"INSERT INTO dbo.{TABLE_NAME} ({insert_columns}) VALUES ({insert_placeholders})",
+            _row_values(row, WAREHOUSE_COLUMNS),
+        )
+        inserted += 1
+
+    conn.commit()
+    cursor.close()
+    return {'updated': updated, 'inserted': inserted}
