@@ -95,3 +95,20 @@ def test_extract_audio_metadata_maps_common_fields(monkeypatch, tmp_path):
         'scan_status': 'SUCCESS',
         'scan_error': None,
     }
+
+def test_extract_audio_metadata_marks_failed_when_parser_raises(monkeypatch, tmp_path):
+    module = load_module()
+    music_file = tmp_path / 'bad.mp3'
+    music_file.write_bytes(b'x')
+
+    def raise_error(*_args, **_kwargs):
+        raise RuntimeError('broken tag')
+
+    monkeypatch.setattr(module, 'MutagenFile', raise_error)
+
+    info = module.extract_audio_metadata(music_file)
+
+    assert info['scan_status'] == 'FAILED'
+    assert info['scan_error'] == 'broken tag'
+    assert info['title'] is None
+    assert info['duration_sec'] is None
