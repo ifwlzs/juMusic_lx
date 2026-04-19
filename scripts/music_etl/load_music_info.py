@@ -1,10 +1,12 @@
 """Load local music info into SQL Server."""
 
+import argparse
 import hashlib
 import uuid
 from datetime import datetime
 from pathlib import Path
 
+import pymssql
 from mutagen import File as MutagenFile
 
 TABLE_NAME = 'ods_jumusic_music_info'
@@ -214,11 +216,13 @@ def build_music_row(file_info, metadata, batch_id, now=None):
     return row
 
 
-def collect_music_rows(root_path, batch_id=None, now=None):
+def collect_music_rows(root_path, batch_id=None, now=None, limit=None):
     batch = batch_id or new_batch_id(now=now)
     rows = []
     stats = {'scanned': 0, 'success': 0, 'failed': 0}
     for file_path in iter_music_files(root_path):
+        if limit is not None and stats['scanned'] >= limit:
+            break
         stats['scanned'] += 1
         file_info = extract_file_info(file_path, root_path=root_path)
         metadata = extract_audio_metadata(file_path)
@@ -228,3 +232,36 @@ def collect_music_rows(root_path, batch_id=None, now=None):
             stats['success'] += 1
         rows.append(build_music_row(file_info, metadata, batch_id=batch, now=now))
     return rows, stats
+
+
+def connect_db(db_config):
+    return pymssql.connect(
+        server=db_config['server'],
+        port=db_config.get('port', 1433),
+        user=db_config['user'],
+        password=db_config['password'],
+        database=db_config['database'],
+        charset='utf8',
+        tds_version='7.0',
+    )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root-path', default=r'Z:\Music')
+    parser.add_argument('--limit', type=int, default=None)
+    return parser.parse_args()
+
+
+def main(root_path=r'Z:\Music', db_config=None, limit=None):
+    if db_config is None:
+        raise ValueError('db_config is required')
+    conn = connect_db(db_config)
+    ensure_table(conn)
+    rows, scan_stats = collect_music_rows(root_path, limit=limit)
+    load_stats = upsert_music_rows(conn, rows)
+    print(
+        f"done root_path={root_path} scanned={scan_stats['scanned']} success={scan_stats['success']} "
+        f"failed={scan_stats['failed']} updated={load_stats['updated']} inserted={load_stats['inserted']}"
+    )
+    return {'scan': scan_stats, 'load': load_stats}
