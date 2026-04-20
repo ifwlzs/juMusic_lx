@@ -7,6 +7,7 @@ import SourceName from './SourceName'
 import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
+import AppIcon from './AppIcon'
 import MediaSources from './MediaSources'
 import IsStartupAutoPlay from './IsStartupAutoPlay'
 import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
@@ -40,6 +41,7 @@ export default memo(() => {
       <Language />
       <FontSize />
       <ShareType />
+      <AppIcon />
       <MediaSources />
       <Source />
       <SourceName />

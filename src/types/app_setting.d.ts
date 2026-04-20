@@ -32,6 +32,11 @@ declare global {
       'common.shareType': 'system' | 'clipboard'
 
       /**
+       * 启动器图标样式
+       */
+      'common.appIcon': 'icon1' | 'icon2'
+
+      /**
        * 是否同意软件协议
        */
       'common.isAgreePact': boolean

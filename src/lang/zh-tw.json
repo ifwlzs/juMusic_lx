@@ -679,5 +679,8 @@
   "version_title_latest": "🎉 目前版本已是最新 🎊",
   "version_title_new": "🌟 發現新版本 🌟",
   "version_title_unknown": "❓ 獲取最新版本資訊失敗 ❓",
-  "version_title_update": "🚀 軟體更新 🚀"
+  "version_title_update": "🚀 軟體更新 🚀",
+  "setting_basic_app_icon": "應用圖示",
+  "setting_basic_app_icon_icon1": "圖示 1",
+  "setting_basic_app_icon_icon2": "圖示 2"
 }
