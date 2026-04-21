@@ -24,6 +24,10 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复从歌单详情等非 Home 页底部小播放器打开播放页时仍复用 Home 宿主组件，导致状态栏样式偶发回退成黑色字体的问题
 - 修复播放器 stop 后又自动切到下一首，导致停止不彻底的问题
 
+新增
+
+- Android 端新增应用图标切换（icon1/icon2），可在设置中切换，默认 icon1，并在重启后保持
+
 优化
 
 - 媒体来源“更新”改为默认增量同步，优先补新增范围、近期新增歌曲与近期更新歌曲
