@@ -680,5 +680,8 @@
   "version_title_latest": "🎉 The current version is already the latest 🎊",
   "version_title_new": "🌟 New version found 🌟",
   "version_title_unknown": "❓ Failed to get the latest version information ❓",
-  "version_title_update": "🚀 App update 🚀"
+  "version_title_update": "🚀 App update 🚀",
+  "setting_basic_app_icon": "App Icon",
+  "setting_basic_app_icon_icon1": "Icon 1",
+  "setting_basic_app_icon_icon2": "Icon 2"
 }

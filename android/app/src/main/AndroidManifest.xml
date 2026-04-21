@@ -35,10 +35,6 @@
         android:windowSoftInputMode="adjustResize"
         android:exported="true">
         <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-        <intent-filter>
           <action android:name="android.intent.action.VIEW" />
           <category android:name="android.intent.category.DEFAULT" />
           <category android:name="android.intent.category.BROWSABLE" />
@@ -97,6 +93,32 @@
           <data android:pathSuffix=".lxmc" tools:targetApi="s" />
         </intent-filter>
       </activity>
+
+      <activity-alias
+        android:name=".MainActivityIcon1"
+        android:enabled="true"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:targetActivity=".MainActivity">
+        <intent-filter>
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+      </activity-alias>
+
+      <activity-alias
+        android:name=".MainActivityIcon2"
+        android:enabled="false"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher_alt"
+        android:roundIcon="@mipmap/ic_launcher_alt_round"
+        android:targetActivity=".MainActivity">
+        <intent-filter>
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+      </activity-alias>
 
       <activity
         android:name="com.microsoft.identity.client.BrowserTabActivity"
