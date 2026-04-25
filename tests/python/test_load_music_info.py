@@ -73,6 +73,7 @@ def test_extract_audio_metadata_maps_common_fields(monkeypatch, tmp_path):
         'discnumber': ['1/2'],
         'genre': ['Pop'],
         'date': ['2024'],
+        'lyrics': ['[00:01.00]line1\n[00:02.00]line2'],
     })
 
     monkeypatch.setattr(module, 'MutagenFile', lambda *_args, **_kwargs: fake_audio)
@@ -92,6 +93,9 @@ def test_extract_audio_metadata_maps_common_fields(monkeypatch, tmp_path):
         'bitrate': 320000,
         'sample_rate': 44100,
         'channels': 2,
+        'embedded_lyric': '[00:01.00]line1\n[00:02.00]line2',
+        'embedded_lyric_format': 'lrc',
+        'embedded_lyric_length': 31,
         'scan_status': 'SUCCESS',
         'scan_error': None,
     }
@@ -112,6 +116,7 @@ def test_extract_audio_metadata_marks_failed_when_parser_raises(monkeypatch, tmp
     assert info['scan_error'] == 'broken tag'
     assert info['title'] is None
     assert info['duration_sec'] is None
+    assert info['embedded_lyric'] is None
 
 class FakeCursor:
     def __init__(self):
@@ -147,7 +152,40 @@ def test_ensure_table_creates_target_table_and_indexes():
     assert 'CREATE TABLE' in sql_text
     assert 'CREATE UNIQUE INDEX' in sql_text
     assert 'file_path' in sql_text
+    assert 'embedded_lyric' in sql_text
     assert conn.commit_count == 1
+
+
+def test_extract_audio_metadata_reads_embedded_lyric_from_raw_tags(monkeypatch, tmp_path):
+    module = load_module()
+    music_file = tmp_path / 'raw-lyric.mp3'
+    music_file.write_bytes(b'x')
+
+    class FakeAudio(dict):
+        info = None
+
+    class FakeRawAudio:
+        info = None
+        tags = {
+            'USLT::eng': ['hello from uslt'],
+        }
+
+    calls = []
+
+    def fake_mutagen(path, easy=True):
+        calls.append(easy)
+        if easy:
+            return FakeAudio({'title': ['Song']})
+        return FakeRawAudio()
+
+    monkeypatch.setattr(module, 'MutagenFile', fake_mutagen)
+
+    info = module.extract_audio_metadata(music_file)
+
+    assert calls == [True, False]
+    assert info['embedded_lyric'] == 'hello from uslt'
+    assert info['embedded_lyric_format'] == 'plain'
+    assert info['embedded_lyric_length'] == 15
 
 class FakeUpsertCursor(FakeCursor):
     def __init__(self, rowcounts):

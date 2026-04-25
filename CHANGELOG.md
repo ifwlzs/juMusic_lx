@@ -29,6 +29,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 - Android 端新增应用图标切换（icon1/icon2），可在设置中切换，默认 icon1，并在重启后保持
 - Android 端应用图标切换新增 icon3（经典）
+- `scripts/music_etl/load_music_info.py` 新增内置歌词抓取能力，入仓字段补充 `embedded_lyric` / `embedded_lyric_format` / `embedded_lyric_length`
 
 优化
 
