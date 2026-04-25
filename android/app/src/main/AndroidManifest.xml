@@ -120,6 +120,19 @@
         </intent-filter>
       </activity-alias>
 
+      <activity-alias
+        android:name=".MainActivityIcon3"
+        android:enabled="false"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher_origin"
+        android:roundIcon="@mipmap/ic_launcher_origin_round"
+        android:targetActivity=".MainActivity">
+        <intent-filter>
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+      </activity-alias>
+
       <activity
         android:name="com.microsoft.identity.client.BrowserTabActivity"
         android:exported="true">

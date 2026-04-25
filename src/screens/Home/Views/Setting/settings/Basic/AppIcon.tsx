@@ -28,6 +28,7 @@ export default memo(() => {
     return [
       { id: 'icon1', name: t('setting_basic_app_icon_icon1') },
       { id: 'icon2', name: t('setting_basic_app_icon_icon2') },
+      { id: 'icon3', name: t('setting_basic_app_icon_icon3') },
     ] as const
   }, [t])
 

@@ -1,6 +1,6 @@
 import { NativeModules } from 'react-native'
 
-type AppIconId = 'icon1' | 'icon2'
+type AppIconId = 'icon1' | 'icon2' | 'icon3'
 
 type AppIconNativeModule = {
   getCurrentIcon: () => Promise<AppIconId>

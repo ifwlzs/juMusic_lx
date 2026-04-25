@@ -34,7 +34,7 @@ declare global {
       /**
        * 启动器图标样式
        */
-      'common.appIcon': 'icon1' | 'icon2'
+      'common.appIcon': 'icon1' | 'icon2' | 'icon3'
 
       /**
        * 是否同意软件协议

@@ -23,10 +23,12 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复播放页打开后 Home 层状态栏覆盖播放页浅色状态栏、导致状态栏文字变黑的问题
 - 修复从歌单详情等非 Home 页底部小播放器打开播放页时仍复用 Home 宿主组件，导致状态栏样式偶发回退成黑色字体的问题
 - 修复播放器 stop 后又自动切到下一首，导致停止不彻底的问题
+- 修复应用图标切换后必须手动关闭应用才会生效的问题，改为切换后自动退到后台以触发桌面刷新
 
 新增
 
 - Android 端新增应用图标切换（icon1/icon2），可在设置中切换，默认 icon1，并在重启后保持
+- Android 端应用图标切换新增 icon3（经典）
 
 优化
 
@@ -45,6 +47,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 歌单详情页新增 `detailEntrySource` 导航上下文透传，歌手/专辑详情默认口径优先走显式参数，减少仅靠 id 文本启发判断带来的误差
 - 新增 `scripts/play-history/merge-play-history.js` 多文件合并脚本，支持去重并输出统一 `playHistoryExport_v1`，便于多设备播放历史汇总分析
 - 统一歌单详情来源口径解析逻辑到 `resolveDetailEntrySourceById()`，并在导航与入口列表复用，减少 `songlist_detail` 默认回退导致的来源漂移
+- 调整 icon1/icon2 自适应图标留白比例，支持按需将主体缩小到 45%
 
 文档
 
