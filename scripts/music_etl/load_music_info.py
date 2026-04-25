@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import re
 import os
 import uuid
 from datetime import datetime
@@ -15,7 +16,9 @@ SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg',
 WAREHOUSE_COLUMNS = [
     'batch_id', 'root_path', 'file_path', 'file_name', 'file_ext', 'file_size', 'file_mtime', 'file_md5',
     'is_readable', 'title', 'artist', 'album', 'album_artist', 'track_no', 'disc_no', 'genre', 'year',
-    'duration_sec', 'bitrate', 'sample_rate', 'channels', 'scan_status', 'scan_error', 'etl_created_at', 'etl_updated_at'
+    'duration_sec', 'bitrate', 'sample_rate', 'channels',
+    'embedded_lyric', 'embedded_lyric_format', 'embedded_lyric_length',
+    'scan_status', 'scan_error', 'etl_created_at', 'etl_updated_at'
 ]
 
 
@@ -89,9 +92,71 @@ def empty_audio_metadata(status='SUCCESS', error=None):
         'bitrate': None,
         'sample_rate': None,
         'channels': None,
+        'embedded_lyric': None,
+        'embedded_lyric_format': None,
+        'embedded_lyric_length': None,
         'scan_status': status,
         'scan_error': error,
     }
+
+
+def _normalize_lyric_text(text):
+    if text is None:
+        return None
+    normalized = str(text).replace('\r\n', '\n').replace('\r', '\n').strip('\ufeff')
+    return normalized.strip() or None
+
+
+def _detect_lyric_format(text):
+    if not text:
+        return None
+    if re.search(r'\[[0-9]{1,2}:[0-9]{2}(?:\.[0-9]{1,3})?\]', text):
+        return 'lrc'
+    return 'plain'
+
+
+def _stringify_raw_lyric(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return _normalize_lyric_text(value)
+    if isinstance(value, (bytes, bytearray)):
+        return _normalize_lyric_text(value.decode('utf-8', errors='ignore'))
+    if isinstance(value, (list, tuple)):
+        joined = '\n'.join(str(item) for item in value if item is not None)
+        return _normalize_lyric_text(joined)
+    return _normalize_lyric_text(value)
+
+
+def _extract_lyric_from_easy_tags(tags):
+    for key in ('lyrics', 'lyric', 'unsyncedlyrics', 'syncedlyrics'):
+        lyric = _stringify_raw_lyric(tags.get(key))
+        if lyric:
+            return lyric
+    return None
+
+
+def _extract_lyric_from_raw_tags(raw_audio):
+    tags = getattr(raw_audio, 'tags', None)
+    if not tags:
+        return None
+
+    if isinstance(tags, dict):
+        for key, value in tags.items():
+            key_lower = str(key).lower()
+            if any(token in key_lower for token in ('uslt', 'sylt', 'lyric')):
+                lyric = _stringify_raw_lyric(value)
+                if lyric:
+                    return lyric
+
+    values = getattr(tags, 'values', None)
+    if callable(values):
+        for frame in values():
+            for attr in ('text', 'lyrics', 'lyric'):
+                lyric = _stringify_raw_lyric(getattr(frame, attr, None))
+                if lyric:
+                    return lyric
+    return None
 
 
 def extract_audio_metadata(file_path):
@@ -103,6 +168,15 @@ def extract_audio_metadata(file_path):
     tags = audio or {}
     info = getattr(audio, 'info', None)
     result = empty_audio_metadata()
+    lyric_text = _extract_lyric_from_easy_tags(tags)
+    if lyric_text is None:
+        try:
+            raw_audio = MutagenFile(file_path, easy=False)
+        except Exception:
+            raw_audio = None
+        lyric_text = _extract_lyric_from_raw_tags(raw_audio)
+
+    lyric_format = _detect_lyric_format(lyric_text)
     result.update({
         'title': _first_value(tags, 'title'),
         'artist': _first_value(tags, 'artist'),
@@ -116,6 +190,9 @@ def extract_audio_metadata(file_path):
         'bitrate': getattr(info, 'bitrate', None),
         'sample_rate': getattr(info, 'sample_rate', None),
         'channels': getattr(info, 'channels', None),
+        'embedded_lyric': lyric_text,
+        'embedded_lyric_format': lyric_format,
+        'embedded_lyric_length': len(lyric_text) if lyric_text else None,
     })
     return result
 
@@ -148,11 +225,32 @@ BEGIN
         bitrate int null,
         sample_rate int null,
         channels int null,
+        embedded_lyric nvarchar(max) null,
+        embedded_lyric_format varchar(20) null,
+        embedded_lyric_length int null,
         scan_status varchar(20) not null,
         scan_error nvarchar(2000) null,
         etl_created_at datetime2 not null,
         etl_updated_at datetime2 not null
     )
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'embedded_lyric') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD embedded_lyric nvarchar(max) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'embedded_lyric_format') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD embedded_lyric_format varchar(20) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'embedded_lyric_length') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD embedded_lyric_length int null
 END
 """)
     cursor.execute(f"""
