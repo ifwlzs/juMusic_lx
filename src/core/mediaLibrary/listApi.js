@@ -6,6 +6,83 @@ function dedupeIds(ids = []) {
   return [...new Set(ids.filter(Boolean))]
 }
 
+
+
+function chunk(items = [], size = 200) {
+  if (!Array.isArray(items) || !items.length) return []
+  const chunks = []
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+  return chunks
+}
+
+function isMediaLibraryMetaEqual(left, right) {
+  const leftMeta = left?.meta?.mediaLibrary || {}
+  const rightMeta = right?.meta?.mediaLibrary || {}
+  return String(leftMeta.sourceItemId || '') === String(rightMeta.sourceItemId || '') &&
+    String(leftMeta.versionToken || '') === String(rightMeta.versionToken || '') &&
+    Number(leftMeta.modifiedTime || 0) === Number(rightMeta.modifiedTime || 0)
+}
+
+function isMusicInfoEquivalent(left, right) {
+  return String(left?.id || '') === String(right?.id || '') &&
+    String(left?.name || '') === String(right?.name || '') &&
+    String(left?.singer || '') === String(right?.singer || '') &&
+    String(left?.interval || '') === String(right?.interval || '') &&
+    String(left?.source || '') === String(right?.source || '') &&
+    String(left?.meta?.albumName || '') === String(right?.meta?.albumName || '') &&
+    isMediaLibraryMetaEqual(left, right)
+}
+
+function hasSameListOrder(currentList = [], nextList = []) {
+  if (currentList.length !== nextList.length) return false
+  for (let index = 0; index < currentList.length; index += 1) {
+    if (currentList[index]?.id !== nextList[index]?.id) return false
+  }
+  return true
+}
+
+async function syncGeneratedListMusics(deps, listId, nextList) {
+  if (typeof deps?.getListMusics !== 'function') {
+    await deps.overwriteListMusics(listId, nextList)
+    return
+  }
+
+  const currentList = await deps.getListMusics(listId)
+  if (!Array.isArray(currentList) || !currentList.length) {
+    await deps.overwriteListMusics(listId, nextList)
+    return
+  }
+
+  if (!hasSameListOrder(currentList, nextList)) {
+    await deps.overwriteListMusics(listId, nextList)
+    return
+  }
+
+  const updates = []
+  for (let index = 0; index < nextList.length; index += 1) {
+    const current = currentList[index]
+    const next = nextList[index]
+    if (isMusicInfoEquivalent(current, next)) continue
+    updates.push({
+      id: listId,
+      musicInfo: next,
+    })
+  }
+
+  if (!updates.length) return
+
+  if (typeof deps?.updateListMusics === 'function') {
+    for (const updatesChunk of chunk(updates, 200)) {
+      await deps.updateListMusics(updatesChunk)
+    }
+    return
+  }
+
+  await deps.overwriteListMusics(listId, nextList)
+}
+
 function getSourceItemId(musicInfo) {
   return musicInfo?.meta?.mediaLibrary?.sourceItemId || musicInfo?.id || ''
 }
@@ -66,7 +143,7 @@ function createMediaLibraryListApi(deps) {
     }
 
     for (const item of generatedLists) {
-      await deps.overwriteListMusics(item.listInfo.id, item.list)
+      await syncGeneratedListMusics(deps, item.listInfo.id, item.list)
     }
   }
 

@@ -38,7 +38,7 @@ export default () => {
         <View style={styles.list}>
           {STEPS.map(step => (
             <Button key={step} onPress={() => { handleChange(step) }} style={{ marginRight: 8, marginBottom: 8 }}>
-              {step > 0 ? `+${step}` : `${step}`}
+              <Text>{step > 0 ? `+${step}` : `${step}`}</Text>
             </Button>
           ))}
         </View>

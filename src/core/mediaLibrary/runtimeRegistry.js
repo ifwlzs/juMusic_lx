@@ -126,6 +126,8 @@ function createMediaLibraryRuntimeRegistry(repository = mediaLibraryRepository) 
       return `${temporaryDirectoryPath}/media_library_webdav_${Date.now()}_${Math.random().toString(36).slice(2)}${extension}`
     },
     removeTempFile: unlink,
+    hydrateMetadataOnSync: false,
+    directoryConcurrency: 6,
   })
   const oneDriveProvider = createOneDriveProvider({
     async listChildren(connection, pathOrUri, nextLink = null) {
