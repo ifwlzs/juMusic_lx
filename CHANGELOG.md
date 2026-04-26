@@ -26,6 +26,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复应用图标切换后必须手动关闭应用才会生效的问题，改为切换后自动退到后台以触发桌面刷新
 - 修复媒体来源生成歌单在只读场景下无法手动删除的问题，改为允许仅删除 App 内歌单（不影响远端文件）
 - 修复同一连接下生成歌单重名时列表出现多个同名项难区分的问题，重名将自动追加序号后缀（如 `（2）`）
+- 修复播放页“歌词时间轴偏移”设置弹窗按钮文本在 Android 上触发 `Text strings must be rendered within a <Text>` 崩溃的问题
 
 新增
 
@@ -52,6 +53,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增 `scripts/play-history/merge-play-history.js` 多文件合并脚本，支持去重并输出统一 `playHistoryExport_v1`，便于多设备播放历史汇总分析
 - 统一歌单详情来源口径解析逻辑到 `resolveDetailEntrySourceById()`，并在导航与入口列表复用，减少 `songlist_detail` 默认回退导致的来源漂移
 - 调整 icon1/icon2 自适应图标留白比例，支持按需将主体缩小到 45%
+- 优化 WebDAV 媒体源建库链路：同步阶段默认不下载音频读取元数据，目录递归改为并发扫描，并对生成歌单引入“无变化跳过 + 局部更新分批写入”以降低 9000+ 曲目场景负载
 
 文档
 
