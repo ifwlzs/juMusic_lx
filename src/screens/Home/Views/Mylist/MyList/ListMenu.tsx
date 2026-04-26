@@ -88,7 +88,7 @@ export default forwardRef<ListMenuType, ListMenuProps>(({
         duplicateMusic = !userList.mediaSource?.readOnly
         importList = !userList.mediaSource?.readOnly
         local_file &&= !userList.mediaSource?.readOnly
-        remove = !userList.mediaSource?.readOnly
+        remove = !userList.mediaSource?.readOnly || !!userList.mediaSource?.generated
         sync = !userList.mediaSource?.readOnly && !!(userList.source && musicSdk[userList.source]?.songList)
         break
     }

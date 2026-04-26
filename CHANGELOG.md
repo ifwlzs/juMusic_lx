@@ -24,12 +24,15 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复从歌单详情等非 Home 页底部小播放器打开播放页时仍复用 Home 宿主组件，导致状态栏样式偶发回退成黑色字体的问题
 - 修复播放器 stop 后又自动切到下一首，导致停止不彻底的问题
 - 修复应用图标切换后必须手动关闭应用才会生效的问题，改为切换后自动退到后台以触发桌面刷新
+- 修复媒体来源生成歌单在只读场景下无法手动删除的问题，改为允许仅删除 App 内歌单（不影响远端文件）
+- 修复同一连接下生成歌单重名时列表出现多个同名项难区分的问题，重名将自动追加序号后缀（如 `（2）`）
 
 新增
 
 - Android 端新增应用图标切换（icon1/icon2），可在设置中切换，默认 icon1，并在重启后保持
 - Android 端应用图标切换新增 icon3（经典）
 - `scripts/music_etl/load_music_info.py` 新增内置歌词抓取能力，入仓字段补充 `embedded_lyric` / `embedded_lyric_format` / `embedded_lyric_length`
+- 播放页新增歌词时间轴偏移设置，支持 `-5000ms ~ +5000ms` 范围与快捷步进调整，修改后即时生效
 
 优化
 

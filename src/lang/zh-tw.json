@@ -260,6 +260,7 @@
   "play_detail_setting_lrc_font_size": "歌詞字體大小",
   "play_detail_setting_playback_rate": "播放速率",
   "play_detail_setting_playback_rate_reset": "重設",
+  "play_detail_setting_lyric_offset": "歌詞時間軸偏移（±5000ms）",
   "play_detail_setting_show_lyric_progress_setting": "允許透過拖曳歌詞調整播放進度",
   "play_detail_setting_title": "播放器設定",
   "play_detail_setting_volume": "音量大小",

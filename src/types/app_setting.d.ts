@@ -82,6 +82,11 @@ declare global {
       'common.alwaysKeepStatusbarHeight': boolean
 
       /**
+       * 歌词时间轴偏移（毫秒，正值歌词延后，负值歌词提前）
+       */
+      'common.lyricOffset': number
+
+      /**
        * 主题id
        */
       'theme.id': string

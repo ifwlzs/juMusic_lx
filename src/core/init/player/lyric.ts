@@ -1,4 +1,4 @@
-import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate } from '@/core/lyric'
+import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate, setLyricOffset } from '@/core/lyric'
 import { updateSetting } from '@/core/common'
 import { onDesktopLyricPositionChange, showDesktopLyric, onLyricLinePlay, showRemoteLyric } from '@/core/desktopLyric'
 import playerState from '@/store/player/state'
@@ -22,6 +22,7 @@ export default async(setting: LX.AppSetting) => {
     toggleTranslation(setting['player.isShowLyricTranslation']),
     toggleRoma(setting['player.isShowLyricRoma']),
   ])
+  setLyricOffset(setting['common.lyricOffset'] ?? 0)
 
   if (setting['desktopLyric.enable']) {
     showDesktopLyric().catch(() => {

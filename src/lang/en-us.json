@@ -261,6 +261,7 @@
   "play_detail_setting_lrc_font_size": "Lyric Font Size",
   "play_detail_setting_playback_rate": "Playback Rate",
   "play_detail_setting_playback_rate_reset": "Reset",
+  "play_detail_setting_lyric_offset": "Lyric Timeline Offset (±5000ms)",
   "play_detail_setting_show_lyric_progress_setting": "Allow to adjust playback progress by drag-and-drop lyrics",
   "play_detail_setting_title": "Player Options",
   "play_detail_setting_volume": "Volume",
