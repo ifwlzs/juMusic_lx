@@ -168,3 +168,36 @@ test('markConnectionRemoved, markRuleRemoved, and removeMissingSongs update the 
   assert.equal(customSongs[0].meta.mediaLibrary.unavailableReason, 'rule_removed')
   assert.deepEqual(state.musicLists.get('media__conn_1__account_all').map(item => item.id), ['item_legacy'])
 })
+
+
+test('reconcileGeneratedLists skips overwrite when generated list order and metadata are unchanged', async() => {
+  const { calls, api } = createHarness()
+
+  await api.reconcileGeneratedLists([
+    {
+      listInfo: createGeneratedListInfo('media__conn_1__account_all', 'conn_1', 'Old All'),
+      list: [createMusic('item_legacy')],
+    },
+  ])
+
+  const overwriteCalls = calls.filter(call => call[0] === 'overwriteListMusics' && call[1] === 'media__conn_1__account_all')
+  assert.equal(overwriteCalls.length, 0)
+})
+
+test('reconcileGeneratedLists uses updateListMusics for in-place metadata changes with stable order', async() => {
+  const { calls, state, api } = createHarness()
+
+  await api.reconcileGeneratedLists([
+    {
+      listInfo: createGeneratedListInfo('media__conn_1__account_all', 'conn_1', 'Old All'),
+      list: [{
+        ...createMusic('item_legacy'),
+        name: 'item_legacy (new)',
+      }],
+    },
+  ])
+
+  const updateCalls = calls.filter(call => call[0] === 'updateListMusics')
+  assert.equal(updateCalls.length > 0, true)
+  assert.equal(state.musicLists.get('media__conn_1__account_all')[0].name, 'item_legacy (new)')
+})

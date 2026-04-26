@@ -96,7 +96,7 @@ async function resolveTrackEntry(request, connection, pathOrUri) {
   return entries.find(item => normalizeHref(item.href) === normalizedTarget) || null
 }
 
-async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, onBatch, seenKeys = new Set()) {
+async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, onBatch, seenKeys = new Set(), directoryConcurrency = DEFAULT_CONCURRENCY) {
   const entries = await requestPropfind(request, connection, pathOrUri, '1')
   const normalizedRoot = normalizeHref(pathOrUri)
   const currentFiles = []
@@ -124,15 +124,17 @@ async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, o
   if (currentCandidates.length) await emitBatches(currentCandidates, onBatch)
 
   const items = [...currentCandidates]
-  for (const directory of nestedDirectories) {
-    items.push(...await streamWebdavDirectoryCandidates(
+  const nestedItems = await mapWithConcurrency(nestedDirectories, directoryConcurrency, async directory => {
+    return await streamWebdavDirectoryCandidates(
       request,
       connection,
       directory.href,
       onBatch,
       seenKeys,
-    ))
-  }
+      directoryConcurrency,
+    )
+  })
+  for (const result of nestedItems) items.push(...result)
 
   return items
 }
@@ -292,7 +294,8 @@ function createWebdavProvider({
   createTempFilePath,
   removeTempFile,
   metadataConcurrency = DEFAULT_CONCURRENCY,
-  hydrateMetadataOnSync = false,
+  directoryConcurrency = DEFAULT_CONCURRENCY,
+  hydrateMetadataOnSync = true,
 }) {
   return {
     type: 'webdav',
@@ -314,6 +317,7 @@ function createWebdavProvider({
           directory.pathOrUri,
           onBatch,
           seenKeys,
+          directoryConcurrency,
         ))
       }
       for (const track of selection.tracks || []) {
