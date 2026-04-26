@@ -18,13 +18,15 @@ const lrcTools = {
   lyricText: '',
   translationText: '' as string | null | undefined,
   romaText: '' as string | null | undefined,
+  baseOffset: 100,
+  userOffset: 0,
   init() {
     if (this.isInited) return
     this.isInited = true
     this.lrc = new Lyric({
       onPlay: this.onPlay.bind(this),
       onSetLyric: this.onSetLyric.bind(this),
-      offset: 100, // offset time(ms), default is 150 ms
+      offset: this.baseOffset + this.userOffset, // offset time(ms), default is 150 ms
     })
   },
   onPlay(line: number, text: string) {
@@ -60,6 +62,17 @@ const lrcTools = {
     if (this.isShowRoma && this.romaText) extendedLyrics.push(this.romaText)
     this.lrc!.setLyric(this.lyricText, extendedLyrics)
   },
+  setOffset(userOffset: number) {
+    this.userOffset = userOffset
+    const offset = this.baseOffset + userOffset
+    if (!this.lrc) return
+    const lrc = this.lrc as unknown as {
+      setOffset?: (value: number) => void
+      options?: { offset?: number }
+    }
+    if (typeof lrc.setOffset === 'function') lrc.setOffset(offset)
+    else if (lrc.options) lrc.options.offset = offset
+  },
 }
 
 
@@ -84,6 +97,11 @@ export const toggleTranslation = (isShow: boolean) => {
 }
 export const toggleRoma = (isShow: boolean) => {
   lrcTools.isShowRoma = isShow
+  if (!lrcTools.lyricText) return
+  lrcTools.setLyric()
+}
+export const setOffset = (offset: number) => {
+  lrcTools.setOffset(offset)
   if (!lrcTools.lyricText) return
   lrcTools.setLyric()
 }

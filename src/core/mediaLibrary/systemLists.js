@@ -160,7 +160,20 @@ function buildGeneratedListsForConnection({ connection, rules = [], snapshots = 
     generatedLists.push(...buildRuleLists(connection, rule, snapshots.get(rule.ruleId)))
   }
 
-  return generatedLists
+  const nameCountMap = new Map()
+  return generatedLists.map(item => {
+    const baseName = String(item?.listInfo?.name ?? '')
+    const count = (nameCountMap.get(baseName) ?? 0) + 1
+    nameCountMap.set(baseName, count)
+    if (count <= 1) return item
+    return {
+      ...item,
+      listInfo: {
+        ...item.listInfo,
+        name: `${baseName}（${count}）`,
+      },
+    }
+  })
 }
 
 module.exports = {

@@ -5,6 +5,7 @@ import {
   setPlaybackRate as lrcSetPlaybackRate,
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
+  setOffset as lrcSetOffset,
   init as lrcInit,
 } from '@/plugins/lyric'
 import {
@@ -74,6 +75,11 @@ export const setPlaybackRate = async(playbackRate: number) => {
       })
     })
   }
+}
+
+export const setLyricOffset = (offset: number) => {
+  lrcSetOffset(offset)
+  if (playerState.isPlay) play()
 }
 
 /**
