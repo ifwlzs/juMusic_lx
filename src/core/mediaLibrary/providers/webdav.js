@@ -198,6 +198,7 @@ function hasReadyMetadata(metadata = {}) {
 }
 
 async function hydrateCandidateMetadata(connection, candidate, attempt, helpers = {}) {
+  const { enableRemoteMetadata = false } = helpers
   const hintedMetadata = normalizeHydratedMetadata(candidate, null)
   if (hasReadyMetadata(hintedMetadata)) {
     return {
@@ -205,6 +206,15 @@ async function hydrateCandidateMetadata(connection, candidate, attempt, helpers 
       metadata: hintedMetadata,
       scanStatus: 'success',
       metadataLevelReached: Math.max(Number(attempt) || 0, candidate?.metadataLevelReached || 0, 1),
+    }
+  }
+
+  if (!enableRemoteMetadata) {
+    return {
+      candidate,
+      metadata: hintedMetadata,
+      scanStatus: 'success',
+      metadataLevelReached: candidate?.metadataLevelReached || 0,
     }
   }
 
@@ -223,7 +233,7 @@ async function hydrateCandidateMetadata(connection, candidate, attempt, helpers 
   }
 }
 
-async function buildWebdavScanResult(connection, entries = [], metadataHelpers = {}, metadataConcurrency = DEFAULT_CONCURRENCY) {
+async function buildWebdavScanResult(connection, entries = [], metadataHelpers = {}, metadataConcurrency = DEFAULT_CONCURRENCY, enableRemoteMetadata = false) {
   const lastSeenAt = Date.now()
   let skipped = 0
   let failed = 0
@@ -234,12 +244,14 @@ async function buildWebdavScanResult(connection, entries = [], metadataHelpers =
       skipped += 1
       return null
     }
-    const metadata = await readRemoteMetadata({
-      connection,
-      item,
-      fileName,
-      ...metadataHelpers,
-    })
+    const metadata = enableRemoteMetadata
+      ? await readRemoteMetadata({
+        connection,
+        item,
+        fileName,
+        ...metadataHelpers,
+      })
+      : null
     const versionToken = buildWebdavVersionToken(item)
     const scanStatus = versionToken ? 'success' : 'failed'
     if (scanStatus === 'failed') failed += 1
@@ -280,6 +292,7 @@ function createWebdavProvider({
   createTempFilePath,
   removeTempFile,
   metadataConcurrency = DEFAULT_CONCURRENCY,
+  hydrateMetadataOnSync = false,
 }) {
   return {
     type: 'webdav',
@@ -328,6 +341,7 @@ function createWebdavProvider({
         readMetadata,
         createTempFilePath,
         removeTempFile,
+        enableRemoteMetadata: hydrateMetadataOnSync,
       })
     },
     async scanSelection(connection, selection = {}) {
@@ -345,7 +359,7 @@ function createWebdavProvider({
         readMetadata,
         createTempFilePath,
         removeTempFile,
-      }, metadataConcurrency)
+      }, metadataConcurrency, hydrateMetadataOnSync)
     },
     async scanConnection(connection) {
       const entries = await requestPropfind(request, connection, connection.rootPathOrUri, 'infinity')
@@ -354,7 +368,7 @@ function createWebdavProvider({
         readMetadata,
         createTempFilePath,
         removeTempFile,
-      }, metadataConcurrency)
+      }, metadataConcurrency, hydrateMetadataOnSync)
     },
     async downloadToCache(connection, sourceItem, savePath) {
       return downloadFile(connection, sourceItem.pathOrUri, savePath)
