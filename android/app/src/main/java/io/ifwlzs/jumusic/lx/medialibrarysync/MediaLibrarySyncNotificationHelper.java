@@ -9,7 +9,7 @@ import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
-import io.ifwlzs.jumusic.lx.R;
+import io.ifwlzs.jumusic.lx.appicon.AppIconResolver;
 
 public final class MediaLibrarySyncNotificationHelper {
   public static final String CHANNEL_ID = "MediaLibrarySync";
@@ -24,7 +24,7 @@ public final class MediaLibrarySyncNotificationHelper {
   public static Notification buildNotification(Context context, String title, String message, boolean ongoing) {
     ensureNotificationChannel(context);
     return new NotificationCompat.Builder(context, CHANNEL_ID)
-        .setSmallIcon(R.mipmap.ic_launcher)
+        .setSmallIcon(AppIconResolver.getNotificationSmallIconResId(context))
         .setContentTitle(title)
         .setContentText(message)
         .setOngoing(ongoing)

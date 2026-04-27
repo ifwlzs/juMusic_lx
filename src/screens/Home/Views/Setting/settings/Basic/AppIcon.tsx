@@ -8,6 +8,7 @@ import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
 import { setCurrentAppIcon } from '@/utils/nativeModules/appIcon'
 import { toast } from '@/utils/tools'
+import { refreshNotificationIcon } from '@/plugins/player/utils'
 
 type AppIconType = LX.AppSetting['common.appIcon']
 
@@ -35,7 +36,8 @@ export default memo(() => {
   const handleSelect = (iconId: AppIconType) => {
     if (iconId == appIcon) return
 
-    void setCurrentAppIcon(iconId).then(() => {
+    void setCurrentAppIcon(iconId).then(async() => {
+      await refreshNotificationIcon(iconId)
       updateSetting({ 'common.appIcon': iconId })
     }).catch((error: Error) => {
       toast(String(error?.message ?? error))

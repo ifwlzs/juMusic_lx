@@ -27,6 +27,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复媒体来源生成歌单在只读场景下无法手动删除的问题，改为允许仅删除 App 内歌单（不影响远端文件）
 - 修复同一连接下生成歌单重名时列表出现多个同名项难区分的问题，重名将自动追加序号后缀（如 `（2）`）
 - 修复播放页“歌词时间轴偏移”设置弹窗按钮文本在 Android 上触发 `Text strings must be rendered within a <Text>` 崩溃的问题
+- 修复切换应用图标后 Android 通知栏（播放通知 / 媒体库同步通知）小图标仍停留旧图标的问题，改为按当前 `common.appIcon` 动态刷新
 
 新增
 
@@ -108,7 +109,6 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 - 修复在某些设备上出现切歌崩溃的问题 (#971)
 - 修复tx在偶现搜索失败的问题 (#994)
-
 ## [0.26.04150904](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04131221...v0.26.04150904) - 2026-04-15
 
 修复

@@ -12,10 +12,6 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 
 public class AppIconModule extends ReactContextBaseJavaModule {
-  private static final String ICON1 = "icon1";
-  private static final String ICON2 = "icon2";
-  private static final String ICON3 = "icon3";
-
   private final ReactApplicationContext reactContext;
 
   AppIconModule(ReactApplicationContext reactContext) {
@@ -31,7 +27,9 @@ public class AppIconModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void setIcon(String iconId, Promise promise) {
-    if (!ICON1.equals(iconId) && !ICON2.equals(iconId) && !ICON3.equals(iconId)) {
+    if (!AppIconResolver.ICON1.equals(iconId)
+        && !AppIconResolver.ICON2.equals(iconId)
+        && !AppIconResolver.ICON3.equals(iconId)) {
       promise.reject("INVALID_ICON", "Unsupported icon id: " + iconId);
       return;
     }
@@ -43,8 +41,8 @@ public class AppIconModule extends ReactContextBaseJavaModule {
       ComponentName icon2 = new ComponentName(packageName, packageName + ".MainActivityIcon2");
       ComponentName icon3 = new ComponentName(packageName, packageName + ".MainActivityIcon3");
 
-      boolean useIcon2 = ICON2.equals(iconId);
-      boolean useIcon3 = ICON3.equals(iconId);
+      boolean useIcon2 = AppIconResolver.ICON2.equals(iconId);
+      boolean useIcon3 = AppIconResolver.ICON3.equals(iconId);
       pm.setComponentEnabledSetting(
         icon1,
         (useIcon2 || useIcon3) ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED : PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
@@ -75,30 +73,7 @@ public class AppIconModule extends ReactContextBaseJavaModule {
   @ReactMethod
   public void getCurrentIcon(Promise promise) {
     try {
-      PackageManager pm = reactContext.getPackageManager();
-      String packageName = reactContext.getPackageName();
-      ComponentName icon1 = new ComponentName(packageName, packageName + ".MainActivityIcon1");
-      ComponentName icon2 = new ComponentName(packageName, packageName + ".MainActivityIcon2");
-      ComponentName icon3 = new ComponentName(packageName, packageName + ".MainActivityIcon3");
-
-      int icon3State = pm.getComponentEnabledSetting(icon3);
-      if (icon3State == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
-        promise.resolve(ICON3);
-        return;
-      }
-      int icon2State = pm.getComponentEnabledSetting(icon2);
-      if (icon2State == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
-        promise.resolve(ICON2);
-        return;
-      }
-
-      int icon1State = pm.getComponentEnabledSetting(icon1);
-      if (icon1State == PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
-        promise.resolve(ICON2);
-        return;
-      }
-
-      promise.resolve(ICON1);
+      promise.resolve(AppIconResolver.getCurrentIconId(reactContext));
     } catch (Exception error) {
       promise.reject("GET_ICON_FAILED", error);
     }
