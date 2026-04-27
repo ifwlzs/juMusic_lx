@@ -2,6 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const {
+  decryptAccountSyncEnvelopePayload,
   deriveAccountSyncKey,
   createAccountSyncEncryptedEnvelope,
 } = require('../../src/screens/Home/Views/Setting/settings/Backup/accountSyncCrypto.js')
@@ -205,5 +206,65 @@ test('createAccountSyncEncryptedEnvelope uses UTF-8 safe base64 for payload plai
   assert.equal(
     encryptCalls[0].text,
     Buffer.from(JSON.stringify(payload), 'utf8').toString('base64'),
+  )
+})
+
+test('decryptAccountSyncEnvelopePayload decrypts encrypted envelope and parses payload json', async() => {
+  const payload = { type: 'accountSyncPlain_v1', settings: { 'common.langId': 'zh-cn' } }
+  const envelope = {
+    type: 'accountSyncEncrypted_v1',
+    cipher: {
+      salt: 'EREREREREREREREREREREQ==',
+      iv: 'IiIiIiIiIiIiIiIiIiIiIg==',
+      ciphertext: 'cipher_x',
+    },
+  }
+  const calls = []
+  const result = await decryptAccountSyncEnvelopePayload(envelope, 'pass', {
+    async hashSHA1(text) {
+      if (text === 'pass\nEREREREREREREREREREREQ==') return '00112233445566778899aabbccddeeff12345678'
+      throw new Error(`unexpected_hash:${text}`)
+    },
+    btoa: toB64,
+    atob: (text) => Buffer.from(text, 'base64').toString('binary'),
+    AES_MODE: { CBC_128_PKCS7Padding: 'CBC_128_PKCS7Padding' },
+    async aesDecrypt(text, key, iv, mode) {
+      calls.push({ text, key, iv, mode })
+      return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')
+    },
+  })
+
+  assert.deepEqual(calls, [{
+    text: 'cipher_x',
+    key: 'ABEiM0RVZneImaq7zN3u/w==',
+    iv: 'IiIiIiIiIiIiIiIiIiIiIg==',
+    mode: 'CBC_128_PKCS7Padding',
+  }])
+  assert.deepEqual(result, payload)
+})
+
+test('decryptAccountSyncEnvelopePayload throws explicit errors for invalid envelope or missing decrypt deps', async() => {
+  await assert.rejects(
+    decryptAccountSyncEnvelopePayload({}, 'pass', {
+      async hashSHA1() { return '00112233445566778899aabbccddeeff12345678' },
+      btoa: toB64,
+      atob: (text) => Buffer.from(text, 'base64').toString('binary'),
+      AES_MODE: { CBC_128_PKCS7Padding: 'CBC_128_PKCS7Padding' },
+      async aesDecrypt() { return '' },
+    }),
+    /account_sync_payload_invalid/,
+  )
+
+  await assert.rejects(
+    decryptAccountSyncEnvelopePayload({
+      type: 'accountSyncEncrypted_v1',
+      cipher: { salt: 'x', iv: 'y', ciphertext: 'z' },
+    }, 'pass', {
+      async hashSHA1() { return '00112233445566778899aabbccddeeff12345678' },
+      btoa: toB64,
+      atob: (text) => Buffer.from(text, 'base64').toString('binary'),
+      AES_MODE: { CBC_128_PKCS7Padding: 'CBC_128_PKCS7Padding' },
+    }),
+    /account_sync_decrypt_unavailable/,
   )
 })

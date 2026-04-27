@@ -44,6 +44,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 优化媒体来源播放统计，新增单次播放历史记录，并将播放统计与播放历史纳入“所有数据”备份导入导出，便于换机迁移与年终总结
 - 新增播放历史 JSON 导出入口，支持全部 / 今年 / 最近 30 天 / 自定义时间范围筛选，便于后续生成歌曲年终报告
 - 新增 WebDAV 手动上传账号同步入口，支持将设置与媒体来源配置使用同步密码加密后上传到固定远端目录
+- 新增 WebDAV 账号同步“下载并恢复”能力，可使用同步密码解密远端 latest 文件并恢复设置与媒体来源配置
 - 完善播放链路埋点上下文，新增 entrySource / endReason / seek 行为统计，并覆盖搜索、deeplink、恢复播放、手动切歌与自动下一曲场景
 - 新增年度聚合缓存（yearSummary/yearTimeStats/yearEntityStats/lifetimeEntityIndex）与备份恢复后的可重建能力，支持歌曲 / 歌手 / 专辑维度年终统计
 - 播放历史 JSON 导出新增时间标签、夜间归属日期、歌手/专辑快照与列表快照字段，便于本地 MSSQL / 帆软等报表工具做二次分析

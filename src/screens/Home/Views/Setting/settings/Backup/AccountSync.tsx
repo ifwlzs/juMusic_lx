@@ -13,6 +13,7 @@ import { createAccountSyncValidationKey, createEmptyAccountSyncState, normalizeA
 import {
   loadAccountSyncState,
   saveAccountSyncState,
+  handleDownloadAccountSync,
   handleValidateAccountSyncProfile,
   handleUploadAccountSync,
 } from './actions'
@@ -27,6 +28,7 @@ export default memo(() => {
   const [draft, setDraft] = useState(createEmptyAccountSyncState().profile)
   const [syncPassword, setSyncPassword] = useState('')
   const [syncPasswordConfirm, setSyncPasswordConfirm] = useState('')
+  const [syncActionType, setSyncActionType] = useState<'upload' | 'download'>('upload')
 
   const refreshState = useCallback(async() => {
     const nextState = await loadAccountSyncState()
@@ -88,6 +90,18 @@ export default memo(() => {
       toast(t('setting_backup_account_sync_error_validation_required'))
       return
     }
+    setSyncActionType('upload')
+    setSyncPassword('')
+    setSyncPasswordConfirm('')
+    uploadDialogRef.current?.setVisible(true)
+  }, [canSaveProfile, t])
+
+  const openDownloadDialog = useCallback(() => {
+    if (!canSaveProfile) {
+      toast(t('setting_backup_account_sync_error_validation_required'))
+      return
+    }
+    setSyncActionType('download')
     setSyncPassword('')
     setSyncPasswordConfirm('')
     uploadDialogRef.current?.setVisible(true)
@@ -99,16 +113,21 @@ export default memo(() => {
       return
     }
     const profile = normalizeAccountSyncProfile(draft)
-    handleUploadAccountSync(profile, syncPassword)
+    if (syncActionType === 'download') {
+      handleDownloadAccountSync(profile, syncPassword)
+    } else {
+      handleUploadAccountSync(profile, syncPassword)
+    }
     uploadDialogRef.current?.setVisible(false)
     setTimeout(() => { void refreshState() }, 1200)
-  }, [draft, refreshState, syncPassword, syncPasswordConfirm, t])
+  }, [draft, refreshState, syncActionType, syncPassword, syncPasswordConfirm, t])
 
   return (
     <>
       <View style={styles.row}>
         <Button onPress={openConfigDialog}>{t('setting_backup_account_sync_config_webdav')}</Button>
         <Button onPress={openUploadDialog} disabled={!canSaveProfile}>{t('setting_backup_account_sync_upload')}</Button>
+        <Button onPress={openDownloadDialog} disabled={!canSaveProfile}>{t('setting_backup_account_sync_download')}</Button>
       </View>
 
       <View style={styles.meta}>
@@ -176,7 +195,11 @@ export default memo(() => {
         </View>
       </Dialog>
 
-      <Dialog ref={uploadDialogRef} title={t('setting_backup_account_sync_upload')} bgHide={false}>
+      <Dialog
+        ref={uploadDialogRef}
+        title={syncActionType === 'download' ? t('setting_backup_account_sync_download') : t('setting_backup_account_sync_upload')}
+        bgHide={false}
+      >
         <View style={styles.dialogContent}>
           <Text size={13} color={theme['c-font-label']} style={styles.desc}>{t('setting_backup_account_sync_password_desc')}</Text>
           <Text size={13} color={theme['c-font-label']} style={styles.fieldLabel}>{t('setting_backup_account_sync_password')}</Text>

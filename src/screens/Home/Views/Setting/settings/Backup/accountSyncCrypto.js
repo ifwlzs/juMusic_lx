@@ -27,6 +27,12 @@ function resolveEncryptFn(deps = {}) {
   return aesEncrypt
 }
 
+function resolveDecryptFn(deps = {}) {
+  const aesDecrypt = deps.aesDecrypt
+  if (typeof aesDecrypt !== 'function') throw new Error('account_sync_decrypt_unavailable')
+  return aesDecrypt
+}
+
 function readHexByte(hex, index) {
   return parseInt(hex.slice(index * 2, index * 2 + 2), 16)
 }
@@ -50,6 +56,20 @@ function encodeUtf8Base64(text, btoa) {
     return String.fromCharCode(parseInt(hex, 16))
   })
   return btoa(byteString)
+}
+
+function decodeUtf8Base64(base64Text, deps = {}) {
+  if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+    return Buffer.from(String(base64Text || ''), 'base64').toString('utf8')
+  }
+  const atob = deps.atob || globalThis?.atob
+  if (typeof atob !== 'function') throw new Error('account_sync_base64_unavailable')
+  const binary = atob(String(base64Text || ''))
+  let escaped = ''
+  for (let index = 0; index < binary.length; index += 1) {
+    escaped += `%${binary.charCodeAt(index).toString(16).padStart(2, '0')}`
+  }
+  return decodeURIComponent(escaped)
 }
 
 async function deriveAccountSyncKey(password, salt, deps = {}) {
@@ -100,7 +120,34 @@ async function createAccountSyncEncryptedEnvelope(payload = {}, password, deps =
   }
 }
 
+async function decryptAccountSyncEnvelopePayload(envelope = {}, password, deps = {}) {
+  const inputEnvelope = isObject(envelope) ? envelope : {}
+  const cipher = isObject(inputEnvelope.cipher) ? inputEnvelope.cipher : {}
+  if (inputEnvelope.type !== 'accountSyncEncrypted_v1' || !cipher?.ciphertext || !cipher?.salt || !cipher?.iv) {
+    throw new Error('account_sync_payload_invalid')
+  }
+
+  const inputDeps = isObject(deps) ? deps : {}
+  const hashSHA1 = resolveHashFn(inputDeps)
+  const btoa = resolveBase64Fn(inputDeps)
+  const aesDecrypt = resolveDecryptFn(inputDeps)
+  const mode = inputDeps.AES_MODE?.CBC_128_PKCS7Padding ?? 'CBC_128_PKCS7Padding'
+
+  const key = await deriveAccountSyncKey(password, cipher.salt, { hashSHA1, btoa })
+  const decryptedBase64 = await aesDecrypt(cipher.ciphertext, key, cipher.iv, mode)
+  const plainText = decodeUtf8Base64(decryptedBase64, inputDeps)
+
+  try {
+    const payload = JSON.parse(plainText)
+    if (!isObject(payload)) throw new Error('invalid_payload_shape')
+    return payload
+  } catch {
+    throw new Error('account_sync_payload_invalid')
+  }
+}
+
 module.exports = {
+  decryptAccountSyncEnvelopePayload,
   deriveAccountSyncKey,
   createAccountSyncEncryptedEnvelope,
 }

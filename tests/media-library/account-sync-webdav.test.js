@@ -5,6 +5,7 @@ const path = require('node:path')
 
 const {
   buildAccountSyncRemoteFilePath,
+  downloadAccountSyncEnvelope,
   ensureAccountSyncRemoteDir,
   validateAccountSyncProfile,
   uploadAccountSyncEnvelope,
@@ -178,6 +179,42 @@ test('uploadAccountSyncEnvelope maps PUT non-success status to account_sync_uplo
   )
 })
 
+test('downloadAccountSyncEnvelope fetches fixed latest file path and returns envelope text', async() => {
+  const calls = []
+  const result = await downloadAccountSyncEnvelope({ remoteDir: '/Apps/juMusicSync' }, {
+    async requestWebdav(input) {
+      calls.push(`${input.method} ${input.path}`)
+      return {
+        status: 200,
+        text: '{"type":"accountSyncEncrypted_v1"}',
+      }
+    },
+  })
+
+  assert.deepEqual(calls, ['GET /Apps/juMusicSync/jumusic-sync/account-sync.latest.json'])
+  assert.equal(result.remoteFilePath, '/Apps/juMusicSync/jumusic-sync/account-sync.latest.json')
+  assert.equal(result.envelopeText, '{"type":"accountSyncEncrypted_v1"}')
+})
+
+test('downloadAccountSyncEnvelope maps empty payload or non-200 status to account_sync_download_failed', async() => {
+  await assert.rejects(
+    downloadAccountSyncEnvelope({ remoteDir: '/Apps/juMusicSync' }, {
+      async requestWebdav() {
+        return { status: 404, text: '' }
+      },
+    }),
+    /account_sync_download_failed/,
+  )
+  await assert.rejects(
+    downloadAccountSyncEnvelope({ remoteDir: '/Apps/juMusicSync' }, {
+      async requestWebdav() {
+        return { status: 200, text: '  ' }
+      },
+    }),
+    /account_sync_download_failed/,
+  )
+})
+
 test('actions.ts exposes account sync handlers and upload pipeline contracts', () => {
   const actionsFile = readFile('src/screens/Home/Views/Setting/settings/Backup/actions.ts')
   assert.match(actionsFile, /loadAccountSyncState/)
@@ -185,12 +222,15 @@ test('actions.ts exposes account sync handlers and upload pipeline contracts', (
   assert.match(actionsFile, /getAccountSyncErrorMessage/)
   assert.match(actionsFile, /handleValidateAccountSyncProfile/)
   assert.match(actionsFile, /handleUploadAccountSync/)
+  assert.match(actionsFile, /handleDownloadAccountSync/)
   assert.match(actionsFile, /storageDataPrefix\.accountSync/)
   assert.match(actionsFile, /buildAccountSyncPayload\(/)
   assert.match(actionsFile, /createAccountSyncEncryptedEnvelope\(/)
   assert.match(actionsFile, /createAccountSyncEncryptedEnvelope\(\s*payload,\s*syncPassword/)
   assert.doesNotMatch(actionsFile, /createAccountSyncEncryptedEnvelope\(\s*payload,\s*normalizedProfile\.password/)
   assert.match(actionsFile, /uploadAccountSyncEnvelope\(/)
+  assert.match(actionsFile, /downloadAccountSyncEnvelope\(/)
+  assert.match(actionsFile, /decryptAccountSyncEnvelopePayload\(/)
   assert.match(actionsFile, /account_sync_validation_required/)
   assert.match(actionsFile, /setting_backup_account_sync_upload_tip_running/)
   assert.match(actionsFile, /setting_backup_account_sync_validate_success_new_dir/)

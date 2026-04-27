@@ -196,8 +196,35 @@ async function uploadAccountSyncEnvelope(profile = {}, envelopeText = '', deps =
   }
 }
 
+async function downloadAccountSyncEnvelope(profile = {}, deps = {}) {
+  const normalizedProfile = isObject(profile) ? profile : {}
+  const remoteFilePath = buildAccountSyncRemoteFilePath(normalizedProfile.remoteDir)
+  let response
+  try {
+    response = await callWebdav(normalizedProfile, deps, {
+      method: 'GET',
+      path: remoteFilePath,
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+  } catch {
+    throw new Error('account_sync_download_failed')
+  }
+
+  if (![200].includes(response.status) || !String(response.text || '').trim()) {
+    throw new Error('account_sync_download_failed')
+  }
+  return {
+    remoteFilePath,
+    status: response.status,
+    envelopeText: response.text,
+  }
+}
+
 module.exports = {
   buildAccountSyncRemoteFilePath,
+  downloadAccountSyncEnvelope,
   ensureAccountSyncRemoteDir,
   requestWebdav,
   uploadAccountSyncEnvelope,

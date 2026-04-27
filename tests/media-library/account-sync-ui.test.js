@@ -22,16 +22,19 @@ test('AccountSync UI contracts: required symbols, Dialog/Input, and i18n keys', 
   assert.match(file, /loadAccountSyncState/)
   assert.match(file, /handleValidateAccountSyncProfile/)
   assert.match(file, /handleUploadAccountSync/)
+  assert.match(file, /handleDownloadAccountSync/)
   assert.match(file, /createAccountSyncValidationKey/)
   assert.match(file, /const\s+canSaveProfile\s+=/)
   assert.match(file, /disabled=\{!canSaveProfile\}/)
 
   assert.match(file, /setting_backup_account_sync_password_confirm/)
+  assert.match(file, /setting_backup_account_sync_download/)
   assert.match(file, /setting_backup_account_sync_last_validated/)
   assert.match(file, /setting_backup_account_sync_last_upload/)
   assert.match(file, /setting_backup_account_sync_profile_name/)
 
   assert.match(file, /handleUploadAccountSync\([^,]+,\s*syncPassword/)
+  assert.match(file, /handleDownloadAccountSync\([^,]+,\s*syncPassword/)
 })
 
 test('account sync i18n keys exist in zh-cn/zh-tw/en-us', () => {
@@ -43,6 +46,7 @@ test('account sync i18n keys exist in zh-cn/zh-tw/en-us', () => {
     assert.match(content, /"setting_backup_account_sync"\s*:/)
     assert.match(content, /"setting_backup_account_sync_config_webdav"\s*:/)
     assert.match(content, /"setting_backup_account_sync_upload"\s*:/)
+    assert.match(content, /"setting_backup_account_sync_download"\s*:/)
     assert.match(content, /"setting_backup_account_sync_password"\s*:/)
     assert.match(content, /"setting_backup_account_sync_password_confirm"\s*:/)
     assert.match(content, /"setting_backup_account_sync_password_desc"\s*:/)
@@ -52,6 +56,7 @@ test('account sync i18n keys exist in zh-cn/zh-tw/en-us', () => {
     assert.match(content, /"setting_backup_account_sync_validate_failed"\s*:/)
     assert.match(content, /"setting_backup_account_sync_error_validation_required"\s*:/)
     assert.match(content, /"setting_backup_account_sync_error_upload_failed"\s*:/)
+    assert.match(content, /"setting_backup_account_sync_error_download_failed"\s*:/)
   }
 })
 

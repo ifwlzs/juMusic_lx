@@ -1,4 +1,5 @@
 import { LIST_IDS, storageDataPrefix } from '@/config/constant'
+import { updateSetting } from '@/core/common'
 import { createList, getListMusics, overwriteList, overwriteListFull, overwriteListMusics } from '@/core/list'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { getData, saveData } from '@/plugins/storage'
@@ -6,9 +7,9 @@ import settingState from '@/store/setting/state'
 import { writeFile } from '@/utils/fs'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@/utils'
 import { log } from '@/utils/log'
-import { AES_MODE, aesEncrypt, hashSHA1 } from '@/utils/nativeModules/crypto'
+import { AES_MODE, aesDecrypt, aesEncrypt, hashSHA1 } from '@/utils/nativeModules/crypto'
 import { confirmDialog, handleReadFile, handleSaveFile, showImportTip, toast } from '@/utils/tools'
-import { btoa } from 'react-native-quick-base64'
+import { atob, btoa } from 'react-native-quick-base64'
 import listState from '@/store/list/state'
 import {
   buildAccountSyncPayload,
@@ -17,8 +18,8 @@ import {
   normalizeAccountSyncProfile,
   normalizeAccountSyncState,
 } from './accountSync'
-import { createAccountSyncEncryptedEnvelope } from './accountSyncCrypto'
-import { uploadAccountSyncEnvelope, validateAccountSyncProfile } from './accountSyncWebdav'
+import { createAccountSyncEncryptedEnvelope, decryptAccountSyncEnvelopePayload } from './accountSyncCrypto'
+import { downloadAccountSyncEnvelope, uploadAccountSyncEnvelope, validateAccountSyncProfile } from './accountSyncWebdav'
 import { createMediaSourceBackupPayload, restoreMediaSourceBackupPayload } from './mediaSourceBackup'
 import { buildPlayHistoryExportFileName, buildPlayHistoryExportPayload, resolvePlayHistoryExportRange } from './playHistoryExport'
 
@@ -336,6 +337,12 @@ const getAccountSyncErrorMessage = (error: any) => {
       return global.i18n.t('setting_backup_account_sync_error_remote_dir_create_failed')
     case 'account_sync_upload_failed':
       return global.i18n.t('setting_backup_account_sync_error_upload_failed')
+    case 'account_sync_download_failed':
+      return global.i18n.t('setting_backup_account_sync_error_download_failed')
+    case 'account_sync_decrypt_unavailable':
+      return global.i18n.t('setting_backup_account_sync_error_decrypt_unavailable')
+    case 'account_sync_payload_invalid':
+      return global.i18n.t('setting_backup_account_sync_error_payload_invalid')
     default:
       return error?.message as string || ''
   }
@@ -414,6 +421,55 @@ export const handleUploadAccountSync = (profile?: any, syncPassword?: string, de
       ...state,
       lastUploadAt: Date.now(),
       lastUploadStatus: 'failed',
+      lastUploadMessage: message,
+    }))
+  })
+}
+
+export const handleDownloadAccountSync = (profile?: any, syncPassword?: string, deps: any = {}) => {
+  toast(global.i18n.t('setting_backup_account_sync_download_tip_running'))
+  return void (async() => {
+    const prevState = await loadAccountSyncState()
+    const normalizedProfile = normalizeAccountSyncProfile(profile ?? prevState.profile)
+    const computedValidationKey = createAccountSyncValidationKey(normalizedProfile)
+    if (prevState.validationKey !== computedValidationKey || !prevState.lastValidatedAt) {
+      throw new Error('account_sync_validation_required')
+    }
+
+    const { remoteFilePath, envelopeText } = await downloadAccountSyncEnvelope(normalizedProfile, deps)
+    const envelope = JSON.parse(String(envelopeText || '{}'))
+    const payload = await decryptAccountSyncEnvelopePayload(envelope, syncPassword, {
+      hashSHA1,
+      btoa,
+      atob,
+      aesDecrypt,
+      AES_MODE,
+      ...(deps.crypto || {}),
+    })
+    if (payload?.type !== 'accountSyncPlain_v1') throw new Error('account_sync_payload_invalid')
+
+    if (payload?.settings && typeof payload.settings === 'object') {
+      updateSetting(payload.settings)
+    }
+    if (payload?.mediaSource && typeof payload.mediaSource === 'object') {
+      await restoreMediaSourceBackupPayload(mediaLibraryRepository, payload.mediaSource)
+    }
+
+    const successMessage = `${global.i18n.t('setting_backup_account_sync_download_tip_success')}: ${remoteFilePath}`
+    const nextState = await saveAccountSyncState({
+      ...prevState,
+      profile: normalizedProfile,
+      validationKey: computedValidationKey,
+      lastUploadMessage: successMessage,
+    })
+    toast(nextState.lastUploadMessage)
+    return remoteFilePath
+  })().catch((error: any) => {
+    log.error(error)
+    const message = getAccountSyncErrorMessage(error)
+    toast(global.i18n.t('setting_backup_account_sync_download_tip_failed') + (message ? ': ' + message : ''))
+    void loadAccountSyncState().then(state => saveAccountSyncState({
+      ...state,
       lastUploadMessage: message,
     }))
   })
