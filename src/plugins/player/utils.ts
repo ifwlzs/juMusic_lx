@@ -3,6 +3,8 @@ import BackgroundTimer from 'react-native-background-timer'
 import { playMusic as handlePlayMusic } from './playList'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
+import settingState from '@/store/setting/state'
+import { notificationIcon, notificationIcon2 } from '@/config'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -235,6 +237,17 @@ export const onStateChange = async(listener: (state: PlayStatus) => void) => {
   }
 }
 
+const getNotificationIconByAppIcon = (appIcon: LX.AppSetting['common.appIcon']) => {
+  switch (appIcon) {
+    case 'icon2':
+      return notificationIcon2
+    case 'icon3':
+    case 'icon1':
+    default:
+      return notificationIcon
+  }
+}
+
 /**
  * Subscription player state chuange event
  * @param options state change event
@@ -242,47 +255,58 @@ export const onStateChange = async(listener: (state: PlayStatus) => void) => {
  */
 // export const playState = callback => TrackPlayer.addEventListener('playback-state', callback)
 
-export const updateOptions = async(options = {
-  // Whether the player should stop running when the app is closed on Android
-  stopWithApp: true,
+export const updateOptions = async(options?: Parameters<typeof TrackPlayer.updateOptions>[0], appIcon = settingState.setting['common.appIcon']) => {
+  const icon = getNotificationIconByAppIcon(appIcon)
+  const defaultOptions = {
+    // Whether the player should stop running when the app is closed on Android
+    stopWithApp: true,
 
-  // An array of media controls capabilities
-  // Can contain CAPABILITY_PLAY, CAPABILITY_PAUSE, CAPABILITY_STOP, CAPABILITY_SEEK_TO,
-  // CAPABILITY_SKIP_TO_NEXT, CAPABILITY_SKIP_TO_PREVIOUS, CAPABILITY_SET_RATING
-  capabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.Stop,
-    Capability.SeekTo,
-    Capability.SkipToNext,
-    Capability.SkipToPrevious,
-  ],
+    // An array of media controls capabilities
+    // Can contain CAPABILITY_PLAY, CAPABILITY_PAUSE, CAPABILITY_STOP, CAPABILITY_SEEK_TO,
+    // CAPABILITY_SKIP_TO_NEXT, CAPABILITY_SKIP_TO_PREVIOUS, CAPABILITY_SET_RATING
+    capabilities: [
+      Capability.Play,
+      Capability.Pause,
+      Capability.Stop,
+      Capability.SeekTo,
+      Capability.SkipToNext,
+      Capability.SkipToPrevious,
+    ],
 
-  notificationCapabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.Stop,
-    Capability.SkipToNext,
-    Capability.SkipToPrevious,
-  ],
+    notificationCapabilities: [
+      Capability.Play,
+      Capability.Pause,
+      Capability.Stop,
+      Capability.SkipToNext,
+      Capability.SkipToPrevious,
+    ],
 
-  // // An array of capabilities that will show up when the notification is in the compact form on Android
-  compactCapabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.Stop,
-    Capability.SkipToNext,
-  ],
+    // // An array of capabilities that will show up when the notification is in the compact form on Android
+    compactCapabilities: [
+      Capability.Play,
+      Capability.Pause,
+      Capability.Stop,
+      Capability.SkipToNext,
+    ],
 
-  // Icons for the notification on Android (if you don't like the default ones)
-  // playIcon: require('./play-icon.png'),
-  // pauseIcon: require('./pause-icon.png'),
-  // stopIcon: require('./stop-icon.png'),
-  // previousIcon: require('./previous-icon.png'),
-  // nextIcon: require('./next-icon.png'),
-  // icon: notificationIcon, // The notification icon
-}) => {
-  return TrackPlayer.updateOptions(options)
+    // Icons for the notification on Android (if you don't like the default ones)
+    // playIcon: require('./play-icon.png'),
+    // pauseIcon: require('./pause-icon.png'),
+    // stopIcon: require('./stop-icon.png'),
+    // previousIcon: require('./previous-icon.png'),
+    // nextIcon: require('./next-icon.png'),
+    icon, // The notification icon
+  }
+  return TrackPlayer.updateOptions({
+    ...defaultOptions,
+    ...(options ?? {}),
+    icon: options?.icon ?? icon,
+  })
+}
+
+export const refreshNotificationIcon = async(iconId: LX.AppSetting['common.appIcon']) => {
+  if (global.lx.playerStatus.isIniting || !global.lx.playerStatus.isInitialized) return
+  await updateOptions(undefined, iconId)
 }
 
 // export const setMaxCache = async size => {

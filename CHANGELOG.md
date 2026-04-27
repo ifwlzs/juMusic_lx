@@ -23,10 +23,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复播放页打开后 Home 层状态栏覆盖播放页浅色状态栏、导致状态栏文字变黑的问题
 - 修复从歌单详情等非 Home 页底部小播放器打开播放页时仍复用 Home 宿主组件，导致状态栏样式偶发回退成黑色字体的问题
 - 修复播放器 stop 后又自动切到下一首，导致停止不彻底的问题
-
-新增
-
-- Android 端新增应用图标切换（icon1/icon2），可在设置中切换，默认 icon1，并在重启后保持
+- 修复切换应用图标后 Android 通知栏（播放通知 / 媒体库同步通知）小图标仍停留旧图标的问题，改为按当前 `common.appIcon` 动态刷新
 
 优化
 
@@ -49,13 +46,6 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 文档
 
 - 补充归档 `2026-04-09-media-library-incremental-sync` 与 `2026-04-09-play-detail-background-extended-range` 两份历史实现计划，便于后续追溯增量同步和播放页背景调参范围设计
-
-## [0.26.04190047](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04150904...v0.26.04190047) - 2026-04-19
-
-修复
-
-- 修复在某些设备上出现切歌崩溃的问题 (#971)
-- 修复tx在偶现搜索失败的问题 (#994)
 
 ## [0.26.04150904](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04131221...v0.26.04150904) - 2026-04-15
 

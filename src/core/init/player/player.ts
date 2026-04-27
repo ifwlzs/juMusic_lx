@@ -4,6 +4,7 @@ import { setStatusText, setIsPlay } from '@/core/player/playStatus'
 // import { resetPlayerMusicInfo } from '@/core/player/playInfo'
 import { setStop } from '@/plugins/player'
 import { delayUpdateMusicInfo } from '@/plugins/player/playList'
+import { refreshNotificationIcon } from '@/plugins/player/utils'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
@@ -52,6 +53,10 @@ export default async(setting: LX.AppSetting) => {
       if (playerState.playedList.length) clearPlayedList()
       const playMusicInfo = playerState.playMusicInfo
       if (newValue == 'random' && playMusicInfo.musicInfo && !playMusicInfo.isTempPlay) addPlayedList({ ...(playMusicInfo as LX.Player.PlayMusicInfo) })
+    }
+    if (keys.includes('common.appIcon')) {
+      const appIcon = settings['common.appIcon']
+      if (appIcon) void refreshNotificationIcon(appIcon)
     }
   }
 
