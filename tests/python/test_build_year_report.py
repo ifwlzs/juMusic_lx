@@ -187,6 +187,10 @@ def sample_dataset_payloads():
     }
 
 
+def query_plan_for_test(year=2025):
+    return load_module().build_query_plan(year)
+
+
 def test_module_file_exists():
     assert MODULE_PATH.exists()
 
@@ -271,6 +275,7 @@ class FakeCursor:
         'data_p09_genre_evolution',
         'data_p10_taste_inputs',
     ]
+    _QUERY_SQL_DATASETS = None
 
     def __init__(self, dataset_rows):
         self.dataset_rows = dataset_rows
@@ -278,44 +283,46 @@ class FakeCursor:
         self._current_rows = []
         self.description = []
         self._placeholder_index = 0
+        self._sql_match_counts = {}
+
+    @classmethod
+    def _normalize_sql(cls, sql):
+        return '\n'.join(line.rstrip() for line in sql.strip().splitlines())
+
+    @classmethod
+    def _query_sql_datasets(cls):
+        if cls._QUERY_SQL_DATASETS is None:
+            sql_dataset_map = {}
+            for dataset_name, query in query_plan_for_test().items():
+                normalized_sql = cls._normalize_sql(query['sql'])
+                sql_dataset_map.setdefault(normalized_sql, []).append(dataset_name)
+            cls._QUERY_SQL_DATASETS = sql_dataset_map
+        return cls._QUERY_SQL_DATASETS
+
+    def _resolve_dataset_name(self, sql):
+        normalized_sql = self._normalize_sql(sql)
+        dataset_names = self._query_sql_datasets().get(normalized_sql)
+        if not dataset_names:
+            raise AssertionError(f'unrecognized SQL in FakeCursor: {sql}')
+        if len(dataset_names) == 1:
+            return dataset_names[0]
+
+        match_index = self._sql_match_counts.get(normalized_sql, 0)
+        if match_index >= len(dataset_names):
+            raise AssertionError(f'ambiguous SQL exceeded expected executions in FakeCursor: {sql}')
+        self._sql_match_counts[normalized_sql] = match_index + 1
+        return dataset_names[match_index]
 
     def execute(self, sql, params=None):
         self.executed.append((sql, params))
-        marker_map = {
-            'data_p01_summary': 'days_since_first_play',
-            'data_p02_overview': 'year_play_count',
-            'data_p03_explore': 'artist_count',
-            'data_p05_explore_repeat': 'metric_key',
-            'data_p06_keyword_source_rows': 'text_value',
-            'data_p08_genres': 'TOP 5',
-            'data_p09_genre_evolution': 'period_key',
-            'data_p10_taste_inputs': 'is_new_genre',
-            'data_p12_spring': "@season = N'spring'",
-            'data_p13_summer': "@season = N'summer'",
-            'data_p14_autumn': "@season = N'autumn'",
-            'data_p15_winter': "@season = N'winter'",
-            'data_p16_artist_of_year': "N'summary' AS row_type",
-            'data_p17_weekly_pattern': "N'weekday' AS row_type",
-            'data_p18_calendar': 'AS [date]',
-            'data_p19_time_bucket': "N'bucket' AS row_type",
-            'data_p20_night': 'night_session_count',
-            'data_p22_repeat_tracks': 'active_days',
-            'data_p23_album_of_year': 'album_score',
-            'data_p24_top_albums': 'TOP 10',
-            'data_p25_song_of_year': 'song_score',
-            'data_p26_top_tracks': 'TOP 20',
-            'data_p27_top_artists': "N'artist' AS row_type",
-            'data_p28_artist_journey': "N'summary' AS row_type",
-            'data_p29_artist_rank_detail': 'artist_rank',
-            'data_p30_yearly_artist_rank': 'artist_rank',
-            'data_p31_credits': 'credit_type',
-        }
-        dataset_name = next((name for name, marker in marker_map.items() if marker in sql), None)
-        if dataset_name is None and 'SELECT 1 AS placeholder WHERE 1 = 0;' in sql:
-            dataset_name = self.PLACEHOLDER_DATASETS[self._placeholder_index]
+        dataset_name = self._resolve_dataset_name(sql)
+        if dataset_name in self.PLACEHOLDER_DATASETS:
+            expected_dataset_name = self.PLACEHOLDER_DATASETS[self._placeholder_index]
+            if dataset_name != expected_dataset_name:
+                raise AssertionError(
+                    f'placeholder dataset order mismatch: expected {expected_dataset_name}, got {dataset_name}'
+                )
             self._placeholder_index += 1
-        if dataset_name is None:
-            raise AssertionError(f'unrecognized SQL in FakeCursor: {sql}')
         rows = self.dataset_rows[dataset_name]
         if isinstance(rows, dict):
             rows = [rows]
@@ -327,6 +334,27 @@ class FakeCursor:
 
     def fetchall(self):
         return [tuple(row.values()) for row in self._current_rows]
+
+
+def test_fake_cursor_keeps_collision_prone_queries_on_expected_datasets():
+    cursor = FakeCursor(sample_dataset_payloads())
+    query_plan = query_plan_for_test()
+
+    collision_prone_datasets = [
+        'data_p16_artist_of_year',
+        'data_p28_artist_journey',
+        'data_p24_top_albums',
+        'data_p29_artist_rank_detail',
+        'data_p30_yearly_artist_rank',
+    ]
+
+    for dataset_name in collision_prone_datasets:
+        query = query_plan[dataset_name]
+        cursor.execute(query['sql'], query['params'])
+
+        expected_rows = sample_dataset_payloads()[dataset_name]
+        expected_first_key = next(iter(expected_rows[0]))
+        assert cursor.description[0][0] == expected_first_key
 
 
 def test_collect_dataset_payloads_uses_query_module():
