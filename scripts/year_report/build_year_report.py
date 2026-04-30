@@ -155,6 +155,116 @@ def _extract_keywords(rows):
     ]
 
 
+
+def _safe_number(value, default=0):
+    if value is None:
+        return default
+    return value
+
+
+def _build_p05(rows):
+    if not rows:
+        return {
+            'explore_ratio': 0.0,
+            'repeat_ratio': 0.0,
+            'explore_play_count': 0,
+            'repeat_play_count': 0,
+            'search_play_count': 0,
+            'repeat_active_days': 0,
+            'top_search_track': None,
+            'top_repeat_track': None,
+            'summary_text': '--',
+        }
+
+    summary_by_metric = {}
+    track_by_metric = {}
+    for row in rows:
+        metric_key = row.get('metric_key')
+        if not metric_key:
+            continue
+        row_type = row.get('row_type')
+        if row_type == 'track' or row.get('track_id'):
+            track_by_metric[metric_key] = row
+        else:
+            summary_by_metric[metric_key] = row
+
+    explore = summary_by_metric.get('explore', {})
+    repeat = summary_by_metric.get('repeat', {})
+    search_top = track_by_metric.get('search_top')
+    repeat_top = track_by_metric.get('repeat_top')
+
+    search_play_count = _safe_number(search_top.get('play_count') if search_top else 0)
+
+    result = {
+        'explore_ratio': _safe_number(explore.get('ratio'), 0.0),
+        'repeat_ratio': _safe_number(repeat.get('ratio'), 0.0),
+        'explore_play_count': _safe_number(explore.get('play_count'), 0),
+        'repeat_play_count': _safe_number(repeat.get('play_count'), 0),
+        'search_play_count': search_play_count,
+        'repeat_active_days': _safe_number(repeat.get('active_days'), 0),
+        'top_search_track': {
+            'track_id': search_top.get('track_id'),
+            'title': search_top.get('title'),
+            'artist': search_top.get('artist'),
+            'play_count': _safe_number(search_top.get('play_count'), 0),
+            'active_days': _safe_number(search_top.get('active_days'), 0),
+        } if search_top else None,
+        'top_repeat_track': {
+            'track_id': repeat_top.get('track_id'),
+            'title': repeat_top.get('title'),
+            'artist': repeat_top.get('artist'),
+            'play_count': _safe_number(repeat_top.get('play_count'), 0),
+            'active_days': _safe_number(repeat_top.get('active_days'), 0),
+        } if repeat_top else None,
+    }
+    result['summary_text'] = (
+        f"今年你有 {result['explore_play_count']} 次探索型播放，"
+        f"{result['repeat_play_count']} 次循环回听，"
+        f"其中搜索触发了 {result['search_play_count']} 次播放。"
+    )
+    return result
+
+
+def _build_p09(rows):
+    if not rows:
+        return []
+
+    period_groups = defaultdict(list)
+    for row in rows:
+        period_key = row.get('period_key')
+        if period_key:
+            period_groups[period_key].append(row)
+
+    result = []
+    for period_key in sorted(period_groups):
+        genre_rows = sorted(
+            period_groups[period_key],
+            key=lambda row: (
+                -(_safe_number(row.get('new_track_count', row.get('play_count')), 0)),
+                row.get('genre') or '',
+            ),
+        )
+        top_row = genre_rows[0] if genre_rows else None
+        top_count = _safe_number(top_row.get('new_track_count', top_row.get('play_count')) if top_row else 0, 0)
+        genre_items = []
+        for row in genre_rows:
+            count = _safe_number(row.get('new_track_count', row.get('play_count')), 0)
+            genre_items.append({
+                'genre': row.get('genre'),
+                'new_track_count': count,
+                'ratio': _safe_number(row.get('ratio'), 0.0),
+            })
+
+        top_genre = top_row.get('genre') if top_row else None
+        result.append({
+            'period_key': period_key,
+            'top_genre': top_genre,
+            'genres': genre_items,
+            'summary_text': f'{period_key} 的新歌探索重心是 {top_genre}，共发现 {top_count} 首。' if top_genre else '--',
+        })
+
+    return result
+
 def _build_taste_score(rows):
     if not rows:
         return {
@@ -244,9 +354,9 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
     p30_rows = dataset_payloads.get('data_p30_yearly_artist_rank') or []
     p31_rows = dataset_payloads.get('data_p31_credits') or []
 
-    p05 = {'explore_ratio': 0, 'repeat_ratio': 0, 'top_search_track': None, 'top_repeat_track': None}
+    p05 = _build_p05(p05_rows)
     p06 = _extract_keywords(p06_rows)
-    p09 = []
+    p09 = _build_p09(p09_rows)
     p10 = _build_taste_score(p10_rows)
 
     active_dates = [row['date'] for row in p18_rows if row.get('is_active')]

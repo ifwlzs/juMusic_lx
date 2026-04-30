@@ -36,10 +36,10 @@ def sample_dataset_payloads():
             'new_genre_count': 2,
         },
         'data_p05_explore_repeat': [
-            {'metric_key': 'explore_ratio', 'metric_value': 0.4, 'track_id': None, 'title': None, 'artist': None, 'play_count': None},
-            {'metric_key': 'repeat_ratio', 'metric_value': 0.6, 'track_id': None, 'title': None, 'artist': None, 'play_count': None},
-            {'metric_key': 'top_search_track', 'metric_value': None, 'track_id': 't9', 'title': 'Song Search', 'artist': 'Artist Search', 'play_count': 4},
-            {'metric_key': 'top_repeat_track', 'metric_value': None, 'track_id': 't1', 'title': 'Song A', 'artist': 'Artist A', 'play_count': 9},
+            {'row_type': 'summary', 'metric_key': 'explore', 'play_count': 40, 'track_count': 30, 'active_days': 20, 'ratio': 0.4, 'track_id': None, 'title': None, 'artist': None},
+            {'row_type': 'summary', 'metric_key': 'repeat', 'play_count': 60, 'track_count': 12, 'active_days': 18, 'ratio': 0.6, 'track_id': None, 'title': None, 'artist': None},
+            {'row_type': 'track', 'metric_key': 'search_top', 'play_count': 4, 'track_count': None, 'active_days': 3, 'ratio': None, 'track_id': 't9', 'title': 'Song Search', 'artist': 'Artist Search'},
+            {'row_type': 'track', 'metric_key': 'repeat_top', 'play_count': 9, 'track_count': None, 'active_days': 6, 'ratio': None, 'track_id': 't8', 'title': 'Song Repeat', 'artist': 'Artist Repeat'},
         ],
         'data_p06_keyword_source_rows': [
             {
@@ -66,8 +66,10 @@ def sample_dataset_payloads():
             {'genre': 'Anime', 'play_count': 30, 'listened_sec': 6000, 'ratio': 0.3},
         ],
         'data_p09_genre_evolution': [
-            {'period_key': '2025-01', 'genre': 'J-Pop', 'play_count': 12, 'listened_sec': 2400},
-            {'period_key': '2025-02', 'genre': 'Anime', 'play_count': 10, 'listened_sec': 2000},
+            {'period_key': '2025-01', 'genre': 'J-Pop', 'new_track_count': 12, 'ratio': 0.6667},
+            {'period_key': '2025-01', 'genre': 'Anime', 'new_track_count': 6, 'ratio': 0.3333},
+            {'period_key': '2025-02', 'genre': 'Vocaloid', 'new_track_count': 11, 'ratio': 0.7333},
+            {'period_key': '2025-02', 'genre': 'J-Rock', 'new_track_count': 4, 'ratio': 0.2667},
         ],
         'data_p10_taste_inputs': [
             {'genre': 'J-Pop', 'play_count': 40, 'is_new_genre': 0, 'artist_count': 4},
@@ -226,7 +228,11 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert set(report['pages']) == {'P01', 'P02', 'P03', 'P05', 'P06', 'P08', 'P09', 'P10', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32'}
     assert report['pages']['P05']['explore_ratio'] == 0.4
     assert report['pages']['P05']['top_search_track']['track_id'] == 't9'
-    assert report['pages']['P09'] == []
+    assert report['pages']['P05']['top_repeat_track']['track_id'] == 't8'
+    assert report['pages']['P05']['summary_text']
+    assert report['pages']['P09'][0]['period_key'] == '2025-01'
+    assert report['pages']['P09'][0]['top_genre'] == 'J-Pop'
+    assert report['pages']['P09'][1]['top_genre'] == 'Vocaloid'
     assert report['pages']['P20']['latest_night_track']['track_id'] == 't3'
     assert report['pages']['P25']['track_id'] == 't1'
     assert report['pages']['P12']['season'] == 'spring'
