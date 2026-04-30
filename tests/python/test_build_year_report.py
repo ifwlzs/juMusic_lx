@@ -226,24 +226,7 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert set(report['pages']) == {'P01', 'P02', 'P03', 'P05', 'P06', 'P08', 'P09', 'P10', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32'}
     assert report['pages']['P05']['explore_ratio'] == 0.4
     assert report['pages']['P05']['top_search_track']['track_id'] == 't9'
-    assert report['pages']['P06'][0] == {
-        'keyword': 'hello',
-        'hit_count': 2,
-        'source_type': 'lyric',
-        'representative_track': {
-            'track_id': 't1',
-            'title': 'Song A',
-            'artist': 'Artist A',
-        },
-        'representative_snippet': 'hello world hello dream',
-    }
-    assert report['pages']['P09'][0]['period_key'] == '2025-01'
-    assert report['pages']['P10']['taste_score'] >= 0
-    assert report['pages']['P10']['breadth_score'] > 0
-    assert report['pages']['P10']['depth_score'] > 0
-    assert report['pages']['P10']['freshness_score'] > 0
-    assert report['pages']['P10']['balance_score'] > 0
-    assert report['pages']['P10']['summary_label']
+    assert report['pages']['P09'] == []
     assert report['pages']['P20']['latest_night_track']['track_id'] == 't3'
     assert report['pages']['P25']['track_id'] == 't1'
     assert report['pages']['P12']['season'] == 'spring'
@@ -259,6 +242,52 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert report['pages']['P29'][0]['artist'] == 'Artist A'
     assert report['pages']['P30'][0]['play_year'] == 2024
     assert report['pages']['P31'][0]['credit_type'] == 'composer'
+
+
+def test_p06_keywords_are_built_independently_of_p05_and_preserve_non_ascii_text():
+    module = load_module()
+
+    cleaned = module._clean_keyword_text('[00:01.00] きらきら カタカナ café ā')
+
+    assert cleaned == 'きらきら カタカナ café ā'
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads=sample_dataset_payloads(),
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P06'][0] == {
+        'keyword': 'hello',
+        'hit_count': 2,
+        'source_type': 'lyric',
+        'representative_track': {
+            'track_id': 't1',
+            'title': 'Song A',
+            'artist': 'Artist A',
+        },
+        'representative_snippet': 'hello world hello dream',
+    }
+
+
+def test_p10_taste_scores_are_built_independently_of_p05_with_exact_contract():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads=sample_dataset_payloads(),
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P10'] == {
+        'taste_score': 65.4,
+        'breadth_score': 85.0,
+        'depth_score': 60.0,
+        'freshness_score': 50.0,
+        'balance_score': 66.7,
+        'summary_label': '探索型乐迷',
+        'summary_text': '你今年覆盖了 2 种曲风，听了 60 次，其中 1 种是新鲜尝试。',
+    }
 
 
 def test_calendar_summary_is_derived_from_calendar_rows():

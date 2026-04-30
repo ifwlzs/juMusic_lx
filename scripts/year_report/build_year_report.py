@@ -72,7 +72,7 @@ def _clean_keyword_text(value):
     text = str(value)
     text = re.sub(r'\[\d{2}:\d{2}(?:\.\d{1,2})?\]', ' ', text)
     text = text.lower()
-    text = re.sub(r'[^0-9a-z\u4e00-\u9fff]+', ' ', text)
+    text = re.sub(r'[^0-9a-z\u00c0-\u024f\u3040-\u30ff\u4e00-\u9fff]+', ' ', text)
     return ' '.join(text.split())
 
 
