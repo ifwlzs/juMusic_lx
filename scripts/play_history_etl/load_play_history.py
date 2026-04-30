@@ -117,6 +117,11 @@ def _row_values(row, columns):
     return [row.get(column) for column in columns]
 
 
+def _chunked(values, size):
+    for index in range(0, len(values), size):
+        yield values[index:index + size]
+
+
 def new_batch_id(now=None):
     current = now or datetime.now()
     return current.strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:8]
@@ -216,27 +221,48 @@ def ensure_table(conn):
     cursor.close()
 
 
+def get_existing_session_hashes(cursor, session_hashes, chunk_size=500):
+    existing = set()
+    for chunk in _chunked(list(session_hashes), chunk_size):
+        placeholders = ', '.join(['%s'] * len(chunk))
+        cursor.execute(
+            f"SELECT session_hash FROM dbo.{TABLE_NAME} WHERE session_hash IN ({placeholders})",
+            chunk,
+        )
+        existing.update(row[0] for row in cursor.fetchall())
+    return existing
+
+
 def insert_play_history_rows(conn, rows):
     cursor = conn.cursor()
-    inserted = 0
-    skipped = 0
     insert_columns = ', '.join(WAREHOUSE_COLUMNS)
     insert_placeholders = ', '.join(['%s'] * len(WAREHOUSE_COLUMNS))
 
+    unique_rows_by_hash = {}
+    duplicate_in_batch = 0
     for row in rows:
-        cursor.execute(f"SELECT 1 FROM dbo.{TABLE_NAME} WHERE session_hash = %s", [row['session_hash']])
-        if cursor.fetchone():
-            skipped += 1
+        session_hash = row['session_hash']
+        if session_hash in unique_rows_by_hash:
+            duplicate_in_batch += 1
             continue
-        cursor.execute(
+        unique_rows_by_hash[session_hash] = row
+
+    unique_rows = list(unique_rows_by_hash.values())
+    existing_hashes = get_existing_session_hashes(cursor, unique_rows_by_hash.keys()) if unique_rows else set()
+    new_rows = [row for row in unique_rows if row['session_hash'] not in existing_hashes]
+
+    if new_rows:
+        cursor.executemany(
             f"INSERT INTO dbo.{TABLE_NAME} ({insert_columns}) VALUES ({insert_placeholders})",
-            _row_values(row, WAREHOUSE_COLUMNS),
+            [_row_values(row, WAREHOUSE_COLUMNS) for row in new_rows],
         )
-        inserted += 1
 
     conn.commit()
     cursor.close()
-    return {'inserted': inserted, 'skipped': skipped}
+    return {
+        'inserted': len(new_rows),
+        'skipped': len(existing_hashes) + duplicate_in_batch,
+    }
 
 
 def load_db_config(args):

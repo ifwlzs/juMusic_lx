@@ -115,22 +115,30 @@ class FakeCursor:
     def __init__(self, existing_hashes=None):
         self.existing_hashes = set(existing_hashes or [])
         self.executed = []
-        self._fetchone_result = None
+        self.executemany_calls = []
+        self._fetchall_result = []
 
     def execute(self, sql, params=None):
         self.executed.append((sql, params))
         sql_upper = ' '.join(sql.upper().split())
-        if sql_upper.startswith('SELECT 1'):
-            session_hash = params[0]
-            self._fetchone_result = (1,) if session_hash in self.existing_hashes else None
-        elif sql_upper.startswith('INSERT INTO'):
-            self.existing_hashes.add(params[2])
-            self._fetchone_result = None
+        if sql_upper.startswith('SELECT SESSION_HASH'):
+            requested_hashes = list(params or [])
+            self._fetchall_result = [
+                (session_hash,)
+                for session_hash in requested_hashes
+                if session_hash in self.existing_hashes
+            ]
         else:
-            self._fetchone_result = None
+            self._fetchall_result = []
 
-    def fetchone(self):
-        return self._fetchone_result
+    def executemany(self, sql, seq_of_params):
+        batched_params = [list(item) for item in seq_of_params]
+        self.executemany_calls.append((sql, batched_params))
+        for params in batched_params:
+            self.existing_hashes.add(params[1])
+
+    def fetchall(self):
+        return self._fetchall_result
 
     def close(self):
         pass
@@ -162,21 +170,26 @@ def test_ensure_table_executes_create_table_sql():
     assert conn.commit_count == 1
 
 
-def test_insert_play_history_rows_skips_existing_session_hashes():
+def test_insert_play_history_rows_skips_existing_session_hashes_and_uses_bulk_insert():
     module = load_module()
     payload = sample_payload()
     rows = [
         module.normalize_item(payload['items'][0], batch_id='batch-1', imported_at='2026-04-30T12:00:00'),
         module.normalize_item({**payload['items'][0], 'sourceItemId': 'src-2'}, batch_id='batch-1', imported_at='2026-04-30T12:00:00'),
+        module.normalize_item({**payload['items'][0], 'sourceItemId': 'src-3'}, batch_id='batch-1', imported_at='2026-04-30T12:00:00'),
     ]
     conn = FakeConnection(existing_hashes={rows[0]['session_hash']})
 
     stats = module.insert_play_history_rows(conn, rows)
 
     sql_text = '\n'.join(item[0] for item in conn.cursor_obj.executed)
-    assert 'SELECT 1 FROM dbo.ods_jumusic_play_history' in sql_text
-    assert 'INSERT INTO dbo.ods_jumusic_play_history' in sql_text
-    assert stats == {'inserted': 1, 'skipped': 1}
+    assert 'SELECT session_hash FROM dbo.ods_jumusic_play_history' in sql_text
+    assert conn.cursor_obj.executemany_calls, 'expected executemany bulk insert path'
+    bulk_sql, bulk_params = conn.cursor_obj.executemany_calls[0]
+    assert 'INSERT INTO dbo.ods_jumusic_play_history' in bulk_sql
+    assert len(bulk_params) == 2
+    assert {params[1] for params in bulk_params} == {rows[1]['session_hash'], rows[2]['session_hash']}
+    assert stats == {'inserted': 2, 'skipped': 1}
     assert conn.commit_count == 1
 
 
