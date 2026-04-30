@@ -352,22 +352,30 @@ ORDER BY g.play_count DESC, g.listened_sec DESC, g.genre_name;
     'data_p09_genre_evolution': f"""
 DECLARE @year int = %s;
 {COMMON_BASE_CTE},
-first_seen_tracks AS (
-  SELECT DISTINCT
+year_new_unique_tracks AS (
+  SELECT
     a.track_id,
-    CONVERT(varchar(7), a.first_played_at, 120) AS period_key,
-    TRIM(value) AS genre
+    MIN(a.first_played_at) AS first_played_at,
+    MAX(a.genre) AS genre
   FROM all_base a
-  CROSS APPLY STRING_SPLIT(REPLACE(REPLACE(ISNULL(a.genre, ''), '|', '/'), ',', '/'), '/')
   WHERE YEAR(a.first_played_at) = @year
-    AND LTRIM(RTRIM(value)) <> ''
+  GROUP BY a.track_id
+),
+genre_split AS (
+  SELECT
+    CONVERT(varchar(7), y.first_played_at, 120) AS period_key,
+    y.track_id,
+    TRIM(value) AS genre
+  FROM year_new_unique_tracks y
+  CROSS APPLY STRING_SPLIT(REPLACE(REPLACE(ISNULL(y.genre, ''), '|', '/'), ',', '/'), '/')
+  WHERE LTRIM(RTRIM(value)) <> ''
 ),
 period_stats AS (
   SELECT
     period_key,
     genre,
     COUNT(*) AS new_track_count
-  FROM first_seen_tracks
+  FROM genre_split
   GROUP BY period_key, genre
 ),
 period_totals AS (

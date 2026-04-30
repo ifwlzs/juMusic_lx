@@ -82,22 +82,48 @@ def test_build_query_plan_uses_real_sql_for_p05_and_p09():
     plan = module.build_query_plan(2025)
 
     assert 'entry_source' in plan['data_p05_explore_repeat']['sql']
-    assert 'first_played_at' in plan['data_p09_genre_evolution']['sql']
-    assert 'GROUP BY' in plan['data_p09_genre_evolution']['sql']
+    assert 'year_new_unique_tracks' in plan['data_p09_genre_evolution']['sql']
+    assert 'genre_split' in plan['data_p09_genre_evolution']['sql']
 
 
-def test_p05_sql_keeps_four_metric_rows_even_when_top_track_subqueries_are_empty():
+def test_p05_sql_exposes_stable_summary_and_top_track_contract_rows():
     module = load_module()
 
     sql = module.build_query_plan(2025)['data_p05_explore_repeat']['sql']
 
+    assert sql.count("N'summary' AS row_type") == 2
+    assert "N'track' AS row_type" in sql
     for metric_key in ("N'explore'", "N'repeat'", "N'search_top'", "N'repeat_top'"):
         assert metric_key in sql
 
-    assert 'LEFT JOIN search_top' in sql
-    assert 'LEFT JOIN repeat_top' in sql
-    assert 'FROM search_top' not in sql
-    assert 'FROM repeat_top' not in sql
+    assert 'top_metric_rows AS (' in sql
+    assert "SELECT N'search_top' AS metric_key" in sql
+    assert "SELECT N'repeat_top' AS metric_key" in sql
+    assert 'top_track_rows AS (' in sql
+    assert 'FROM top_metric_rows m' in sql
+    assert 'LEFT JOIN search_top s' in sql
+    assert 'LEFT JOIN repeat_top r' in sql
+    assert (
+        'UNION ALL\n'
+        'SELECT row_type, metric_key, play_count, track_count, active_days, ratio, track_id, title, artist\n'
+        'FROM top_track_rows;'
+    ) in sql
+
+
+def test_p09_sql_builds_explicit_year_new_unique_track_layer_before_genre_aggregation():
+    module = load_module()
+
+    sql = module.build_query_plan(2025)['data_p09_genre_evolution']['sql']
+
+    assert 'year_new_unique_tracks AS (' in sql
+    assert 'GROUP BY a.track_id' in sql
+    assert 'MIN(a.first_played_at) AS first_played_at' in sql
+    assert 'genre_split AS (' in sql
+    assert 'FROM year_new_unique_tracks y' in sql
+    assert 'period_stats AS (' in sql
+    assert 'COUNT(*) AS new_track_count' in sql
+    assert 'period_totals AS (' in sql
+    assert 'SUM(new_track_count) AS total_new_track_count' in sql
 
 
 def test_build_query_plan_rejects_non_int_year():
@@ -204,16 +230,16 @@ def test_map_rows_to_dataset_payload_returns_many_rows_for_batch2_placeholder_da
 
     batch2_rows = {
         'data_p05_explore_repeat': [
-            {'row_type': 'summary', 'repeat_track_count': 7, 'repeat_play_count': 21},
-            {'row_type': 'top_track', 'track_id': 't1', 'repeat_play_count': 9},
+            {'row_type': 'summary', 'metric_key': 'explore', 'play_count': 21, 'track_count': 7, 'active_days': 10, 'ratio': 0.4200, 'track_id': None, 'title': None, 'artist': None},
+            {'row_type': 'track', 'metric_key': 'repeat_top', 'play_count': 9, 'track_count': None, 'active_days': 4, 'ratio': None, 'track_id': 't1', 'title': 'Song A', 'artist': 'Artist A'},
         ],
         'data_p06_keyword_source_rows': [
             {'source_type': 'lyric', 'source_value': 'tokyo', 'play_count': 6},
             {'source_type': 'title', 'source_value': 'night', 'play_count': 3},
         ],
         'data_p09_genre_evolution': [
-            {'period_key': '2025-01', 'genre': 'Anime', 'play_count': 4, 'listened_sec': 1200},
-            {'period_key': '2025-02', 'genre': 'J-Pop', 'play_count': 5, 'listened_sec': 1600},
+            {'period_key': '2025-01', 'genre': 'Anime', 'new_track_count': 4, 'ratio': 0.5000},
+            {'period_key': '2025-02', 'genre': 'J-Pop', 'new_track_count': 5, 'ratio': 0.6250},
         ],
         'data_p10_taste_inputs': [
             {'genre': 'J-Pop', 'artist': 'Artist A', 'track_id': 't1', 'play_count': 5},
