@@ -248,6 +248,43 @@ repeat_top AS (
   WHERE y.is_year_new = 0
     AND y.play_count >= 2
   ORDER BY y.play_count DESC, y.active_days DESC, y.title, y.track_id
+),
+top_metric_rows AS (
+  SELECT N'search_top' AS metric_key
+  UNION ALL
+  SELECT N'repeat_top' AS metric_key
+),
+top_track_rows AS (
+  SELECT
+    N'track' AS row_type,
+    m.metric_key,
+    CASE
+      WHEN m.metric_key = N'search_top' THEN ISNULL(s.play_count, 0)
+      ELSE ISNULL(r.play_count, 0)
+    END AS play_count,
+    CAST(NULL AS int) AS track_count,
+    CASE
+      WHEN m.metric_key = N'search_top' THEN ISNULL(s.active_days, 0)
+      ELSE ISNULL(r.active_days, 0)
+    END AS active_days,
+    CAST(NULL AS decimal(10,4)) AS ratio,
+    CASE
+      WHEN m.metric_key = N'search_top' THEN s.track_id
+      ELSE r.track_id
+    END AS track_id,
+    CASE
+      WHEN m.metric_key = N'search_top' THEN s.title
+      ELSE r.title
+    END AS title,
+    CASE
+      WHEN m.metric_key = N'search_top' THEN s.artist
+      ELSE r.artist
+    END AS artist
+  FROM top_metric_rows m
+  LEFT JOIN search_top s
+    ON m.metric_key = N'search_top'
+  LEFT JOIN repeat_top r
+    ON m.metric_key = N'repeat_top'
 )
 SELECT
   N'summary' AS row_type,
@@ -274,10 +311,7 @@ SELECT
 FROM repeat_base
 UNION ALL
 SELECT row_type, metric_key, play_count, track_count, active_days, ratio, track_id, title, artist
-FROM search_top
-UNION ALL
-SELECT row_type, metric_key, play_count, track_count, active_days, ratio, track_id, title, artist
-FROM repeat_top;
+FROM top_track_rows;
 """.strip(),
     'data_p06_keyword_source_rows': """
 DECLARE @year int = %s;

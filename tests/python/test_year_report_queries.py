@@ -86,6 +86,20 @@ def test_build_query_plan_uses_real_sql_for_p05_and_p09():
     assert 'GROUP BY' in plan['data_p09_genre_evolution']['sql']
 
 
+def test_p05_sql_keeps_four_metric_rows_even_when_top_track_subqueries_are_empty():
+    module = load_module()
+
+    sql = module.build_query_plan(2025)['data_p05_explore_repeat']['sql']
+
+    for metric_key in ("N'explore'", "N'repeat'", "N'search_top'", "N'repeat_top'"):
+        assert metric_key in sql
+
+    assert 'LEFT JOIN search_top' in sql
+    assert 'LEFT JOIN repeat_top' in sql
+    assert 'FROM search_top' not in sql
+    assert 'FROM repeat_top' not in sql
+
+
 def test_build_query_plan_rejects_non_int_year():
     module = load_module()
 
