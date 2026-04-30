@@ -180,13 +180,13 @@ def _build_p05(rows):
     track_by_metric = {}
     for row in rows:
         metric_key = row.get('metric_key')
-        if not metric_key:
-            continue
         row_type = row.get('row_type')
-        if row_type == 'track' or row.get('track_id'):
-            track_by_metric[metric_key] = row
-        else:
+        if metric_key not in {'explore', 'repeat', 'search_top', 'repeat_top'}:
+            continue
+        if row_type == 'summary':
             summary_by_metric[metric_key] = row
+        elif row_type == 'track':
+            track_by_metric[metric_key] = row
 
     explore = summary_by_metric.get('explore', {})
     repeat = summary_by_metric.get('repeat', {})
@@ -240,15 +240,15 @@ def _build_p09(rows):
         genre_rows = sorted(
             period_groups[period_key],
             key=lambda row: (
-                -(_safe_number(row.get('new_track_count', row.get('play_count')), 0)),
+                -(_safe_number(row.get('new_track_count'), 0)),
                 row.get('genre') or '',
             ),
         )
         top_row = genre_rows[0] if genre_rows else None
-        top_count = _safe_number(top_row.get('new_track_count', top_row.get('play_count')) if top_row else 0, 0)
+        top_count = _safe_number(top_row.get('new_track_count') if top_row else 0, 0)
         genre_items = []
         for row in genre_rows:
-            count = _safe_number(row.get('new_track_count', row.get('play_count')), 0)
+            count = _safe_number(row.get('new_track_count'), 0)
             genre_items.append({
                 'genre': row.get('genre'),
                 'new_track_count': count,

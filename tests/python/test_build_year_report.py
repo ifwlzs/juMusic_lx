@@ -296,6 +296,104 @@ def test_p10_taste_scores_are_built_independently_of_p05_with_exact_contract():
     }
 
 
+def test_build_p05_consumes_only_current_contract_rows():
+    module = load_module()
+
+    rows = [
+        {'row_type': 'summary', 'metric_key': 'explore', 'play_count': 40, 'active_days': 20, 'ratio': 0.4},
+        {'row_type': 'summary', 'metric_key': 'repeat', 'play_count': 60, 'active_days': 18, 'ratio': 0.6},
+        {
+            'row_type': 'track',
+            'metric_key': 'search_top',
+            'track_id': 't9',
+            'title': 'Song Search',
+            'artist': 'Artist Search',
+            'play_count': 4,
+            'active_days': 3,
+        },
+        {
+            'row_type': 'track',
+            'metric_key': 'repeat_top',
+            'track_id': 't8',
+            'title': 'Song Repeat',
+            'artist': 'Artist Repeat',
+            'play_count': 9,
+            'active_days': 6,
+        },
+        {
+            'row_type': 'summary',
+            'metric_key': 'search_top',
+            'track_id': 'drifted-search-row-should-be-ignored',
+            'title': 'Wrong Search Row',
+            'artist': 'Wrong Artist',
+            'play_count': 999,
+            'active_days': 99,
+        },
+    ]
+
+    result = module._build_p05(rows)
+
+    assert result == {
+        'explore_ratio': 0.4,
+        'repeat_ratio': 0.6,
+        'explore_play_count': 40,
+        'repeat_play_count': 60,
+        'search_play_count': 4,
+        'repeat_active_days': 18,
+        'top_search_track': {
+            'track_id': 't9',
+            'title': 'Song Search',
+            'artist': 'Artist Search',
+            'play_count': 4,
+            'active_days': 3,
+        },
+        'top_repeat_track': {
+            'track_id': 't8',
+            'title': 'Song Repeat',
+            'artist': 'Artist Repeat',
+            'play_count': 9,
+            'active_days': 6,
+        },
+        'summary_text': '今年你有 40 次探索型播放，60 次循环回听，其中搜索触发了 4 次播放。',
+    }
+
+
+def test_build_p09_preserves_new_track_contract_and_sort_order():
+    module = load_module()
+
+    rows = [
+        {'period_key': '2025-02', 'genre': 'J-Rock', 'new_track_count': 4, 'ratio': 0.2667},
+        {'period_key': '2025-01', 'genre': 'Anime', 'new_track_count': 6, 'ratio': 0.3333},
+        {'period_key': '2025-01', 'genre': 'J-Pop', 'new_track_count': 12, 'ratio': 0.6667},
+        {'period_key': '2025-02', 'genre': 'Vocaloid', 'new_track_count': 11, 'ratio': 0.7333},
+        {'period_key': '2025-02', 'genre': 'Drifted Row', 'play_count': 999, 'ratio': 0.9999},
+    ]
+
+    result = module._build_p09(rows)
+
+    assert result == [
+        {
+            'period_key': '2025-01',
+            'top_genre': 'J-Pop',
+            'genres': [
+                {'genre': 'J-Pop', 'new_track_count': 12, 'ratio': 0.6667},
+                {'genre': 'Anime', 'new_track_count': 6, 'ratio': 0.3333},
+            ],
+            'summary_text': '2025-01 的新歌探索重心是 J-Pop，共发现 12 首。',
+        },
+        {
+            'period_key': '2025-02',
+            'top_genre': 'Vocaloid',
+            'genres': [
+                {'genre': 'Vocaloid', 'new_track_count': 11, 'ratio': 0.7333},
+                {'genre': 'J-Rock', 'new_track_count': 4, 'ratio': 0.2667},
+                {'genre': 'Drifted Row', 'new_track_count': 0, 'ratio': 0.9999},
+            ],
+            'summary_text': '2025-02 的新歌探索重心是 Vocaloid，共发现 11 首。',
+        },
+    ]
+
+
 def test_calendar_summary_is_derived_from_calendar_rows():
     module = load_module()
 
@@ -431,6 +529,26 @@ def test_collect_dataset_payloads_uses_query_module():
     assert payloads['data_p01_summary']['days_since_first_play'] == 485
     assert payloads['data_p08_genres'][0]['genre'] == 'J-Pop'
     assert len(cursor.executed) == 27
+
+
+def test_collect_dataset_payloads_feed_build_report_for_p05_and_p09_contract():
+    module = load_module()
+    cursor = FakeCursor(sample_dataset_payloads())
+
+    payloads = module.collect_dataset_payloads(cursor, year=2025)
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads=payloads,
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P05']['search_play_count'] == 4
+    assert report['pages']['P05']['repeat_active_days'] == 18
+    assert report['pages']['P09'][0]['genres'][0] == {
+        'genre': 'J-Pop',
+        'new_track_count': 12,
+        'ratio': 0.6667,
+    }
 
 
 def test_cli_writes_report_json(tmp_path):
