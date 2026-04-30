@@ -3,7 +3,9 @@
 import argparse
 import json
 import os
+import re
 import sys
+from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime
 from pathlib import Path
@@ -63,6 +65,146 @@ def _row_dicts_from_cursor(cursor):
     return [dict(zip(columns, row)) for row in rows]
 
 
+def _clean_keyword_text(value):
+    if not value:
+        return ''
+
+    text = str(value)
+    text = re.sub(r'\[\d{2}:\d{2}(?:\.\d{1,2})?\]', ' ', text)
+    text = text.lower()
+    text = re.sub(r'[^0-9a-z\u4e00-\u9fff]+', ' ', text)
+    return ' '.join(text.split())
+
+
+def _extract_keywords(rows):
+    stopwords = {
+        'a', 'an', 'and', 'are', 'for', 'from', 'in', 'is', 'of', 'on', 'or',
+        'the', 'to', 'with', '歌词', '搜索',
+    }
+    keyword_stats = defaultdict(lambda: {
+        'keyword': None,
+        'hit_count': 0,
+        'ranking_score': 0.0,
+        'source_type': None,
+        'representative_track': None,
+        'representative_snippet': None,
+        'representative_weight': -1.0,
+    })
+
+    for row in rows:
+        snippet = _clean_keyword_text(row.get('text_value') or row.get('source_value'))
+        if not snippet:
+            continue
+
+        source_type = row.get('source_type') or 'unknown'
+        weight = float(row.get('weight') or 1.0)
+        track = None
+        if row.get('track_id'):
+            track = {
+                'track_id': row.get('track_id'),
+                'title': row.get('title'),
+                'artist': row.get('artist'),
+            }
+
+        token_counts = defaultdict(int)
+        for token in snippet.split():
+            if len(token) <= 1 or token in stopwords:
+                continue
+            token_counts[token] += 1
+
+        for token, count in token_counts.items():
+            stat = keyword_stats[token]
+            stat['keyword'] = token
+            stat['hit_count'] += count
+            stat['ranking_score'] += count * weight
+
+            if (
+                count > 0 and (
+                    stat['representative_snippet'] is None
+                    or count * weight > stat['representative_weight']
+                    or (
+                        count * weight == stat['representative_weight']
+                        and (source_type == 'lyric' and stat['source_type'] != 'lyric')
+                    )
+                )
+            ):
+                stat['source_type'] = source_type
+                stat['representative_track'] = track
+                stat['representative_snippet'] = snippet
+                stat['representative_weight'] = count * weight
+
+    sorted_keywords = sorted(
+        keyword_stats.values(),
+        key=lambda item: (
+            -item['ranking_score'],
+            -item['hit_count'],
+            0 if item['source_type'] == 'lyric' else 1,
+            item['keyword'] or '',
+        ),
+    )
+
+    return [
+        {
+            'keyword': item['keyword'],
+            'hit_count': item['hit_count'],
+            'source_type': item['source_type'],
+            'representative_track': item['representative_track'],
+            'representative_snippet': item['representative_snippet'],
+        }
+        for item in sorted_keywords[:10]
+    ]
+
+
+def _build_taste_score(rows):
+    if not rows:
+        return {
+            'taste_score': 0.0,
+            'breadth_score': 0.0,
+            'depth_score': 0.0,
+            'freshness_score': 0.0,
+            'balance_score': 0.0,
+            'summary_label': '--',
+            'summary_text': '--',
+        }
+
+    total_play_count = sum((row.get('play_count') or 0) for row in rows)
+    total_artist_count = sum((row.get('artist_count') or 0) for row in rows)
+    distinct_genre_count = len({row.get('genre') for row in rows if row.get('genre')})
+    new_genre_count = sum(1 for row in rows if row.get('is_new_genre'))
+    max_play_count = max((row.get('play_count') or 0) for row in rows)
+
+    breadth_score = min(100.0, distinct_genre_count * 25.0 + total_artist_count * 5.0)
+    depth_score = min(100.0, total_play_count / max(distinct_genre_count, 1) * 2.0)
+    freshness_score = min(100.0, (new_genre_count / max(distinct_genre_count, 1)) * 100.0)
+    balance_score = 100.0
+    if total_play_count > 0:
+        balance_score = max(0.0, 100.0 - (max_play_count / total_play_count) * 50.0)
+
+    taste_score = round((breadth_score + depth_score + freshness_score + balance_score) / 4.0, 1)
+
+    if taste_score >= 75:
+        summary_label = '广度型乐迷'
+    elif taste_score >= 50:
+        summary_label = '探索型乐迷'
+    else:
+        summary_label = '稳定型乐迷'
+
+    summary_text = (
+        f'你今年覆盖了 {distinct_genre_count} 种曲风，'
+        f'听了 {total_play_count} 次，其中 {new_genre_count} 种是新鲜尝试。'
+    )
+
+    return {
+        'taste_score': taste_score,
+        'breadth_score': round(breadth_score, 1),
+        'depth_score': round(depth_score, 1),
+        'freshness_score': round(freshness_score, 1),
+        'balance_score': round(balance_score, 1),
+        'summary_label': summary_label,
+        'summary_text': summary_text,
+    }
+
+
 def collect_dataset_payloads(cursor, year):
     plan = build_query_plan(year)
     payloads = {}
@@ -103,9 +245,9 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
     p31_rows = dataset_payloads.get('data_p31_credits') or []
 
     p05 = {'explore_ratio': 0, 'repeat_ratio': 0, 'top_search_track': None, 'top_repeat_track': None}
-    p06 = []
+    p06 = _extract_keywords(p06_rows)
     p09 = []
-    p10 = {'taste_score': 0, 'summary_label': '--', 'summary_text': '--'}
+    p10 = _build_taste_score(p10_rows)
 
     active_dates = [row['date'] for row in p18_rows if row.get('is_active')]
     p18 = {

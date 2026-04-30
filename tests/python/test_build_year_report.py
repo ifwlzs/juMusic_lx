@@ -42,8 +42,24 @@ def sample_dataset_payloads():
             {'metric_key': 'top_repeat_track', 'metric_value': None, 'track_id': 't1', 'title': 'Song A', 'artist': 'Artist A', 'play_count': 9},
         ],
         'data_p06_keyword_source_rows': [
-            {'text_value': 'hello', 'source_type': 'keyword', 'source_value': '搜索', 'weight': 0.9},
-            {'text_value': 'world', 'source_type': 'lyric', 'source_value': '歌词', 'weight': 0.5},
+            {
+                'text_value': '[00:01.00] hello world hello dream',
+                'source_type': 'lyric',
+                'source_value': '[00:01.00] hello world hello dream',
+                'weight': 0.9,
+                'track_id': 't1',
+                'title': 'Song A',
+                'artist': 'Artist A',
+            },
+            {
+                'text_value': 'dream',
+                'source_type': 'keyword',
+                'source_value': '搜索',
+                'weight': 0.5,
+                'track_id': None,
+                'title': None,
+                'artist': None,
+            },
         ],
         'data_p08_genres': [
             {'genre': 'J-Pop', 'play_count': 40, 'listened_sec': 8000, 'ratio': 0.4},
@@ -210,9 +226,23 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert set(report['pages']) == {'P01', 'P02', 'P03', 'P05', 'P06', 'P08', 'P09', 'P10', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32'}
     assert report['pages']['P05']['explore_ratio'] == 0.4
     assert report['pages']['P05']['top_search_track']['track_id'] == 't9'
-    assert report['pages']['P06'][0]['keyword'] == 'hello'
+    assert report['pages']['P06'][0] == {
+        'keyword': 'hello',
+        'hit_count': 2,
+        'source_type': 'lyric',
+        'representative_track': {
+            'track_id': 't1',
+            'title': 'Song A',
+            'artist': 'Artist A',
+        },
+        'representative_snippet': 'hello world hello dream',
+    }
     assert report['pages']['P09'][0]['period_key'] == '2025-01'
     assert report['pages']['P10']['taste_score'] >= 0
+    assert report['pages']['P10']['breadth_score'] > 0
+    assert report['pages']['P10']['depth_score'] > 0
+    assert report['pages']['P10']['freshness_score'] > 0
+    assert report['pages']['P10']['balance_score'] > 0
     assert report['pages']['P10']['summary_label']
     assert report['pages']['P20']['latest_night_track']['track_id'] == 't3'
     assert report['pages']['P25']['track_id'] == 't1'
