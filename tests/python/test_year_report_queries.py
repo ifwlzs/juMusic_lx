@@ -1,0 +1,223 @@
+from pathlib import Path
+import importlib.util
+
+MODULE_PATH = Path(__file__).resolve().parents[2] / 'scripts' / 'year_report' / 'year_report_queries.py'
+
+
+def load_module():
+    spec = importlib.util.spec_from_file_location('year_report_queries', MODULE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_module_file_exists():
+    assert MODULE_PATH.exists()
+
+
+def test_supported_datasets_cover_mvp_pages():
+    module = load_module()
+
+    assert module.SUPPORTED_DATASETS == (
+        'data_p01_summary',
+        'data_p02_overview',
+        'data_p03_explore',
+        'data_p05_explore_repeat',
+        'data_p06_keyword_source_rows',
+        'data_p08_genres',
+        'data_p09_genre_evolution',
+        'data_p10_taste_inputs',
+        'data_p12_spring',
+        'data_p13_summer',
+        'data_p14_autumn',
+        'data_p15_winter',
+        'data_p16_artist_of_year',
+        'data_p17_weekly_pattern',
+        'data_p18_calendar',
+        'data_p19_time_bucket',
+        'data_p20_night',
+        'data_p22_repeat_tracks',
+        'data_p23_album_of_year',
+        'data_p24_top_albums',
+        'data_p25_song_of_year',
+        'data_p26_top_tracks',
+        'data_p27_top_artists',
+        'data_p28_artist_journey',
+        'data_p29_artist_rank_detail',
+        'data_p30_yearly_artist_rank',
+        'data_p31_credits',
+    )
+
+
+def test_build_query_plan_injects_year_once_per_dataset():
+    module = load_module()
+
+    plan = module.build_query_plan(2025)
+
+    assert set(plan) == set(module.SUPPORTED_DATASETS)
+    for dataset_name, query in plan.items():
+        assert query['dataset_name'] == dataset_name
+        assert query['params'] == (2025,)
+        assert 'DECLARE @year int = %s;' in query['sql']
+
+
+def test_build_query_plan_rejects_non_int_year():
+    module = load_module()
+
+    try:
+        module.build_query_plan('2025')
+    except ValueError as exc:
+        assert 'year must be an integer' in str(exc)
+    else:
+        raise AssertionError('expected build_query_plan to reject non-int year')
+
+
+def test_map_rows_to_dataset_payload_shapes():
+    module = load_module()
+
+    p01 = module.map_rows_to_dataset_payload('data_p01_summary', [{
+        'first_played_at': '2024-01-01T00:00:00+08:00',
+        'days_since_first_play': 100,
+        'years_since_first_play': 0.3,
+    }])
+    p08 = module.map_rows_to_dataset_payload('data_p08_genres', [
+        {'genre': 'J-Pop', 'play_count': 12, 'listened_sec': 3600, 'ratio': 0.4},
+        {'genre': 'Anime', 'play_count': 8, 'listened_sec': 2400, 'ratio': 0.2667},
+    ])
+    p05 = module.map_rows_to_dataset_payload('data_p05_explore_repeat', [
+        {'row_type': 'summary', 'repeat_track_count': 7, 'repeat_play_count': 21},
+    ])
+    p06 = module.map_rows_to_dataset_payload('data_p06_keyword_source_rows', [
+        {'source_type': 'lyric', 'source_value': 'tokyo', 'play_count': 6},
+    ])
+    p09 = module.map_rows_to_dataset_payload('data_p09_genre_evolution', [
+        {'period_key': '2025-01', 'genre': 'Anime', 'play_count': 4, 'listened_sec': 1200},
+    ])
+    p10 = module.map_rows_to_dataset_payload('data_p10_taste_inputs', [
+        {'genre': 'J-Pop', 'artist': 'Artist A', 'track_id': 't1', 'play_count': 5},
+    ])
+    p12 = module.map_rows_to_dataset_payload('data_p12_spring', [{
+        'season': 'spring',
+        'top_track_id': 't1',
+        'title': 'Song A',
+        'artist': 'Artist A',
+        'play_count': 5,
+        'listened_sec': 900,
+        'active_days': 3,
+    }])
+    p22 = module.map_rows_to_dataset_payload('data_p22_repeat_tracks', [
+        {'track_id': 't1', 'title': 'Song A', 'artist': 'Artist A', 'play_count': 9, 'listened_sec': 1600, 'active_days': 4},
+    ])
+    p23 = module.map_rows_to_dataset_payload('data_p23_album_of_year', [{
+        'album': 'Album A', 'artist': 'Artist A', 'play_count': 18, 'listened_sec': 4000, 'active_days': 12, 'track_count': 5
+    }])
+    p24 = module.map_rows_to_dataset_payload('data_p24_top_albums', [
+        {'album': 'Album A', 'artist': 'Artist A', 'play_count': 18, 'listened_sec': 4000, 'active_days': 12, 'track_count': 5, 'album_score': 34.2},
+    ])
+    p12 = module.map_rows_to_dataset_payload('data_p12_spring', [{
+        'season': 'spring',
+        'top_track_id': 't1',
+        'title': 'Song A',
+        'artist': 'Artist A',
+        'play_count': 5,
+        'listened_sec': 900,
+        'active_days': 3,
+    }])
+    p16 = module.map_rows_to_dataset_payload('data_p16_artist_of_year', [
+        {'row_type': 'summary', 'artist': 'Artist A', 'play_count': 20, 'listened_sec': 4200, 'active_months': 6, 'month_no': None, 'month_play_count': None, 'track_id': None, 'title': None, 'track_play_count': None},
+        {'row_type': 'month', 'artist': 'Artist A', 'play_count': None, 'listened_sec': None, 'active_months': None, 'month_no': 1, 'month_play_count': 3, 'track_id': None, 'title': None, 'track_play_count': None},
+    ])
+    p17 = module.map_rows_to_dataset_payload('data_p17_weekly_pattern', [
+        {'row_type': 'weekday', 'weekday_num': 1, 'weekday_cn': '周一', 'play_count': 8, 'listened_sec': 1800, 'time_bucket': None, 'bucket_play_count': None},
+        {'row_type': 'bucket', 'weekday_num': None, 'weekday_cn': None, 'play_count': None, 'listened_sec': None, 'time_bucket': 'evening', 'bucket_play_count': 20},
+    ])
+    p18 = module.map_rows_to_dataset_payload('data_p18_calendar', [
+        {'date': '2025-01-01', 'play_count': 2, 'listened_sec': 500, 'is_active': 1},
+        {'date': '2025-01-02', 'play_count': 0, 'listened_sec': 0, 'is_active': 0},
+    ])
+    p19 = module.map_rows_to_dataset_payload('data_p19_time_bucket', [
+        {'row_type': 'bucket', 'time_bucket': 'evening', 'play_hour': None, 'track_id': None, 'title': None, 'artist_raw': None, 'play_count': 20},
+        {'row_type': 'hour', 'time_bucket': None, 'play_hour': 21, 'track_id': None, 'title': None, 'artist_raw': None, 'play_count': 8},
+    ])
+    p26 = module.map_rows_to_dataset_payload('data_p26_top_tracks', [
+        {'track_id': 't1', 'title': 'Song A', 'artist': 'Artist A', 'album': 'Album A', 'play_count': 10, 'listened_sec': 1800, 'active_days': 4},
+    ])
+    p27 = module.map_rows_to_dataset_payload('data_p27_top_artists', [
+        {'row_type': 'artist', 'artist': 'Artist A', 'play_count': 20, 'listened_sec': 3600, 'track_id': None, 'title': None, 'track_play_count': None},
+        {'row_type': 'track', 'artist': 'Artist A', 'play_count': None, 'listened_sec': None, 'track_id': 't1', 'title': 'Song A', 'track_play_count': 8},
+    ])
+    p28 = module.map_rows_to_dataset_payload('data_p28_artist_journey', [
+        {'row_type': 'summary', 'artist': 'Artist A', 'first_played_at': '2024-01-01T00:00:00+08:00', 'days_since_first_play': 485, 'peak_date': None, 'peak_play_count': None, 'track_id': None, 'title': None},
+        {'row_type': 'first_track', 'artist': 'Artist A', 'first_played_at': None, 'days_since_first_play': None, 'peak_date': None, 'peak_play_count': None, 'track_id': 't1', 'title': 'Song A'},
+        {'row_type': 'peak_day', 'artist': 'Artist A', 'first_played_at': None, 'days_since_first_play': None, 'peak_date': '2025-03-01', 'peak_play_count': 5, 'track_id': None, 'title': None},
+    ])
+    p30 = module.map_rows_to_dataset_payload('data_p30_yearly_artist_rank', [
+        {'play_year': 2024, 'artist_rank': 1, 'artist': 'Artist A', 'play_count': 22, 'listened_sec': 4000},
+    ])
+    p29 = module.map_rows_to_dataset_payload('data_p29_artist_rank_detail', [
+        {'row_type': 'artist', 'artist_rank': 1, 'artist': 'Artist A', 'play_count': 22, 'listened_sec': 4000, 'track_id': None, 'title': None, 'track_play_count': None},
+        {'row_type': 'track', 'artist_rank': 1, 'artist': 'Artist A', 'play_count': None, 'listened_sec': None, 'track_id': 't1', 'title': 'Song A', 'track_play_count': 8},
+    ])
+    p31 = module.map_rows_to_dataset_payload('data_p31_credits', [
+        {'credit_type': 'composer', 'credit_name': 'Composer A', 'play_count': 12, 'listened_sec': 2400},
+    ])
+
+    assert p01['first_played_at'] == '2024-01-01T00:00:00+08:00'
+    assert p05[0]['row_type'] == 'summary'
+    assert p06[0]['source_type'] == 'lyric'
+    assert p08[0]['genre'] == 'J-Pop'
+    assert p09[0]['period_key'] == '2025-01'
+    assert p10[0]['genre'] == 'J-Pop'
+    assert p12['season'] == 'spring'
+    assert p16[0]['row_type'] == 'summary'
+    assert p17[0]['row_type'] == 'weekday'
+    assert p18[1]['is_active'] == 0
+    assert p19[0]['row_type'] == 'bucket'
+    assert p22[0]['track_id'] == 't1'
+    assert p23['album'] == 'Album A'
+    assert p24[0]['album_score'] == 34.2
+    assert p26[0]['album'] == 'Album A'
+    assert p27[1]['row_type'] == 'track'
+    assert p28[0]['row_type'] == 'summary'
+    assert p30[0]['play_year'] == 2024
+    assert p29[0]['row_type'] == 'artist'
+    assert p31[0]['credit_type'] == 'composer'
+
+
+def test_dataset_structure_contracts():
+    module = load_module()
+
+    assert module.DATASET_SHAPES['data_p01_summary'] == 'one'
+    assert module.DATASET_SHAPES['data_p02_overview'] == 'one'
+    assert module.DATASET_SHAPES['data_p03_explore'] == 'one'
+    assert module.DATASET_SHAPES['data_p05_explore_repeat'] == 'many'
+    assert module.DATASET_SHAPES['data_p06_keyword_source_rows'] == 'many'
+    assert module.DATASET_SHAPES['data_p08_genres'] == 'many'
+    assert module.DATASET_SHAPES['data_p09_genre_evolution'] == 'many'
+    assert module.DATASET_SHAPES['data_p10_taste_inputs'] == 'many'
+    assert module.DATASET_SHAPES['data_p12_spring'] == 'one'
+    assert module.DATASET_SHAPES['data_p13_summer'] == 'one'
+    assert module.DATASET_SHAPES['data_p14_autumn'] == 'one'
+    assert module.DATASET_SHAPES['data_p15_winter'] == 'one'
+    assert module.DATASET_SHAPES['data_p16_artist_of_year'] == 'many'
+    assert module.DATASET_SHAPES['data_p17_weekly_pattern'] == 'many'
+    assert module.DATASET_SHAPES['data_p18_calendar'] == 'many'
+    assert module.DATASET_SHAPES['data_p19_time_bucket'] == 'many'
+    assert module.DATASET_SHAPES['data_p20_night'] == 'one'
+    assert module.DATASET_SHAPES['data_p22_repeat_tracks'] == 'many'
+    assert module.DATASET_SHAPES['data_p23_album_of_year'] == 'one'
+    assert module.DATASET_SHAPES['data_p24_top_albums'] == 'many'
+    assert module.DATASET_SHAPES['data_p25_song_of_year'] == 'one'
+    assert module.DATASET_SHAPES['data_p26_top_tracks'] == 'many'
+    assert module.DATASET_SHAPES['data_p27_top_artists'] == 'many'
+    assert module.DATASET_SHAPES['data_p28_artist_journey'] == 'many'
+    assert module.DATASET_SHAPES['data_p30_yearly_artist_rank'] == 'many'
+    assert module.DATASET_SHAPES['data_p29_artist_rank_detail'] == 'many'
+    assert module.DATASET_SHAPES['data_p31_credits'] == 'many'
+
+
+def test_map_rows_to_dataset_payload_returns_empty_shape_when_no_rows():
+    module = load_module()
+
+    assert module.map_rows_to_dataset_payload('data_p01_summary', []) is None
+    assert module.map_rows_to_dataset_payload('data_p08_genres', []) == []
