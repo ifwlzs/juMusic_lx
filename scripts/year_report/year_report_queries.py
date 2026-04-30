@@ -1033,7 +1033,7 @@ ORDER BY credit_type ASC, play_count DESC, listened_sec DESC, credit_name ASC;
 
 
 def _validate_year(year):
-    if not isinstance(year, int):
+    if isinstance(year, bool) or not isinstance(year, int):
         raise ValueError('year must be an integer')
     return year
 
