@@ -91,6 +91,7 @@ raw_base AS (
     p.start_day AS play_day,
     p.start_hour AS play_hour,
     p.start_weekday AS play_weekday,
+    p.entry_source,
     p.night_owning_date_key,
     p.night_sort_minute,
     COALESCE(NULLIF(p.aggregate_song_id, ''), NULLIF(p.source_item_id, ''), NULLIF(p.song_file_name, ''), NULLIF(p.title_snapshot, '')) AS track_id,
@@ -173,9 +174,110 @@ SELECT
   (SELECT COUNT(*) FROM genre_all WHERE YEAR(first_seen_at) = @year) AS new_genre_count
 FROM base;
 """.strip(),
-    'data_p05_explore_repeat': """
+    'data_p05_explore_repeat': f"""
 DECLARE @year int = %s;
-SELECT 1 AS placeholder WHERE 1 = 0;
+{COMMON_BASE_CTE},
+first_seen AS (
+  SELECT
+    track_id,
+    MIN(first_played_at) AS first_played_at
+  FROM all_base
+  GROUP BY track_id
+),
+year_track_stats AS (
+  SELECT
+    b.track_id,
+    MAX(b.title) AS title,
+    MAX(b.artist_raw) AS artist,
+    COUNT(*) AS play_count,
+    COUNT(DISTINCT b.play_date) AS active_days,
+    MAX(CASE WHEN YEAR(f.first_played_at) = @year THEN 1 ELSE 0 END) AS is_year_new
+  FROM base b
+  INNER JOIN first_seen f
+    ON b.track_id = f.track_id
+  GROUP BY b.track_id
+),
+explore_base AS (
+  SELECT
+    b.play_date,
+    b.track_id
+  FROM base b
+  INNER JOIN first_seen f
+    ON b.track_id = f.track_id
+  WHERE b.entry_source = 'search'
+     OR YEAR(f.first_played_at) = @year
+),
+repeat_base AS (
+  SELECT
+    b.play_date,
+    b.track_id
+  FROM base b
+  INNER JOIN year_track_stats y
+    ON b.track_id = y.track_id
+  WHERE y.is_year_new = 0
+    AND y.play_count >= 2
+),
+search_top AS (
+  SELECT TOP 1
+    N'track' AS row_type,
+    N'search_top' AS metric_key,
+    COUNT(*) AS play_count,
+    CAST(NULL AS int) AS track_count,
+    COUNT(DISTINCT b.play_date) AS active_days,
+    CAST(NULL AS decimal(10,4)) AS ratio,
+    b.track_id,
+    MAX(b.title) AS title,
+    MAX(b.artist_raw) AS artist
+  FROM base b
+  WHERE b.entry_source = 'search'
+  GROUP BY b.track_id
+  ORDER BY COUNT(*) DESC, COUNT(DISTINCT b.play_date) DESC, MAX(b.title), b.track_id
+),
+repeat_top AS (
+  SELECT TOP 1
+    N'track' AS row_type,
+    N'repeat_top' AS metric_key,
+    y.play_count,
+    CAST(NULL AS int) AS track_count,
+    y.active_days,
+    CAST(NULL AS decimal(10,4)) AS ratio,
+    y.track_id,
+    y.title,
+    y.artist
+  FROM year_track_stats y
+  WHERE y.is_year_new = 0
+    AND y.play_count >= 2
+  ORDER BY y.play_count DESC, y.active_days DESC, y.title, y.track_id
+)
+SELECT
+  N'summary' AS row_type,
+  N'explore' AS metric_key,
+  COUNT(*) AS play_count,
+  COUNT(DISTINCT track_id) AS track_count,
+  COUNT(DISTINCT play_date) AS active_days,
+  CAST(COUNT(*) * 1.0 / NULLIF((SELECT COUNT(*) FROM base), 0) AS decimal(10,4)) AS ratio,
+  CAST(NULL AS nvarchar(255)) AS track_id,
+  CAST(NULL AS nvarchar(255)) AS title,
+  CAST(NULL AS nvarchar(255)) AS artist
+FROM explore_base
+UNION ALL
+SELECT
+  N'summary' AS row_type,
+  N'repeat' AS metric_key,
+  COUNT(*) AS play_count,
+  COUNT(DISTINCT track_id) AS track_count,
+  COUNT(DISTINCT play_date) AS active_days,
+  CAST(COUNT(*) * 1.0 / NULLIF((SELECT COUNT(*) FROM base), 0) AS decimal(10,4)) AS ratio,
+  CAST(NULL AS nvarchar(255)) AS track_id,
+  CAST(NULL AS nvarchar(255)) AS title,
+  CAST(NULL AS nvarchar(255)) AS artist
+FROM repeat_base
+UNION ALL
+SELECT row_type, metric_key, play_count, track_count, active_days, ratio, track_id, title, artist
+FROM search_top
+UNION ALL
+SELECT row_type, metric_key, play_count, track_count, active_days, ratio, track_id, title, artist
+FROM repeat_top;
 """.strip(),
     'data_p06_keyword_source_rows': """
 DECLARE @year int = %s;
@@ -213,9 +315,43 @@ FROM genre_stats g
 CROSS JOIN genre_total t
 ORDER BY g.play_count DESC, g.listened_sec DESC, g.genre_name;
 """.strip(),
-    'data_p09_genre_evolution': """
+    'data_p09_genre_evolution': f"""
 DECLARE @year int = %s;
-SELECT 1 AS placeholder WHERE 1 = 0;
+{COMMON_BASE_CTE},
+first_seen_tracks AS (
+  SELECT DISTINCT
+    a.track_id,
+    CONVERT(varchar(7), a.first_played_at, 120) AS period_key,
+    TRIM(value) AS genre
+  FROM all_base a
+  CROSS APPLY STRING_SPLIT(REPLACE(REPLACE(ISNULL(a.genre, ''), '|', '/'), ',', '/'), '/')
+  WHERE YEAR(a.first_played_at) = @year
+    AND LTRIM(RTRIM(value)) <> ''
+),
+period_stats AS (
+  SELECT
+    period_key,
+    genre,
+    COUNT(*) AS new_track_count
+  FROM first_seen_tracks
+  GROUP BY period_key, genre
+),
+period_totals AS (
+  SELECT
+    period_key,
+    SUM(new_track_count) AS total_new_track_count
+  FROM period_stats
+  GROUP BY period_key
+)
+SELECT
+  s.period_key,
+  s.genre,
+  s.new_track_count,
+  CAST(s.new_track_count * 1.0 / NULLIF(t.total_new_track_count, 0) AS decimal(10,4)) AS ratio
+FROM period_stats s
+INNER JOIN period_totals t
+  ON s.period_key = t.period_key
+ORDER BY s.period_key ASC, s.new_track_count DESC, s.genre ASC;
 """.strip(),
     'data_p10_taste_inputs': """
 DECLARE @year int = %s;

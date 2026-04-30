@@ -61,21 +61,29 @@ def test_build_query_plan_injects_year_once_per_dataset():
         assert query['sql'].count('DECLARE @year int = %s;') == 1
 
 
-def test_build_query_plan_keeps_batch2_datasets_as_placeholder_queries():
+def test_build_query_plan_keeps_only_remaining_batch2_datasets_as_placeholder_queries():
     module = load_module()
 
     plan = module.build_query_plan(2025)
-    batch2_datasets = (
-        'data_p05_explore_repeat',
+    batch2_placeholder_datasets = (
         'data_p06_keyword_source_rows',
-        'data_p09_genre_evolution',
         'data_p10_taste_inputs',
     )
 
-    for dataset_name in batch2_datasets:
+    for dataset_name in batch2_placeholder_datasets:
         query = plan[dataset_name]
         assert query['params'] == (2025,)
         assert query['sql'] == "DECLARE @year int = %s;\nSELECT 1 AS placeholder WHERE 1 = 0;"
+
+
+def test_build_query_plan_uses_real_sql_for_p05_and_p09():
+    module = load_module()
+
+    plan = module.build_query_plan(2025)
+
+    assert 'entry_source' in plan['data_p05_explore_repeat']['sql']
+    assert 'first_played_at' in plan['data_p09_genre_evolution']['sql']
+    assert 'GROUP BY' in plan['data_p09_genre_evolution']['sql']
 
 
 def test_build_query_plan_rejects_non_int_year():
