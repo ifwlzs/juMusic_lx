@@ -731,7 +731,8 @@ test('updateImportRule incremental sync scans added selections first and hydrate
     { directories: ['/Albums/New'], tracks: [] },
     { directories: ['/Albums/Keep'], tracks: [] },
   ])
-  assert.deepEqual(hydrateCalls, ['/Albums/New/new.mp3'])
+  assert.ok(hydrateCalls.length >= 1)
+  assert.deepEqual([...new Set(hydrateCalls)], ['/Albums/New/new.mp3'])
   assert.equal(scanSelectionCalls, 0)
   assert.equal(removeMissingCalls, 0)
   assert.deepEqual(result.nextItems.map(item => item.sourceItemId).sort(), [
@@ -877,6 +878,109 @@ test('updateImportRule incremental sync removes items from removed selections im
   assert.ok(merged)
   assert.deepEqual(accountAll.list.map(item => item.id), ['conn_1__/Albums/Keep/keep.mp3'])
   assert.deepEqual(merged.list.map(item => item.id), ['conn_1__/Albums/Keep/keep.mp3'])
+})
+
+test('updateImportRule incremental sync retries hydration until duration is available for new items', async() => {
+  const connection = createConnection()
+  const rule = createRule({
+    directories: [{
+      selectionId: 'dir_new',
+      kind: 'directory',
+      pathOrUri: '/Albums/New',
+      displayName: 'New',
+    }],
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    lastIncrementalSyncAt: 100,
+    lastFullValidationAt: 80,
+    pendingFullValidation: false,
+    items: [],
+  }
+  const hydrateAttempts = []
+  const saved = {
+    snapshot: null,
+    sourceItems: null,
+  }
+
+  const result = await updateImportRule({
+    connection,
+    rule,
+    previousRule: rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems(connectionId, items) {
+        saved.sourceItems = { connectionId, items }
+      },
+      async getAllSourceItems() {
+        return saved.sourceItems?.items || []
+      },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [
+                createCandidate({
+                  pathOrUri: '/Albums/New/new.mp3',
+                  fileName: 'new.mp3',
+                  versionToken: 'v_new',
+                  modifiedTime: 120,
+                }),
+              ],
+            }
+          },
+          async hydrateCandidate(_connection, _candidate, options = {}) {
+            hydrateAttempts.push(options.attempt || 1)
+            if ((options.attempt || 1) === 1) {
+              return {
+                metadata: {
+                  title: 'new',
+                  artist: 'Singer',
+                  album: 'Album',
+                  durationSec: 0,
+                },
+              }
+            }
+            return {
+              metadata: {
+                title: 'new',
+                artist: 'Singer',
+                album: 'Album',
+                durationSec: 187,
+              },
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+    },
+    now: () => 200,
+  })
+
+  assert.deepEqual(hydrateAttempts, [1, 2])
+  assert.equal(result.nextItems.length, 1)
+  assert.equal(result.nextItems[0].durationSec, 187)
+  assert.equal(saved.snapshot.snapshot.items[0].durationSec, 187)
 })
 
 test('updateImportRule incremental sync preserves previous metadata when hydration is incomplete', async() => {

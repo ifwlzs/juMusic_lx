@@ -654,8 +654,17 @@ async function runIncrementalSync({
         continue
       }
 
-      const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt: 1 })
-      if (didHydrationFail(hydrated)) {
+      let hydrated = null
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
+        if (didHydrationFail(hydrated)) {
+          hydrated = null
+          break
+        }
+        if (Number(hydrated?.metadata?.durationSec) > 0) break
+      }
+
+      if (didHydrationFail(hydrated) || Number(hydrated?.metadata?.durationSec) <= 0) {
         failedHydrationCount += 1
         isComplete = false
         if (previousItem) {
