@@ -63,6 +63,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 补充归档 `2026-04-09-media-library-incremental-sync` 与 `2026-04-09-play-detail-background-extended-range` 两份历史实现计划，便于后续追溯增量同步和播放页背景调参范围设计
 - 新增 `2026-04-28-year-end-report-32p-design` 规格文档，统一 32 页年度报告口径（夜间归属、年度评分、时段划分与页面指标定义）
 
+## [0.26.05011822](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04282138...v0.26.05011822) - 2026-05-01
+
+修复
+
+- 修复在某些设备上出现切歌崩溃的问题 (#971)
+- 修复tx在偶现搜索失败的问题 (#994)
+
 ## [0.26.04282138](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.04271959...v0.26.04282138) - 2026-04-28
 
 修复
