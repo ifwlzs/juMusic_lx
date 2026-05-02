@@ -7,6 +7,7 @@ import os
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse, unquote
 
 try:
     import pymssql
@@ -31,19 +32,19 @@ BEGIN
         id bigint identity(1,1) primary key,
         batch_id varchar(64) not null,
         session_hash varchar(32) not null,
-        aggregate_song_id varchar(128) not null,
-        source_item_id varchar(128) null,
+        aggregate_song_id nvarchar(1024) not null,
+        source_item_id nvarchar(1024) null,
         started_at bigint not null,
         ended_at bigint null,
-        listened_sec int not null,
-        duration_sec int null,
+        listened_sec decimal(18,6) not null,
+        duration_sec decimal(18,6) null,
         counted_play bit not null,
-        completion_rate decimal(10,4) null,
+        completion_rate decimal(18,10) null,
         end_reason varchar(64) null,
         entry_source varchar(64) null,
         seek_count int null,
-        seek_forward_sec int null,
-        seek_backward_sec int null,
+        seek_forward_sec decimal(18,6) null,
+        seek_backward_sec decimal(18,6) null,
         start_year int null,
         start_month int null,
         start_day int null,
@@ -60,12 +61,12 @@ BEGIN
         provider_type_snapshot varchar(64) null,
         file_name_snapshot nvarchar(260) null,
         remote_path_snapshot nvarchar(2000) null,
-        list_id_snapshot varchar(128) null,
+        list_id_snapshot nvarchar(512) null,
         list_type_snapshot varchar(64) null,
         song_title nvarchar(500) null,
         song_artist nvarchar(500) null,
         song_album nvarchar(500) null,
-        song_canonical_duration_sec int null,
+        song_canonical_duration_sec decimal(18,6) null,
         song_provider_type varchar(64) null,
         song_path_or_uri nvarchar(2000) null,
         song_file_name nvarchar(260) null,
@@ -75,6 +76,32 @@ BEGIN
     )
 END
 """
+ALTER_WIDE_COLUMNS_SQL = [
+    f"""
+IF OBJECT_ID(N'dbo.{TABLE_NAME}', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.{TABLE_NAME}', 'aggregate_song_id') IS NOT NULL
+   AND COL_LENGTH(N'dbo.{TABLE_NAME}', 'aggregate_song_id') < 2048
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ALTER COLUMN aggregate_song_id nvarchar(1024) not null
+END
+""",
+    f"""
+IF OBJECT_ID(N'dbo.{TABLE_NAME}', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.{TABLE_NAME}', 'source_item_id') IS NOT NULL
+   AND COL_LENGTH(N'dbo.{TABLE_NAME}', 'source_item_id') < 2048
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ALTER COLUMN source_item_id nvarchar(1024) null
+END
+""",
+    f"""
+IF OBJECT_ID(N'dbo.{TABLE_NAME}', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.{TABLE_NAME}', 'list_id_snapshot') IS NOT NULL
+   AND COL_LENGTH(N'dbo.{TABLE_NAME}', 'list_id_snapshot') < 1024
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ALTER COLUMN list_id_snapshot nvarchar(512) null
+END
+""",
+]
 CREATE_UNIQUE_INDEX_SQL = f"""
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes WHERE name = 'ux_{TABLE_NAME}_session_hash' AND object_id = OBJECT_ID(N'dbo.{TABLE_NAME}')
@@ -91,6 +118,71 @@ BEGIN
     CREATE INDEX ix_{TABLE_NAME}_batch_id ON dbo.{TABLE_NAME}(batch_id)
 END
 """
+COMMENT_SQLS = [
+    f"""
+IF EXISTS (
+    SELECT 1
+    FROM sys.tables t
+    WHERE t.object_id = OBJECT_ID(N'dbo.{TABLE_NAME}')
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_updateextendedproperty
+            @name=N'MS_Description',
+            @value=N'juMusic 播放历史事实表；一条记录代表一次播放会话，作为年报与行为分析统一事实底座',
+            @level0type=N'SCHEMA', @level0name=N'dbo',
+            @level1type=N'TABLE', @level1name=N'{TABLE_NAME}';
+    ELSE
+        EXEC sys.sp_addextendedproperty
+            @name=N'MS_Description',
+            @value=N'juMusic 播放历史事实表；一条记录代表一次播放会话，作为年报与行为分析统一事实底座',
+            @level0type=N'SCHEMA', @level0name=N'dbo',
+            @level1type=N'TABLE', @level1name=N'{TABLE_NAME}';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'session_hash')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'session_hash', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'播放会话稳定去重哈希', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'session_hash';
+    ELSE
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'播放会话稳定去重哈希', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'session_hash';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'aggregate_song_id')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'aggregate_song_id', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'聚合歌曲标识；可能包含较长远端来源路径或 URI', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'aggregate_song_id';
+    ELSE
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'聚合歌曲标识；可能包含较长远端来源路径或 URI', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'aggregate_song_id';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'source_item_id')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'source_item_id', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'来源文件实例标识；可能包含较长远端来源路径或 URI', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'source_item_id';
+    ELSE
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'来源文件实例标识；可能包含较长远端来源路径或 URI', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'source_item_id';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'listened_sec')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'listened_sec', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'本次会话实际收听时长（秒），保留小数精度', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'listened_sec';
+    ELSE
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'本次会话实际收听时长（秒），保留小数精度', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'listened_sec';
+END
+""",
+]
 
 
 def _value_or_none(value):
@@ -120,6 +212,19 @@ def _row_values(row, columns):
 def _chunked(values, size):
     for index in range(0, len(values), size):
         yield values[index:index + size]
+
+
+def parse_db_url(db_url):
+    parsed = urlparse(db_url)
+    if parsed.scheme not in ('mssql+pymssql', 'pymssql'):
+        raise ValueError('db_url scheme must be mssql+pymssql or pymssql')
+    return {
+        'server': parsed.hostname,
+        'port': parsed.port or 1433,
+        'user': unquote(parsed.username) if parsed.username else None,
+        'password': unquote(parsed.password) if parsed.password else None,
+        'database': parsed.path.lstrip('/') or None,
+    }
 
 
 def new_batch_id(now=None):
@@ -165,15 +270,15 @@ def normalize_item(item, batch_id, imported_at, now=None):
         'source_item_id': _value_or_none(item.get('sourceItemId')),
         'started_at': _int_or_none(item.get('startedAt')),
         'ended_at': _int_or_none(item.get('endedAt')),
-        'listened_sec': int(item.get('listenedSec') or 0),
-        'duration_sec': _int_or_none(item.get('durationSec')),
+        'listened_sec': _float_or_none(item.get('listenedSec')) or 0.0,
+        'duration_sec': _float_or_none(item.get('durationSec')),
         'counted_play': bool(item.get('countedPlay')),
         'completion_rate': _float_or_none(item.get('completionRate')),
         'end_reason': _value_or_none(item.get('endReason')),
         'entry_source': _value_or_none(item.get('entrySource')),
         'seek_count': int(item.get('seekCount') or 0),
-        'seek_forward_sec': int(item.get('seekForwardSec') or 0),
-        'seek_backward_sec': int(item.get('seekBackwardSec') or 0),
+        'seek_forward_sec': _float_or_none(item.get('seekForwardSec')) or 0.0,
+        'seek_backward_sec': _float_or_none(item.get('seekBackwardSec')) or 0.0,
         'start_year': _int_or_none(item.get('startYear')),
         'start_month': _int_or_none(item.get('startMonth')),
         'start_day': _int_or_none(item.get('startDay')),
@@ -195,7 +300,7 @@ def normalize_item(item, batch_id, imported_at, now=None):
         'song_title': _value_or_none(song.get('title')),
         'song_artist': _value_or_none(song.get('artist')),
         'song_album': _value_or_none(song.get('album')),
-        'song_canonical_duration_sec': _int_or_none(song.get('canonicalDurationSec')),
+        'song_canonical_duration_sec': _float_or_none(song.get('canonicalDurationSec')),
         'song_provider_type': _value_or_none(song.get('providerType')),
         'song_path_or_uri': _value_or_none(song.get('pathOrUri')),
         'song_file_name': _value_or_none(song.get('fileName')),
@@ -215,8 +320,12 @@ def load_rows_from_payload(payload, batch_id=None, imported_at=None, now=None):
 def ensure_table(conn):
     cursor = conn.cursor()
     cursor.execute(CREATE_TABLE_SQL)
+    for sql in ALTER_WIDE_COLUMNS_SQL:
+        cursor.execute(sql)
     cursor.execute(CREATE_UNIQUE_INDEX_SQL)
     cursor.execute(CREATE_BATCH_INDEX_SQL)
+    for sql in COMMENT_SQLS:
+        cursor.execute(sql)
     conn.commit()
     cursor.close()
 
@@ -266,6 +375,9 @@ def insert_play_history_rows(conn, rows):
 
 
 def load_db_config(args):
+    db_url = getattr(args, 'db_url', None) or os.environ.get('JUMUSIC_DB_URL')
+    if db_url:
+        return parse_db_url(db_url)
     return {
         'server': args.db_server or os.environ.get('JUMUSIC_DB_SERVER'),
         'port': int(args.db_port or os.environ.get('JUMUSIC_DB_PORT', '1433')),
@@ -293,6 +405,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', required=True)
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--db-url', default=None)
     parser.add_argument('--db-server', default=None)
     parser.add_argument('--db-port', default=None)
     parser.add_argument('--db-user', default=None)
@@ -318,10 +431,13 @@ def main(input_path, dry_run=False, db_config=None, now=None):
         db_database=None,
     ))
     conn = connect_db(config)
-    ensure_table(conn)
-    load_stats = insert_play_history_rows(conn, rows)
-    print(f"done rows={len(rows)} inserted={load_stats['inserted']} skipped={load_stats['skipped']}")
-    return {'rows': len(rows), 'load': load_stats}
+    try:
+        ensure_table(conn)
+        load_stats = insert_play_history_rows(conn, rows)
+        print(f"done rows={len(rows)} inserted={load_stats['inserted']} skipped={load_stats['skipped']}")
+        return {'rows': len(rows), 'load': load_stats}
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':

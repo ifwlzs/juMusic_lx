@@ -22,8 +22,11 @@ def test_supported_datasets_cover_mvp_pages():
         'data_p01_summary',
         'data_p02_overview',
         'data_p03_explore',
+        'data_lib_overview',
+        'data_l02_library_growth',
         'data_p05_explore_repeat',
         'data_p06_keyword_source_rows',
+        'data_lib_structure',
         'data_p08_genres',
         'data_p09_genre_evolution',
         'data_p10_taste_inputs',
@@ -61,19 +64,28 @@ def test_build_query_plan_injects_year_once_per_dataset():
         assert query['sql'].count('DECLARE @year int = %s;') == 1
 
 
-def test_build_query_plan_keeps_only_remaining_batch2_datasets_as_placeholder_queries():
+def test_build_query_plan_uses_real_sql_for_p06_and_p10():
     module = load_module()
 
     plan = module.build_query_plan(2025)
-    batch2_placeholder_datasets = (
-        'data_p06_keyword_source_rows',
-        'data_p10_taste_inputs',
-    )
 
-    for dataset_name in batch2_placeholder_datasets:
-        query = plan[dataset_name]
-        assert query['params'] == (2025,)
-        assert query['sql'] == "DECLARE @year int = %s;\nSELECT 1 AS placeholder WHERE 1 = 0;"
+    p06_sql = plan['data_p06_keyword_source_rows']['sql']
+    p10_sql = plan['data_p10_taste_inputs']['sql']
+
+    assert plan['data_p06_keyword_source_rows']['params'] == (2025,)
+    assert plan['data_p10_taste_inputs']['params'] == (2025,)
+
+    assert 'embedded_lyric' in p06_sql
+    assert "N'lyric'" in p06_sql
+    assert "N'title'" in p06_sql
+    assert "N'file_name'" in p06_sql
+    assert 'SELECT 1 AS placeholder' not in p06_sql
+
+    assert 'genre_play_count' in p10_sql
+    assert 'genre_first_seen' in p10_sql
+    assert 'is_new_genre' in p10_sql
+    assert 'artist_count' in p10_sql
+    assert 'SELECT 1 AS placeholder' not in p10_sql
 
 
 def test_build_query_plan_uses_real_sql_for_p05_and_p09():
@@ -126,6 +138,51 @@ def test_p09_sql_builds_explicit_year_new_unique_track_layer_before_genre_aggreg
     assert 'SUM(new_track_count) AS total_new_track_count' in sql
 
 
+def test_p23_p24_sql_excludes_unknown_album_buckets_from_ranking():
+    module = load_module()
+
+    plan = module.build_query_plan(2025)
+    p23_sql = plan['data_p23_album_of_year']['sql']
+    p24_sql = plan['data_p24_top_albums']['sql']
+
+    assert "COALESCE(NULLIF(album, ''), N'未知专辑') AS album" not in p23_sql
+    assert "COALESCE(NULLIF(album, ''), N'未知专辑') AS album" not in p24_sql
+    assert "GROUP BY COALESCE(NULLIF(album, ''), N'未知专辑')" not in p23_sql
+    assert "GROUP BY COALESCE(NULLIF(album, ''), N'未知专辑')" not in p24_sql
+    assert "WHERE NULLIF(album, '') IS NOT NULL" in p23_sql
+    assert "WHERE NULLIF(album, '') IS NOT NULL" in p24_sql
+
+
+def test_common_base_cte_joins_artist_alias_table_and_prefers_canonical_artist():
+    module = load_module()
+
+    sql = module.build_query_plan(2025)['data_p16_artist_of_year']['sql']
+
+    assert 'artist_alias_map AS (' in sql
+    assert 'FROM dbo.ods_jumusic_artist_alias' in sql
+    assert 'LEFT JOIN artist_alias_map aam' in sql
+    assert "aam.canonical_artist" in sql
+    assert "REPLACE(LOWER" in sql
+
+
+def test_artist_ranking_queries_exclude_group_and_unknown_artists_in_sql():
+    module = load_module()
+
+    for dataset_name in (
+        'data_p16_artist_of_year',
+        'data_p27_top_artists',
+        'data_p28_artist_journey',
+        'data_p29_artist_rank_detail',
+        'data_p30_yearly_artist_rank',
+    ):
+        sql = module.build_query_plan(2025)[dataset_name]['sql']
+        assert "N'未知歌手'" in sql
+        assert "N'合唱'" in sql
+        assert "N'多歌手'" in sql
+        assert "N'Various Artists'" in sql
+        assert 'NOT IN (SELECT artist FROM artist_rankable)' in sql
+
+
 def test_build_query_plan_rejects_non_int_year():
     module = load_module()
 
@@ -146,9 +203,36 @@ def test_map_rows_to_dataset_payload_preserves_supported_shape_contracts():
         'days_since_first_play': 100,
         'years_since_first_play': 0.3,
     }])
+    p04 = module.map_rows_to_dataset_payload('data_lib_overview', [{
+        'track_count': 100,
+        'artist_count': 40,
+        'album_count': 30,
+        'genre_count': 12,
+        'total_duration_sec': 18000,
+        'avg_duration_sec': 180,
+        'new_track_count': 12,
+        'new_artist_count': 5,
+        'new_album_count': 4,
+        'lyrics_coverage_ratio': 0.8,
+        'cover_coverage_ratio': 0.7,
+        'genre_coverage_ratio': 0.6,
+        'album_coverage_ratio': 0.5,
+        'duration_coverage_ratio': 0.95,
+        'artist_coverage_ratio': 0.99,
+    }])
+    l02 = module.map_rows_to_dataset_payload('data_l02_library_growth', [
+        {'row_type': 'month', 'period_key': '2025-01', 'track_count': 8, 'artist_count': 3, 'album_count': 2},
+        {'row_type': 'summary', 'period_key': None, 'track_count': 12, 'artist_count': 5, 'album_count': 4},
+        {'row_type': 'language', 'bucket_key': 'ja', 'bucket_label': '日语', 'item_count': 6, 'ratio': 0.75},
+    ])
     p08 = module.map_rows_to_dataset_payload('data_p08_genres', [
         {'genre': 'J-Pop', 'play_count': 12, 'listened_sec': 3600, 'ratio': 0.4},
         {'genre': 'Anime', 'play_count': 8, 'listened_sec': 2400, 'ratio': 0.2667},
+    ])
+    p07 = module.map_rows_to_dataset_payload('data_lib_structure', [
+        {'row_type': 'format', 'bucket_key': 'flac', 'bucket_label': 'FLAC', 'item_count': 60, 'ratio': 0.6},
+        {'row_type': 'duration', 'bucket_key': '2_4', 'bucket_label': '2-4 分钟', 'item_count': 50, 'ratio': 0.5},
+        {'row_type': 'genre', 'bucket_key': 'Vocaloid', 'bucket_label': 'Vocaloid', 'item_count': 20, 'ratio': 0.2},
     ])
     p12 = module.map_rows_to_dataset_payload('data_p12_spring', [{
         'season': 'spring',
@@ -208,6 +292,15 @@ def test_map_rows_to_dataset_payload_preserves_supported_shape_contracts():
     ])
 
     assert p01['first_played_at'] == '2024-01-01T00:00:00+08:00'
+    assert p04['track_count'] == 100
+    assert p04['avg_duration_sec'] == 180
+    assert p04['new_track_count'] == 12
+    assert p04['lyrics_coverage_ratio'] == 0.8
+    assert l02[0]['row_type'] == 'month'
+    assert l02[1]['row_type'] == 'summary'
+    assert l02[2]['bucket_label'] == '日语'
+    assert p07[0]['row_type'] == 'format'
+    assert p07[2]['bucket_label'] == 'Vocaloid'
     assert p08[0]['genre'] == 'J-Pop'
     assert p12['season'] == 'spring'
     assert p16[0]['row_type'] == 'summary'
@@ -259,8 +352,11 @@ def test_dataset_structure_contracts():
     assert module.DATASET_SHAPES['data_p01_summary'] == 'one'
     assert module.DATASET_SHAPES['data_p02_overview'] == 'one'
     assert module.DATASET_SHAPES['data_p03_explore'] == 'one'
+    assert module.DATASET_SHAPES['data_lib_overview'] == 'one'
+    assert module.DATASET_SHAPES['data_l02_library_growth'] == 'many'
     assert module.DATASET_SHAPES['data_p05_explore_repeat'] == 'many'
     assert module.DATASET_SHAPES['data_p06_keyword_source_rows'] == 'many'
+    assert module.DATASET_SHAPES['data_lib_structure'] == 'many'
     assert module.DATASET_SHAPES['data_p08_genres'] == 'many'
     assert module.DATASET_SHAPES['data_p09_genre_evolution'] == 'many'
     assert module.DATASET_SHAPES['data_p10_taste_inputs'] == 'many'
@@ -290,3 +386,65 @@ def test_map_rows_to_dataset_payload_returns_empty_shape_when_no_rows():
 
     assert module.map_rows_to_dataset_payload('data_p01_summary', []) is None
     assert module.map_rows_to_dataset_payload('data_p08_genres', []) == []
+
+
+def test_library_query_sql_exposes_real_growth_and_coverage_fields():
+    module = load_module()
+
+    plan = module.build_query_plan(2025)
+    overview_sql = plan['data_lib_overview']['sql']
+    growth_sql = plan['data_l02_library_growth']['sql']
+    structure_sql = plan['data_lib_structure']['sql']
+
+    assert 'new_track_count' in overview_sql
+    assert 'new_artist_count' in overview_sql
+    assert 'new_album_count' in overview_sql
+    assert 'file_mtime' in overview_sql
+    assert 'etl_created_at' in overview_sql
+    assert 'lyrics_coverage_ratio' in overview_sql
+    assert 'embedded_lyric' in overview_sql
+    assert 'cover_coverage_ratio' in overview_sql
+    assert 'genre_coverage_ratio' in overview_sql
+    assert 'album_coverage_ratio' in overview_sql
+    assert 'duration_coverage_ratio' in overview_sql
+    assert 'artist_coverage_ratio' in overview_sql
+
+    assert 'data_l02_library_growth' in module.SUPPORTED_DATASETS
+    assert "N'month' AS row_type" in growth_sql
+    assert "N'summary' AS row_type" in growth_sql
+    assert 'file_mtime' in growth_sql
+    assert 'etl_created_at' in growth_sql
+    assert 'embedded_lyric' in growth_sql
+    assert "N'纯音乐'" in growth_sql
+    assert "N'日语'" in growth_sql
+    assert "N'中文'" in growth_sql
+    assert "N'英语'" in growth_sql
+    assert 'period_key' in growth_sql
+    assert 'track_count' in growth_sql
+    assert 'artist_count' in growth_sql
+    assert 'album_count' in growth_sql
+    assert "N'genre' AS row_type" in growth_sql
+    assert "N'language' AS row_type" in growth_sql
+
+    assert "N'language' AS row_type" in structure_sql
+    assert 'language_rows AS (' in structure_sql
+    assert 'embedded_lyric' in structure_sql
+    assert "N'纯音乐'" in structure_sql
+    assert "N'日语'" in structure_sql
+    assert "N'中文'" in structure_sql
+
+
+
+def test_genre_queries_prefer_structured_essentia_parent_child_path_fields():
+    module = load_module()
+    plan = module.build_query_plan(2025)
+
+    p08_sql = plan['data_p08_genres']['sql']
+    p09_sql = plan['data_p09_genre_evolution']['sql']
+    p10_sql = plan['data_p10_taste_inputs']['sql']
+    l03_sql = plan['data_lib_structure']['sql']
+
+    assert 'genre_essentia_parent' in p08_sql or 'genre_essentia_child' in p08_sql or 'genre_essentia_path' in p08_sql
+    assert 'genre_essentia_parent' in p09_sql or 'genre_essentia_child' in p09_sql or 'genre_essentia_path' in p09_sql
+    assert 'genre_essentia_parent' in p10_sql or 'genre_essentia_child' in p10_sql or 'genre_essentia_path' in p10_sql
+    assert 'genre_essentia_parent' in l03_sql or 'genre_essentia_child' in l03_sql or 'genre_essentia_path' in l03_sql

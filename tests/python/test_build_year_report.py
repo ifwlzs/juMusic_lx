@@ -35,6 +35,23 @@ def sample_dataset_payloads():
             'genre_count': 6,
             'new_genre_count': 2,
         },
+        'data_lib_overview': {
+            'track_count': 1000,
+            'artist_count': 300,
+            'album_count': 200,
+            'genre_count': 18,
+            'total_duration_sec': 180000,
+            'avg_duration_sec': 180,
+            'new_track_count': 120,
+            'new_artist_count': 42,
+            'new_album_count': 35,
+            'lyrics_coverage_ratio': 0.8,
+            'cover_coverage_ratio': 0.7,
+            'genre_coverage_ratio': 0.65,
+            'album_coverage_ratio': 0.6,
+            'duration_coverage_ratio': 0.95,
+            'artist_coverage_ratio': 0.98,
+        },
         'data_p05_explore_repeat': [
             {'row_type': 'summary', 'metric_key': 'explore', 'play_count': 40, 'track_count': 30, 'active_days': 20, 'ratio': 0.4, 'track_id': None, 'title': None, 'artist': None},
             {'row_type': 'summary', 'metric_key': 'repeat', 'play_count': 60, 'track_count': 12, 'active_days': 18, 'ratio': 0.6, 'track_id': None, 'title': None, 'artist': None},
@@ -60,6 +77,28 @@ def sample_dataset_payloads():
                 'title': None,
                 'artist': None,
             },
+        ],
+        'data_lib_structure': [
+            {'row_type': 'format', 'bucket_key': 'flac', 'bucket_label': 'FLAC', 'item_count': 600, 'ratio': 0.6},
+            {'row_type': 'format', 'bucket_key': 'mp3', 'bucket_label': 'MP3', 'item_count': 400, 'ratio': 0.4},
+            {'row_type': 'duration', 'bucket_key': '2_4', 'bucket_label': '2-4 分钟', 'item_count': 500, 'ratio': 0.5},
+            {'row_type': 'duration', 'bucket_key': '4_6', 'bucket_label': '4-6 分钟', 'item_count': 300, 'ratio': 0.3},
+            {'row_type': 'genre', 'bucket_key': 'Vocaloid', 'bucket_label': 'Vocaloid', 'item_count': 200, 'ratio': 0.2},
+            {'row_type': 'genre', 'bucket_key': 'J-Pop', 'bucket_label': 'J-Pop', 'item_count': 150, 'ratio': 0.15},
+            {'row_type': 'language', 'bucket_key': 'ja', 'bucket_label': '日语', 'item_count': 520, 'ratio': 0.52},
+            {'row_type': 'language', 'bucket_key': 'zh', 'bucket_label': '中文', 'item_count': 260, 'ratio': 0.26},
+        ],
+        'data_l02_library_growth': [
+            {'row_type': 'month', 'period_key': '2025-01', 'track_count': 8, 'artist_count': 3, 'album_count': 2},
+            {'row_type': 'month', 'period_key': '2025-02', 'track_count': 12, 'artist_count': 5, 'album_count': 4},
+            {'row_type': 'month', 'period_key': '2025-04', 'track_count': 30, 'artist_count': 12, 'album_count': 10},
+            {'row_type': 'genre', 'bucket_label': 'Vocaloid', 'item_count': 20, 'ratio': 0.4},
+            {'row_type': 'genre', 'bucket_label': 'J-Pop', 'item_count': 12, 'ratio': 0.24},
+            {'row_type': 'language', 'bucket_label': '日语', 'item_count': 22, 'ratio': 0.44},
+            {'row_type': 'language', 'bucket_label': '中文', 'item_count': 18, 'ratio': 0.36},
+            {'row_type': 'artist', 'bucket_label': '洛天依', 'item_count': 15, 'ratio': 0.3},
+            {'row_type': 'artist', 'bucket_label': '初音未来', 'item_count': 10, 'ratio': 0.2},
+            {'row_type': 'album', 'bucket_label': 'Album New', 'item_count': 8, 'ratio': 0.16},
         ],
         'data_p08_genres': [
             {'genre': 'J-Pop', 'play_count': 40, 'listened_sec': 8000, 'ratio': 0.4},
@@ -225,7 +264,11 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert report['year'] == 2025
     assert report['generated_at'] == '2026-04-30T15:00:00+08:00'
     assert report['timezone'] == 'Asia/Shanghai'
-    assert set(report['pages']) == {'P01', 'P02', 'P03', 'P05', 'P06', 'P08', 'P09', 'P10', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32'}
+    assert set(report['pages']) == {'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32', 'L01', 'L02', 'L03'}
+    assert report['pages']['P04']['track_count'] == 1000
+    assert report['pages']['P04']['artist_count'] == 300
+    assert report['pages']['P07']['format_distribution'][0]['bucket_label'] == 'FLAC'
+    assert report['pages']['P07']['genre_distribution'][0]['bucket_label'] == 'Vocaloid'
     assert report['pages']['P05']['explore_ratio'] == 0.4
     assert report['pages']['P05']['top_search_track']['track_id'] == 't9'
     assert report['pages']['P05']['top_repeat_track']['track_id'] == 't8'
@@ -239,7 +282,8 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert report['pages']['P16']['artist'] == 'Artist A'
     assert report['pages']['P17']['most_active_weekday']['weekday_cn'] == '周六'
     assert report['pages']['P19']['top_time_bucket'] == 'evening'
-    assert report['pages']['P22'][0]['track_id'] == 't1'
+    assert report['pages']['P22'][0]['track_id'] == 't2'
+    assert report['pages']['P22'][0]['repeat_index'] > report['pages']['P22'][1]['repeat_index']
     assert report['pages']['P23']['album'] == 'Album A'
     assert report['pages']['P24'][0]['album'] == 'Album A'
     assert report['pages']['P26'][0]['track_id'] == 't1'
@@ -247,7 +291,12 @@ def test_build_report_from_dataset_payloads_returns_required_pages():
     assert report['pages']['P28']['first_track']['track_id'] == 't1'
     assert report['pages']['P29'][0]['artist'] == 'Artist A'
     assert report['pages']['P30'][0]['play_year'] == 2024
-    assert report['pages']['P31'][0]['credit_type'] == 'composer'
+    assert report['pages']['P31']['items'][0]['credit_type'] == 'composer'
+    assert report['pages']['L01']['metrics']['track_total'] == 1000
+    assert report['pages']['L01']['coverage']['lyrics_coverage_ratio'] == 0.8
+    assert report['pages']['L02']['peak_new_month'] == '2025-04'
+    assert report['pages']['L03']['language_distribution'][0]['bucket_label'] == '日语'
+    assert 'Vocaloid' in report['pages']['L03']['summary_text']
 
 
 def test_p06_keywords_are_built_independently_of_p05_and_preserve_non_ascii_text():
@@ -276,6 +325,145 @@ def test_p06_keywords_are_built_independently_of_p05_and_preserve_non_ascii_text
     }
 
 
+def test_p06_keywords_filter_generic_english_fillers_and_truncate_long_snippets():
+    module = load_module()
+
+    rows = [
+        {
+            'text_value': 'you love me dream tokyo dream starlight ' + ('shine ' * 80),
+            'source_type': 'lyric',
+            'source_value': 'you love me dream tokyo dream starlight',
+            'weight': 1.0,
+            'track_id': 't100',
+            'title': 'Song Long',
+            'artist': 'Artist Long',
+        },
+    ]
+
+    result = module._extract_keywords(rows)
+    keywords = [item['keyword'] for item in result]
+
+    assert 'you' not in keywords
+    assert 'me' not in keywords
+    assert 'love' not in keywords
+    assert keywords[:3] == ['dream', 'shine', 'starlight']
+    assert len(result[0]['representative_snippet']) <= 240
+
+
+def test_p06_keywords_filter_credit_headers_and_common_lyric_filler_words():
+    module = load_module()
+
+    rows = [
+        {
+            'text_value': '作词 作曲 编曲 混音 by produced by written by oh oh all up but so 星空 夜空 夜空',
+            'source_type': 'lyric',
+            'source_value': '作词 作曲 编曲 混音 by',
+            'weight': 1.0,
+            'track_id': 't101',
+            'title': 'Song Credit',
+            'artist': 'Artist Credit',
+        },
+    ]
+
+    result = module._extract_keywords(rows)
+    keywords = [item['keyword'] for item in result]
+
+    assert '作词' not in keywords
+    assert '作曲' not in keywords
+    assert '编曲' not in keywords
+    assert '混音' not in keywords
+    assert 'by' not in keywords
+    assert 'oh' not in keywords
+    assert 'all' not in keywords
+    assert 'up' not in keywords
+    assert 'but' not in keywords
+    assert 'so' not in keywords
+    assert keywords[:2] == ['夜空', '星空']
+
+
+def test_p06_keywords_filter_short_header_tokens_and_more_spoken_fillers():
+    module = load_module()
+
+    rows = [
+        {
+            'text_value': 'ti ar al music 制作人 no yeah can now down 星光 星光 东京',
+            'source_type': 'lyric',
+            'source_value': 'ti ar al music 制作人',
+            'weight': 1.0,
+            'track_id': 't102',
+            'title': 'Song Header',
+            'artist': 'Artist Header',
+        },
+    ]
+
+    result = module._extract_keywords(rows)
+    keywords = [item['keyword'] for item in result]
+
+    assert 'ti' not in keywords
+    assert 'ar' not in keywords
+    assert 'al' not in keywords
+    assert 'music' not in keywords
+    assert '制作人' not in keywords
+    assert 'no' not in keywords
+    assert 'yeah' not in keywords
+    assert 'can' not in keywords
+    assert 'now' not in keywords
+    assert 'down' not in keywords
+    assert keywords[:2] == ['星光', '东京']
+
+
+def test_p06_keywords_drop_metadata_heavy_lines_entirely():
+    module = load_module()
+
+    rows = [
+        {
+            'text_value': '作词 张三 作曲 李四 编曲 王五 制作人 赵六 album music by written by produced by',
+            'source_type': 'lyric',
+            'source_value': '作词 张三 作曲 李四 编曲 王五',
+            'weight': 1.0,
+            'track_id': 't103',
+            'title': 'Song Meta',
+            'artist': 'Artist Meta',
+        },
+        {
+            'text_value': '银河 银河 列车',
+            'source_type': 'lyric',
+            'source_value': '银河 银河 列车',
+            'weight': 1.0,
+            'track_id': 't104',
+            'title': 'Song Real',
+            'artist': 'Artist Real',
+        },
+    ]
+
+    result = module._extract_keywords(rows)
+
+    assert result[:2] == [
+        {
+            'keyword': '银河',
+            'hit_count': 2,
+            'source_type': 'lyric',
+            'representative_track': {
+                'track_id': 't104',
+                'title': 'Song Real',
+                'artist': 'Artist Real',
+            },
+            'representative_snippet': '银河 银河 列车',
+        },
+        {
+            'keyword': '列车',
+            'hit_count': 1,
+            'source_type': 'lyric',
+            'representative_track': {
+                'track_id': 't104',
+                'title': 'Song Real',
+                'artist': 'Artist Real',
+            },
+            'representative_snippet': '银河 银河 列车',
+        },
+    ]
+
+
 def test_p10_taste_scores_are_built_independently_of_p05_with_exact_contract():
     module = load_module()
 
@@ -294,6 +482,389 @@ def test_p10_taste_scores_are_built_independently_of_p05_with_exact_contract():
         'summary_label': '探索型乐迷',
         'summary_text': '你今年覆盖了 2 种曲风，听了 60 次，其中 1 种是新鲜尝试。',
     }
+
+
+def test_p07_library_structure_normalizes_genres_and_summarizes_unknown_dominance():
+    module = load_module()
+
+    rows = [
+        {'row_type': 'genre', 'bucket_key': '未识别', 'bucket_label': '未识别', 'item_count': 80, 'ratio': 0.8},
+        {'row_type': 'genre', 'bucket_key': 'Other', 'bucket_label': 'Other', 'item_count': 10, 'ratio': 0.1},
+        {'row_type': 'genre', 'bucket_key': 'Miscellaneous', 'bucket_label': 'Miscellaneous', 'item_count': 5, 'ratio': 0.05},
+        {'row_type': 'genre', 'bucket_key': 'JPop', 'bucket_label': 'JPop', 'item_count': 3, 'ratio': 0.03},
+        {'row_type': 'genre', 'bucket_key': 'J-Pop', 'bucket_label': 'J-Pop', 'item_count': 7, 'ratio': 0.07},
+        {'row_type': 'genre', 'bucket_key': 'Vocaloid', 'bucket_label': 'Vocaloid', 'item_count': 12, 'ratio': 0.12},
+    ]
+
+    result = module._build_library_structure(rows)
+
+    assert result['genre_distribution'][0] == {
+        'bucket_key': 'Vocaloid',
+        'bucket_label': 'Vocaloid',
+        'item_count': 12,
+        'ratio': 0.12,
+    }
+    assert result['genre_distribution'][1] == {
+        'bucket_key': 'J-Pop',
+        'bucket_label': 'J-Pop',
+        'item_count': 10,
+        'ratio': 0.1,
+    }
+    assert result['genre_distribution'][2] == {
+        'bucket_key': '未识别',
+        'bucket_label': '未识别',
+        'item_count': 95,
+        'ratio': 0.95,
+    }
+    assert result['genre_summary_text'] == '曲库里未识别曲风较多，已识别部分以 Vocaloid 最多，共 12 首。'
+
+
+def test_p07_library_structure_accepts_decimal_ratios_from_real_db_rows():
+    module = load_module()
+
+    rows = [
+        {'row_type': 'genre', 'bucket_key': 'JPop', 'bucket_label': 'JPop', 'item_count': 3, 'ratio': Decimal('0.03')},
+        {'row_type': 'genre', 'bucket_key': 'J-Pop', 'bucket_label': 'J-Pop', 'item_count': 7, 'ratio': Decimal('0.07')},
+        {'row_type': 'genre', 'bucket_key': 'Other', 'bucket_label': 'Other', 'item_count': 90, 'ratio': Decimal('0.90')},
+    ]
+
+    result = module._build_library_structure(rows)
+
+    assert result['genre_distribution'] == [
+        {
+            'bucket_key': 'J-Pop',
+            'bucket_label': 'J-Pop',
+            'item_count': 10,
+            'ratio': 0.1,
+        },
+        {
+            'bucket_key': '未识别',
+            'bucket_label': '未识别',
+            'item_count': 90,
+            'ratio': 0.9,
+        },
+    ]
+
+
+def test_p07_duration_distribution_uses_fixed_bucket_order_instead_of_sql_arrival_order():
+    module = load_module()
+
+    rows = [
+        {'row_type': 'duration', 'bucket_key': '2_4', 'bucket_label': '2-4 分钟', 'item_count': 500, 'ratio': 0.5},
+        {'row_type': 'duration', 'bucket_key': '6_plus', 'bucket_label': '6 分钟以上', 'item_count': 30, 'ratio': 0.03},
+        {'row_type': 'duration', 'bucket_key': 'lt_2', 'bucket_label': '2 分钟以下', 'item_count': 70, 'ratio': 0.07},
+        {'row_type': 'duration', 'bucket_key': '4_6', 'bucket_label': '4-6 分钟', 'item_count': 300, 'ratio': 0.3},
+    ]
+
+    result = module._build_library_structure(rows)
+
+    assert [item['bucket_key'] for item in result['duration_distribution']] == ['lt_2', '2_4', '4_6', '6_plus']
+
+
+def test_album_rankings_exclude_unknown_and_single_buckets():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_p23_album_of_year': {
+                'album': 'unknown',
+                'artist': 'Artist Unknown',
+                'play_count': 99,
+                'listened_sec': 9999,
+                'active_days': 20,
+                'track_count': 8,
+                'album_score': 100,
+            },
+            'data_p24_top_albums': [
+                {'album': 'unknown', 'artist': 'Artist Unknown', 'play_count': 99, 'listened_sec': 9999, 'active_days': 20, 'track_count': 8, 'album_score': 100},
+                {'album': '单曲', 'artist': 'Artist Single', 'play_count': 80, 'listened_sec': 8888, 'active_days': 18, 'track_count': 6, 'album_score': 95},
+                {'album': 'Album Real', 'artist': 'Artist Real', 'play_count': 18, 'listened_sec': 3600, 'active_days': 12, 'track_count': 5, 'album_score': 40},
+            ],
+        },
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P23']['album'] == 'Album Real'
+    assert [item['album'] for item in report['pages']['P24']] == ['Album Real']
+
+
+def test_p23_is_forced_to_match_p24_top_ranked_album_when_query_winner_drifts():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_p23_album_of_year': {
+                'album': 'Album Drift',
+                'artist': 'Artist Drift',
+                'play_count': 2,
+                'listened_sec': 500,
+                'active_days': 1,
+                'track_count': 1,
+                'album_score': 2.0,
+            },
+            'data_p24_top_albums': [
+                {'album': 'Album Real', 'artist': 'Artist Real', 'play_count': 3, 'listened_sec': 900, 'active_days': 2, 'track_count': 2, 'album_score': 3.0},
+                {'album': 'Album Drift', 'artist': 'Artist Drift', 'play_count': 2, 'listened_sec': 500, 'active_days': 1, 'track_count': 1, 'album_score': 2.0},
+            ],
+        },
+        generated_at='2026-05-02T10:30:00+08:00',
+    )
+
+    assert report['pages']['P24'][0]['album'] == 'Album Real'
+    assert report['pages']['P23']['album'] == 'Album Real'
+    assert 'Album Real' in report['pages']['P23']['summary_text']
+
+
+def test_p31_summary_becomes_conservative_when_coverage_is_low():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_lib_overview': {
+                **sample_dataset_payloads()['data_lib_overview'],
+                'lyrics_coverage_ratio': 0.0,
+                'cover_coverage_ratio': 0.0,
+                'genre_coverage_ratio': 0.0,
+            },
+            'data_p31_credits': [
+                {'credit_type': 'composer', 'credit_name': 'MEMORIAL DAY', 'play_count': 3, 'listened_sec': 600},
+            ],
+        },
+        generated_at='2026-05-02T10:30:00+08:00',
+    )
+
+    assert '最突出的是' not in report['pages']['P31']['summary_text']
+    assert '覆盖率不足' in report['pages']['P31']['summary_text']
+
+
+def test_l01_l02_can_reflect_sparse_incremental_newness_without_looking_like_full_import():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2026,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_lib_overview': {
+                **sample_dataset_payloads()['data_lib_overview'],
+                'track_count': 10301,
+                'artist_count': 3963,
+                'album_count': 5494,
+                'new_track_count': 451,
+                'new_artist_count': 320,
+                'new_album_count': 288,
+            },
+            'data_l02_library_growth': [
+                {'row_type': 'month', 'period_key': '2026-01', 'track_count': 111, 'artist_count': 80, 'album_count': 72},
+                {'row_type': 'month', 'period_key': '2026-02', 'track_count': 189, 'artist_count': 140, 'album_count': 126},
+                {'row_type': 'month', 'period_key': '2026-03', 'track_count': 98, 'artist_count': 73, 'album_count': 65},
+                {'row_type': 'month', 'period_key': '2026-04', 'track_count': 8, 'artist_count': 8, 'album_count': 8},
+                {'row_type': 'month', 'period_key': '2026-05', 'track_count': 45, 'artist_count': 40, 'album_count': 37},
+                {'row_type': 'summary', 'period_key': None, 'track_count': 451, 'artist_count': 320, 'album_count': 288},
+                {'row_type': 'genre', 'bucket_label': 'Vocaloid', 'item_count': 120, 'ratio': 0.2661},
+            ],
+        },
+        generated_at='2026-05-02T12:00:00+08:00',
+    )
+
+    assert report['pages']['L01']['metrics']['new_track_total'] == 451
+    assert report['pages']['L02']['new_track_total'] == 451
+    assert report['pages']['L02']['new_artist_total'] == 320
+    assert report['pages']['L02']['new_album_total'] == 288
+    assert report['pages']['L02']['peak_new_month'] == '2026-02'
+    assert '451 首歌' in report['pages']['L01']['summary_text']
+    assert '2026-02' in report['pages']['L02']['summary_text']
+
+
+def test_l03_prefers_lyric_inferred_languages_when_available():
+    module = load_module()
+
+    structure = module._build_library_structure([
+        {'row_type': 'language', 'bucket_key': 'inst', 'bucket_label': '纯音乐', 'item_count': 20, 'ratio': 1.0},
+        {'row_type': 'language', 'bucket_key': 'ja', 'bucket_label': '日语', 'item_count': 12, 'ratio': 0.6},
+        {'row_type': 'language', 'bucket_key': 'zh', 'bucket_label': '中文', 'item_count': 5, 'ratio': 0.25},
+        {'row_type': 'language', 'bucket_key': 'unknown', 'bucket_label': '未知语种', 'item_count': 3, 'ratio': 0.15},
+        {'row_type': 'genre', 'bucket_key': 'Vocaloid', 'bucket_label': 'Vocaloid', 'item_count': 8, 'ratio': 0.4},
+        {'row_type': 'genre', 'bucket_key': '未识别', 'bucket_label': '未识别', 'item_count': 12, 'ratio': 0.6},
+        {'row_type': 'duration', 'bucket_key': '2_4', 'bucket_label': '2-4 分钟', 'item_count': 10, 'ratio': 0.5},
+    ])
+
+    page = module._build_l03_library_profile(structure)
+
+    assert page['language_distribution'][0]['bucket_label'] == '纯音乐'
+    assert page['language_distribution'][1]['bucket_label'] == '日语'
+    assert '日语' in page['summary_text']
+
+
+def test_l03_summary_does_not_treat_pure_instrumental_as_unknown_language():
+    module = load_module()
+
+    page = module._build_l03_library_profile({
+        'language_distribution': [
+            {'bucket_key': 'inst', 'bucket_label': '纯音乐', 'item_count': 60, 'ratio': 0.6},
+            {'bucket_key': 'zh', 'bucket_label': '中文', 'item_count': 25, 'ratio': 0.25},
+            {'bucket_key': 'unknown', 'bucket_label': '未知语种', 'item_count': 15, 'ratio': 0.15},
+        ],
+        'duration_distribution': [
+            {'bucket_key': '2_4', 'bucket_label': '2-4 分钟', 'item_count': 80, 'ratio': 0.8},
+        ],
+        'genre_distribution': [
+            {'bucket_key': 'Vocaloid', 'bucket_label': 'Vocaloid', 'item_count': 10, 'ratio': 0.1},
+            {'bucket_key': '未识别', 'bucket_label': '未识别', 'item_count': 90, 'ratio': 0.9},
+        ],
+    })
+
+    assert '未知语种' not in page['summary_text']
+    assert '纯音乐' in page['summary_text']
+
+
+def test_l02_summary_avoids_saying_unknown_language_is_the_main_growth_language():
+    module = load_module()
+
+    page = module._build_l02_library_growth(2026, [
+        {'row_type': 'month', 'period_key': '2026-02', 'track_count': 10, 'artist_count': 8, 'album_count': 6},
+        {'row_type': 'language', 'bucket_label': '未知语种', 'item_count': 8, 'ratio': 0.8},
+        {'row_type': 'language', 'bucket_label': '日语', 'item_count': 2, 'ratio': 0.2},
+        {'row_type': 'genre', 'bucket_label': '未识别', 'item_count': 9, 'ratio': 0.9},
+        {'row_type': 'genre', 'bucket_label': 'Vocaloid', 'item_count': 1, 'ratio': 0.1},
+    ])
+
+    assert '扩得最多的是 未识别' not in page['summary_text']
+    assert 'Vocaloid' in page['summary_text']
+
+
+def test_song_of_year_prefers_consistent_companion_over_short_spike():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_p25_song_of_year': None,
+            'data_p26_top_tracks': [
+                {'track_id': 'steady', 'title': 'Steady Song', 'artist': 'Artist A', 'album': 'Album A', 'play_count': 40, 'listened_sec': 7200, 'active_days': 25},
+                {'track_id': 'spike', 'title': 'Spike Song', 'artist': 'Artist B', 'album': 'Album B', 'play_count': 45, 'listened_sec': 5400, 'active_days': 5},
+            ],
+            'data_p22_repeat_tracks': [
+                {'track_id': 'steady', 'title': 'Steady Song', 'artist': 'Artist A', 'play_count': 40, 'listened_sec': 7200, 'active_days': 25},
+                {'track_id': 'spike', 'title': 'Spike Song', 'artist': 'Artist B', 'play_count': 45, 'listened_sec': 5400, 'active_days': 5},
+            ],
+        },
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P25']['track_id'] == 'steady'
+    assert report['pages']['P25']['title'] == 'Steady Song'
+    assert report['pages']['P25']['song_score'] > report['pages']['P26'][1]['song_score']
+    assert report['pages']['P22'][0]['track_id'] == 'spike'
+
+
+def test_artist_aliases_are_collapsed_for_artist_pages():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_p16_artist_of_year': [
+                {'row_type': 'summary', 'artist': '洛天依office', 'play_count': 18, 'listened_sec': 3600, 'active_months': 6, 'month_no': None, 'month_play_count': None, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'month', 'artist': '洛天依office', 'play_count': None, 'listened_sec': None, 'active_months': None, 'month_no': 4, 'month_play_count': 8, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': '洛天依office', 'play_count': None, 'listened_sec': None, 'active_months': None, 'month_no': None, 'month_play_count': None, 'track_id': 't100', 'title': 'Song Luo', 'track_play_count': 9},
+            ],
+            'data_p27_top_artists': [
+                {'row_type': 'artist', 'artist': '洛天依office', 'play_count': 18, 'listened_sec': 3600, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': '洛天依office', 'play_count': None, 'listened_sec': None, 'track_id': 't100', 'title': 'Song Luo', 'track_play_count': 9},
+                {'row_type': 'artist', 'artist': 'HatsuneMiku', 'play_count': 16, 'listened_sec': 3200, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': 'HatsuneMiku', 'play_count': None, 'listened_sec': None, 'track_id': 't200', 'title': 'Song Miku', 'track_play_count': 7},
+            ],
+            'data_p28_artist_journey': [
+                {'row_type': 'summary', 'artist': '洛天依office', 'first_played_at': '2024-02-01T00:00:00+08:00', 'days_since_first_play': 420, 'peak_date': None, 'peak_play_count': None, 'track_id': None, 'title': None},
+                {'row_type': 'first_track', 'artist': '洛天依office', 'first_played_at': None, 'days_since_first_play': None, 'peak_date': None, 'peak_play_count': None, 'track_id': 't100', 'title': 'Song Luo'},
+                {'row_type': 'peak_day', 'artist': '洛天依office', 'first_played_at': None, 'days_since_first_play': None, 'peak_date': '2025-04-01', 'peak_play_count': 5, 'track_id': None, 'title': None},
+            ],
+            'data_p29_artist_rank_detail': [
+                {'row_type': 'artist', 'artist_rank': 1, 'artist': '洛天依office', 'play_count': 18, 'listened_sec': 3600, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist_rank': 1, 'artist': '洛天依office', 'play_count': None, 'listened_sec': None, 'track_id': 't100', 'title': 'Song Luo', 'track_play_count': 9},
+                {'row_type': 'artist', 'artist_rank': 2, 'artist': 'HatsuneMiku', 'play_count': 16, 'listened_sec': 3200, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist_rank': 2, 'artist': 'HatsuneMiku', 'play_count': None, 'listened_sec': None, 'track_id': 't200', 'title': 'Song Miku', 'track_play_count': 7},
+            ],
+            'data_p30_yearly_artist_rank': [
+                {'play_year': 2024, 'artist_rank': 1, 'artist': '洛天依office', 'play_count': 12, 'listened_sec': 2400},
+                {'play_year': 2025, 'artist_rank': 1, 'artist': 'HatsuneMiku', 'play_count': 16, 'listened_sec': 3200},
+            ],
+        },
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P16']['artist'] == '洛天依'
+    assert report['pages']['P27'][0]['artist'] == '洛天依'
+    assert report['pages']['P27'][1]['artist'] == '初音未来'
+    assert report['pages']['P28']['artist'] == '洛天依'
+    assert report['pages']['P29'][0]['artist'] == '洛天依'
+    assert report['pages']['P30'][0]['artist'] == '洛天依'
+    assert report['pages']['P30'][1]['artist'] == '初音未来'
+
+
+def test_group_or_unknown_artists_do_not_become_artist_of_year():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_p16_artist_of_year': [
+                {'row_type': 'summary', 'artist': '合唱', 'play_count': 30, 'listened_sec': 6000, 'active_months': 8, 'month_no': None, 'month_play_count': None, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'summary', 'artist': '洛天依', 'play_count': 18, 'listened_sec': 3600, 'active_months': 6, 'month_no': None, 'month_play_count': None, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'month', 'artist': '洛天依', 'play_count': None, 'listened_sec': None, 'active_months': None, 'month_no': 4, 'month_play_count': 8, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': '洛天依', 'play_count': None, 'listened_sec': None, 'active_months': None, 'month_no': None, 'month_play_count': None, 'track_id': 't100', 'title': 'Song Luo', 'track_play_count': 9},
+            ],
+            'data_p27_top_artists': [
+                {'row_type': 'artist', 'artist': '合唱', 'play_count': 30, 'listened_sec': 6000, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': '合唱', 'play_count': None, 'listened_sec': None, 'track_id': 't999', 'title': 'Group Song', 'track_play_count': 12},
+                {'row_type': 'artist', 'artist': '未知歌手', 'play_count': 22, 'listened_sec': 4400, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': '未知歌手', 'play_count': None, 'listened_sec': None, 'track_id': 't998', 'title': 'Unknown Song', 'track_play_count': 10},
+                {'row_type': 'artist', 'artist': '洛天依', 'play_count': 18, 'listened_sec': 3600, 'track_id': None, 'title': None, 'track_play_count': None},
+                {'row_type': 'track', 'artist': '洛天依', 'play_count': None, 'listened_sec': None, 'track_id': 't100', 'title': 'Song Luo', 'track_play_count': 9},
+            ],
+        },
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P16']['artist'] == '洛天依'
+    assert report['pages']['P27'][0]['artist'] == '洛天依'
+
+
+def test_v2_summary_texts_exist_for_core_pages_and_coverage_warning_is_appended():
+    module = load_module()
+
+    report = module.build_report_from_dataset_payloads(
+        year=2025,
+        dataset_payloads={
+            **sample_dataset_payloads(),
+            'data_lib_overview': {
+                **sample_dataset_payloads()['data_lib_overview'],
+                'album_coverage_ratio': 0.35,
+            },
+        },
+        generated_at='2026-04-30T15:00:00+08:00',
+    )
+
+    assert report['pages']['P08']['summary_text']
+    assert 'J-Pop' in report['pages']['P08']['summary_text']
+    assert report['pages']['P16']['summary_text']
+    assert 'Artist A' in report['pages']['P16']['summary_text']
+    assert report['pages']['P23']['summary_text']
+    assert 'Album A' in report['pages']['P23']['summary_text']
+    assert report['pages']['P25']['summary_text']
+    assert 'Song A' in report['pages']['P25']['summary_text']
+    assert report['pages']['P31']['summary_text']
+    assert '覆盖率' in report['pages']['P31']['summary_text']
+    assert '专辑信息仍在补全中' in report['pages']['L01']['summary_text']
 
 
 def test_build_p05_consumes_only_current_contract_rows():
@@ -387,9 +958,33 @@ def test_build_p09_preserves_new_track_contract_and_sort_order():
             'genres': [
                 {'genre': 'Vocaloid', 'new_track_count': 11, 'ratio': 0.7333},
                 {'genre': 'J-Rock', 'new_track_count': 4, 'ratio': 0.2667},
-                {'genre': 'Drifted Row', 'new_track_count': 0, 'ratio': 0.9999},
             ],
             'summary_text': '2025-02 的新歌探索重心是 Vocaloid，共发现 11 首。',
+        },
+    ]
+
+
+def test_build_p09_summary_prefers_recognized_genre_when_unrecognized_is_dominant():
+    module = load_module()
+
+    rows = [
+        {'period_key': '2025-04', 'genre': '未识别', 'new_track_count': 10, 'ratio': 0.70},
+        {'period_key': '2025-04', 'genre': 'Vocaloid', 'new_track_count': 3, 'ratio': 0.21},
+        {'period_key': '2025-04', 'genre': 'J-Pop', 'new_track_count': 1, 'ratio': 0.09},
+    ]
+
+    result = module._build_p09(rows)
+
+    assert result == [
+        {
+            'period_key': '2025-04',
+            'top_genre': '未识别',
+            'genres': [
+                {'genre': '未识别', 'new_track_count': 10, 'ratio': 0.70},
+                {'genre': 'Vocaloid', 'new_track_count': 3, 'ratio': 0.21},
+                {'genre': 'J-Pop', 'new_track_count': 1, 'ratio': 0.09},
+            ],
+            'summary_text': '2025-04 新歌里未识别曲风较多，已识别部分以 Vocaloid 最突出，共发现 3 首。',
         },
     ]
 
@@ -506,6 +1101,7 @@ def test_fake_cursor_keeps_collision_prone_queries_on_expected_datasets():
     collision_prone_datasets = [
         'data_p16_artist_of_year',
         'data_p28_artist_journey',
+        'data_lib_structure',
         'data_p24_top_albums',
         'data_p29_artist_rank_detail',
         'data_p30_yearly_artist_rank',
@@ -527,8 +1123,10 @@ def test_collect_dataset_payloads_uses_query_module():
     payloads = module.collect_dataset_payloads(cursor, year=2025)
 
     assert payloads['data_p01_summary']['days_since_first_play'] == 485
+    assert payloads['data_lib_overview']['track_count'] == 1000
+    assert payloads['data_lib_structure'][0]['row_type'] == 'format'
     assert payloads['data_p08_genres'][0]['genre'] == 'J-Pop'
-    assert len(cursor.executed) == 27
+    assert len(cursor.executed) == 30
 
 
 def test_collect_dataset_payloads_feed_build_report_for_p05_and_p09_contract():
@@ -570,7 +1168,7 @@ def test_cli_writes_report_json(tmp_path):
     assert saved['pages']['P23']['album'] == 'Album A'
     assert saved['pages']['P27'][0]['artist'] == 'Artist A'
     assert saved['pages']['P28']['artist'] == 'Artist A'
-    assert saved['pages']['P31'][0]['credit_type'] == 'composer'
+    assert saved['pages']['P31']['items'][0]['credit_type'] == 'composer'
 
 
 def test_parse_db_url_returns_expected_config():

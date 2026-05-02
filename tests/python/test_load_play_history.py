@@ -111,6 +111,24 @@ def test_normalize_item_returns_expected_fields():
     assert row['imported_at'] == '2026-04-30T12:00:00'
 
 
+def test_normalize_item_preserves_fractional_second_fields():
+    module = load_module()
+    item = sample_payload()['items'][0]
+    item['listenedSec'] = 30.618999999999996
+    item['durationSec'] = 277.629
+    item['seekForwardSec'] = 37.983000000000004
+    item['seekBackwardSec'] = 19.195
+    item['song']['canonicalDurationSec'] = 277.629
+
+    row = module.normalize_item(item, batch_id='batch-1', imported_at='2026-04-30T12:00:00')
+
+    assert row['listened_sec'] == 30.618999999999996
+    assert row['duration_sec'] == 277.629
+    assert row['seek_forward_sec'] == 37.983000000000004
+    assert row['seek_backward_sec'] == 19.195
+    assert row['song_canonical_duration_sec'] == 277.629
+
+
 class FakeCursor:
     def __init__(self, existing_hashes=None):
         self.existing_hashes = set(existing_hashes or [])
@@ -148,12 +166,16 @@ class FakeConnection:
     def __init__(self, existing_hashes=None):
         self.cursor_obj = FakeCursor(existing_hashes=existing_hashes)
         self.commit_count = 0
+        self.closed = False
 
     def cursor(self):
         return self.cursor_obj
 
     def commit(self):
         self.commit_count += 1
+
+    def close(self):
+        self.closed = True
 
 
 def test_ensure_table_executes_create_table_sql():
@@ -168,6 +190,26 @@ def test_ensure_table_executes_create_table_sql():
     assert 'session_hash' in sql_text
     assert 'CREATE UNIQUE INDEX' in sql_text
     assert conn.commit_count == 1
+
+
+def test_create_table_sql_allows_long_remote_identity_fields():
+    module = load_module()
+
+    sql_text = module.CREATE_TABLE_SQL
+    assert 'aggregate_song_id nvarchar(1024) not null' in sql_text
+    assert 'source_item_id nvarchar(1024) null' in sql_text
+    assert 'list_id_snapshot nvarchar(512) null' in sql_text
+
+
+def test_comment_sql_contains_table_and_column_descriptions():
+    module = load_module()
+
+    sql_text = '\n'.join(module.COMMENT_SQLS)
+    assert 'ods_jumusic_play_history' in sql_text
+    assert '播放历史事实表' in sql_text
+    assert 'session_hash' in sql_text
+    assert 'aggregate_song_id' in sql_text
+    assert 'listened_sec' in sql_text
 
 
 def test_insert_play_history_rows_skips_existing_session_hashes_and_uses_bulk_insert():
@@ -232,3 +274,45 @@ def test_main_dry_run_loads_json_and_skips_db(monkeypatch, tmp_path, capsys):
     assert result['rows'] == 1
     assert calls == []
     assert 'dry-run' in output.lower()
+
+
+def test_main_closes_db_connection_after_load(monkeypatch, tmp_path):
+    module = load_module()
+    payload_file = tmp_path / 'sample.json'
+    payload_file.write_text(json.dumps(sample_payload()), encoding='utf-8')
+    conn = FakeConnection()
+
+    monkeypatch.setattr(module, 'connect_db', lambda config: conn)
+    monkeypatch.setattr(module, 'ensure_table', lambda actual_conn: None)
+    monkeypatch.setattr(module, 'insert_play_history_rows', lambda actual_conn, rows: {'inserted': len(rows), 'skipped': 0})
+
+    result = module.main(
+        input_path=payload_file,
+        dry_run=False,
+        db_config={'server': 'x', 'port': 1433, 'user': 'u', 'password': 'p', 'database': 'd'},
+    )
+
+    assert result['load']['inserted'] == 1
+    assert conn.closed is True
+
+
+def test_load_db_config_accepts_db_url(monkeypatch):
+    module = load_module()
+
+    monkeypatch.setenv('JUMUSIC_DB_URL', 'mssql+pymssql://sa:ifwlzs@192.168.2.156:1433/db_tgmsg')
+    config = module.load_db_config(type('Args', (), {
+        'db_server': None,
+        'db_port': None,
+        'db_user': None,
+        'db_password': None,
+        'db_database': None,
+        'db_url': None,
+    })())
+
+    assert config == {
+        'server': '192.168.2.156',
+        'port': 1433,
+        'user': 'sa',
+        'password': 'ifwlzs',
+        'database': 'db_tgmsg',
+    }

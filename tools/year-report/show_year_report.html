@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>juMusic 年度报告 MVP</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #131a2a;
+      --panel-soft: #1a2338;
+      --text: #f5f7fb;
+      --text-soft: #9ea8bf;
+      --accent: #8ab4ff;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, #10192d 100%);
+      color: var(--text);
+    }
+    .page {
+      width: min(1100px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 80px;
+    }
+    .hero, .card {
+      background: rgba(19, 26, 42, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 14px 42px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(16px);
+    }
+    .hero { margin-bottom: 20px; }
+    .hero__meta { color: var(--text-soft); font-size: 14px; margin-top: 8px; }
+    .hero__title { font-size: 36px; margin: 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+    .card__eyebrow {
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+    .muted { color: var(--text-soft); }
+    .stat {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 12px 0;
+    }
+    .metric-grid, .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .metric-card, .summary-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .metric-card__label, .summary-card__label {
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-bottom: 8px;
+    }
+    .metric-card__value, .summary-card__value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .summary-card__value--accent {
+      color: var(--accent);
+    }
+    .list, .kv {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .kv li, .list li { margin: 8px 0; }
+    .rank-list {
+      list-style: none;
+      margin: 14px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .rank-item {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+    .rank-item__index {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(138,180,255,0.25), rgba(138,180,255,0.08));
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 18px;
+    }
+    .rank-item__title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .rank-item__meta {
+      color: var(--text-soft);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .rank-item__extra {
+      color: var(--text);
+      font-size: 13px;
+    }
+    .bar-chart {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .bar-chart__row {
+      display: grid;
+      grid-template-columns: 64px 1fr 70px;
+      gap: 10px;
+      align-items: center;
+    }
+    .bar-chart__label,
+    .bar-chart__value {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+    .bar-chart__track {
+      position: relative;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+    }
+    .bar-chart__fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #8ab4ff 0%, #69d2e7 100%);
+    }
+    .year-group {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .year-group:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    .year-group__title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 10px;
+      color: var(--accent);
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--panel-soft);
+      color: var(--text-soft);
+      font-size: 12px;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    .empty {
+      color: var(--text-soft);
+      font-style: italic;
+    }
+    .calendar-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .calendar-item {
+      background: var(--panel-soft);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .error {
+      margin-top: 16px;
+      color: #ffb4b4;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <main class="page" data-role="report-root">
+    <section class="hero">
+      <h1 class="hero__title">juMusic 年度报告 <span data-role="report-year">--</span></h1>
+      <div class="hero__meta">
+        生成时间：<span data-role="generated-at">--</span>
+      </div>
+      <div class="hero__meta">
+        页面参数支持：<code>?report=../../publish/report_2025.json</code>
+      </div>
+      <div class="error" data-role="error-message" hidden></div>
+    </section>
+
+    <section class="grid">
+      <article class="card" data-page="P01"><h2>P01 首次使用</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P02"><h2>P02 年度总览</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P03"><h2>P03 年度探索广度</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P04"><h2>P04 曲库总览</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P05"><h2>P05 主动探索 vs 重复所爱</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P06"><h2>P06 年度听歌关键词</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P07"><h2>P07 曲库结构</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P08"><h2>P08 年度曲风 Top5</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P09"><h2>P09 曲风进化历</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P10"><h2>P10 品味曲风分数</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P12"><h2>P12 春天最爱歌曲</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P13"><h2>P13 夏天最爱歌曲</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P14"><h2>P14 秋天最爱歌曲</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P15"><h2>P15 冬天最爱歌曲</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P16"><h2>P16 年度最爱歌手</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P17"><h2>P17 一周听歌心情</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P18"><h2>P18 年度听歌日历</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P19"><h2>P19 年度活跃时段</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P20"><h2>P20 深夜听歌</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P22"><h2>P22 反复听的歌</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P23"><h2>P23 年度之最专辑</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P24"><h2>P24 年度最爱专辑榜</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P25"><h2>P25 年度歌曲</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P26"><h2>P26 年度歌曲榜</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P27"><h2>P27 年度歌手榜</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P28"><h2>P28 与年度歌手的轨迹</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P29"><h2>P29 年度最爱歌手榜单</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P30"><h2>P30 历年歌手榜单</h2><div data-role="content"></div></article>
+      <article class="card" data-page="L01"><h2>L01 歌曲库总览</h2><div data-role="content"></div></article>
+      <article class="card" data-page="L02"><h2>L02 年度新增分析</h2><div data-role="content"></div></article>
+      <article class="card" data-page="L03"><h2>L03 歌曲库结构分析</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P31"><h2>P31 年度词曲人</h2><div data-role="content"></div></article>
+      <article class="card" data-page="P32"><h2>P32 音乐四格总结</h2><div data-role="content"></div></article>
+    </section>
+  </main>
+
+  <script src="./year-report-data-utils.js"></script>
+  <script src="./year-report-app.js"></script>
+</body>
+</html>
+

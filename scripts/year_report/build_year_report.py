@@ -71,15 +71,72 @@ def _clean_keyword_text(value):
 
     text = str(value)
     text = re.sub(r'\[\d{2}:\d{2}(?:\.\d{1,2})?\]', ' ', text)
+    text = re.sub(r'(?i)\b(?:lyrics?|written|composed|produced|arranged|mix(?:ed)?|vocal)\s+by\b', ' ', text)
     text = text.lower()
     text = re.sub(r'[^0-9a-z\u00c0-\u024f\u3040-\u30ff\u4e00-\u9fff]+', ' ', text)
     return ' '.join(text.split())
+
+
+def _truncate_snippet(text, max_length=240):
+    if len(text) <= max_length:
+        return text
+    truncated = text[:max_length].rstrip()
+    last_space = truncated.rfind(' ')
+    if last_space >= max_length * 0.6:
+        truncated = truncated[:last_space]
+    return truncated.rstrip()
+
+
+def _is_unrecognized_genre(value):
+    normalized = str(value or '').strip().lower()
+    return normalized in {'未识别', 'unknown', 'unk', 'other', 'others'}
+
+
+def _is_metadata_heavy_keyword_line(snippet):
+    if not snippet:
+        return False
+
+    metadata_tokens = {
+        '作词', '作曲', '编曲', '混音', '制作人',
+        'lyrics', 'lyric', 'written', 'composed', 'produced', 'arranged',
+        'mix', 'mixed', 'vocal', 'album', 'music', 'by',
+    }
+    tokens = snippet.split()
+    if not tokens:
+        return False
+
+    metadata_hit_count = sum(1 for token in tokens if token in metadata_tokens)
+    if not (metadata_hit_count >= 4 or (len(tokens) >= 6 and metadata_hit_count / len(tokens) >= 0.5)):
+        return False
+
+    remaining_tokens = [token for token in tokens if token not in metadata_tokens]
+    if not remaining_tokens:
+        return True
+
+    remaining_counts = defaultdict(int)
+    for token in remaining_tokens:
+        remaining_counts[token] += 1
+
+    has_repeated_remaining_token = any(count >= 2 for count in remaining_counts.values())
+    return not has_repeated_remaining_token
 
 
 def _extract_keywords(rows):
     stopwords = {
         'a', 'an', 'and', 'are', 'for', 'from', 'in', 'is', 'of', 'on', 'or',
         'the', 'to', 'with', '歌词', '搜索',
+        'you', 'your', 'yours', 'me', 'my', 'mine', 'we', 'our', 'ours',
+        'i', 'im', 'i m', 'it', 'its', 'it s', 'he', 'she', 'they', 'them',
+        'their', 'theirs', 'love', 'like', 'know', 'only', 'just', 'that',
+        'this', 'these', 'those', 'what', 'when', 'where', 'who', 'why',
+        'how', 'been', 'being', 'into', 'onto', 'than', 'then', 'there',
+        'here', 'have', 'has', 'had', 'will', 'would', 'could', 'should',
+        'don', 't', 're', 've', 'll', 's',
+        'by', 'oh', 'ah', 'la', 'na', 'all', 'up', 'but', 'so',
+        'no', 'yeah', 'can', 'now', 'down',
+        'ti', 'ar', 'al',
+        'written', 'composed', 'produced', 'arranged', 'mix', 'mixed', 'vocal',
+        '作词', '作曲', '编曲', '混音', '制作人', 'album', 'music', 'lyrics', 'lyric',
     }
     keyword_stats = defaultdict(lambda: {
         'keyword': None,
@@ -94,6 +151,8 @@ def _extract_keywords(rows):
     for row in rows:
         snippet = _clean_keyword_text(row.get('text_value') or row.get('source_value'))
         if not snippet:
+            continue
+        if _is_metadata_heavy_keyword_line(snippet):
             continue
 
         source_type = row.get('source_type') or 'unknown'
@@ -113,25 +172,26 @@ def _extract_keywords(rows):
             token_counts[token] += 1
 
         for token, count in token_counts.items():
+            bounded_count = min(count, 2)
             stat = keyword_stats[token]
             stat['keyword'] = token
-            stat['hit_count'] += count
-            stat['ranking_score'] += count * weight
+            stat['hit_count'] += bounded_count
+            stat['ranking_score'] += bounded_count * weight
 
             if (
-                count > 0 and (
+                bounded_count > 0 and (
                     stat['representative_snippet'] is None
-                    or count * weight > stat['representative_weight']
+                    or bounded_count * weight > stat['representative_weight']
                     or (
-                        count * weight == stat['representative_weight']
+                        bounded_count * weight == stat['representative_weight']
                         and (source_type == 'lyric' and stat['source_type'] != 'lyric')
                     )
                 )
             ):
                 stat['source_type'] = source_type
                 stat['representative_track'] = track
-                stat['representative_snippet'] = snippet
-                stat['representative_weight'] = count * weight
+                stat['representative_snippet'] = _truncate_snippet(snippet)
+                stat['representative_weight'] = bounded_count * weight
 
     sorted_keywords = sorted(
         keyword_stats.values(),
@@ -159,6 +219,8 @@ def _extract_keywords(rows):
 def _safe_number(value, default=0):
     if value is None:
         return default
+    if isinstance(value, Decimal):
+        return float(value)
     return value
 
 
@@ -232,7 +294,8 @@ def _build_p09(rows):
     period_groups = defaultdict(list)
     for row in rows:
         period_key = row.get('period_key')
-        if period_key:
+        genre = row.get('genre')
+        if period_key and genre and row.get('new_track_count') is not None:
             period_groups[period_key].append(row)
 
     result = []
@@ -256,11 +319,21 @@ def _build_p09(rows):
             })
 
         top_genre = top_row.get('genre') if top_row else None
+        recognized_rows = [row for row in genre_rows if not _is_unrecognized_genre(row.get('genre'))]
+        recognized_top_row = recognized_rows[0] if recognized_rows else None
+        if top_genre and _is_unrecognized_genre(top_genre) and recognized_top_row:
+            summary_text = (
+                f'{period_key} 新歌里未识别曲风较多，'
+                f'已识别部分以 {recognized_top_row.get("genre")} 最突出，'
+                f'共发现 {_safe_number(recognized_top_row.get("new_track_count"), 0)} 首。'
+            )
+        else:
+            summary_text = f'{period_key} 的新歌探索重心是 {top_genre}，共发现 {top_count} 首。' if top_genre else '--'
         result.append({
             'period_key': period_key,
             'top_genre': top_genre,
             'genres': genre_items,
-            'summary_text': f'{period_key} 的新歌探索重心是 {top_genre}，共发现 {top_count} 首。' if top_genre else '--',
+            'summary_text': summary_text,
         })
 
     return result
@@ -315,6 +388,419 @@ def _build_taste_score(rows):
     }
 
 
+def _build_library_structure(rows):
+    duration_order = {
+        'lt_2': 0,
+        '2_4': 1,
+        '4_6': 2,
+        '6_plus': 3,
+    }
+    grouped = {
+        'format_distribution': [],
+        'language_distribution': [],
+        'duration_distribution': [],
+        'genre_distribution': [],
+        'genre_summary_text': '--',
+    }
+    genre_stats = {}
+    language_stats = {}
+    for row in rows:
+        item = {
+            'bucket_key': row.get('bucket_key'),
+            'bucket_label': row.get('bucket_label'),
+            'item_count': _safe_number(row.get('item_count'), 0),
+            'ratio': _safe_number(row.get('ratio'), 0.0),
+        }
+        if row.get('row_type') == 'format':
+            grouped['format_distribution'].append(item)
+        elif row.get('row_type') == 'language':
+            raw_label = str(item.get('bucket_label') or '').strip() or '未知'
+            stat = language_stats.setdefault(raw_label, {
+                'bucket_key': item.get('bucket_key') or raw_label,
+                'bucket_label': raw_label,
+                'item_count': 0,
+                'ratio': 0.0,
+            })
+            stat['item_count'] += item['item_count']
+            stat['ratio'] += item['ratio']
+        elif row.get('row_type') == 'duration':
+            grouped['duration_distribution'].append(item)
+        elif row.get('row_type') == 'genre':
+            raw_label = str(item.get('bucket_label') or '').strip()
+            normalized_key = raw_label
+            normalized_label = raw_label
+            lowered = raw_label.lower()
+            if lowered in {'other', 'miscellaneous', 'unknown', 'unk', '未识别'}:
+                normalized_key = '未识别'
+                normalized_label = '未识别'
+            elif lowered == 'jpop':
+                normalized_key = 'J-Pop'
+                normalized_label = 'J-Pop'
+
+            stat = genre_stats.setdefault(normalized_key, {
+                'bucket_key': normalized_key,
+                'bucket_label': normalized_label,
+                'item_count': 0,
+                'ratio': 0.0,
+            })
+            stat['item_count'] += item['item_count']
+            stat['ratio'] += item['ratio']
+
+    for stat in genre_stats.values():
+        stat['ratio'] = round(_safe_number(stat.get('ratio'), 0.0), 4)
+
+    for stat in language_stats.values():
+        stat['ratio'] = round(_safe_number(stat.get('ratio'), 0.0), 4)
+
+    grouped['language_distribution'] = sorted(
+        language_stats.values(),
+        key=lambda item: (-(item.get('item_count') or 0), str(item.get('bucket_label') or '')),
+    )
+
+    grouped['duration_distribution'] = sorted(
+        grouped['duration_distribution'],
+        key=lambda item: (
+            duration_order.get(str(item.get('bucket_key') or ''), 99),
+            str(item.get('bucket_label') or ''),
+        ),
+    )
+
+    grouped['genre_distribution'] = sorted(
+        genre_stats.values(),
+        key=lambda item: (
+            1 if str(item.get('bucket_label') or '') == '未识别' else 0,
+            -(item.get('item_count') or 0),
+            str(item.get('bucket_label') or ''),
+        ),
+    )
+
+    top_genre = grouped['genre_distribution'][0] if grouped['genre_distribution'] else None
+    unknown_genre = next((item for item in grouped['genre_distribution'] if item.get('bucket_label') == '未识别'), None)
+    if unknown_genre and top_genre and top_genre.get('bucket_label') != '未识别':
+        grouped['genre_summary_text'] = (
+            f'曲库里未识别曲风较多，已识别部分以 {top_genre.get("bucket_label")} 最多，'
+            f'共 {top_genre.get("item_count", 0)} 首。'
+        )
+    elif top_genre:
+        grouped['genre_summary_text'] = (
+            f'曲库中占比最高的曲风是 {top_genre.get("bucket_label")}，'
+            f'共 {top_genre.get("item_count", 0)} 首。'
+        )
+    return grouped
+
+
+def _append_coverage_warning(summary_text, field_name, ratio, threshold=0.6):
+    if ratio is None:
+        return summary_text
+    if _safe_number(ratio, 0.0) >= threshold:
+        return summary_text
+    if not summary_text:
+        return f'目前部分歌曲的{field_name}信息仍在补全中，以下结果基于已识别部分统计。'
+    return f'{summary_text} 目前部分歌曲的{field_name}信息仍在补全中，以下结果基于已识别部分统计。'
+
+
+INVALID_ALBUM_LABELS = {'', 'unknown', '未知', '未识别', 'other', 'others'}
+SINGLE_ALBUM_LABELS = {'single', '单曲', '未收录专辑', '散曲'}
+ARTIST_ALIAS_MAP = {
+    '洛天依office': '洛天依',
+    '洛天依 official': '洛天依',
+    '洛天依official': '洛天依',
+    'hatsunemiku': '初音未来',
+    'hatsune miku': '初音未来',
+    '初音ミク': '初音未来',
+    '初音未来v4c': '初音未来',
+}
+NON_PRIMARY_ARTISTS = {'合唱', '多歌手', 'various artists', '未知歌手', 'unknown'}
+
+
+def _is_rankable_album(album_name):
+    normalized = str(album_name or '').strip().lower()
+    if normalized in INVALID_ALBUM_LABELS:
+        return False
+    if normalized in SINGLE_ALBUM_LABELS:
+        return False
+    return True
+
+
+def _album_sort_key(row):
+    return (
+        -_safe_number(row.get('play_count'), 0),
+        -_safe_number(row.get('active_days'), 0),
+        -_safe_number(row.get('listened_sec'), 0),
+        str(row.get('album') or ''),
+    )
+
+
+def _song_score(row):
+    play_count = _safe_number(row.get('play_count') or row.get('year_play_count'), 0)
+    active_days = _safe_number(row.get('active_days') or row.get('year_active_days'), 0)
+    listened_sec = _safe_number(row.get('listened_sec') or row.get('year_listened_sec'), 0)
+    listened_hours = listened_sec / 3600 if listened_sec else 0
+    return round(play_count * 0.55 + active_days * 0.30 + listened_hours * 0.15, 4)
+
+
+def _repeat_index(row):
+    play_count = _safe_number(row.get('play_count'), 0)
+    active_days = _safe_number(row.get('active_days'), 0)
+    return round(play_count / max(active_days, 1), 4)
+
+
+def _normalize_artist_name(name):
+    raw = str(name or '').strip()
+    if not raw:
+        return '未知歌手'
+    alias_key = raw.lower().strip()
+    alias_key = re.sub(r'\s+', ' ', alias_key)
+    return ARTIST_ALIAS_MAP.get(alias_key, raw)
+
+
+def _is_primary_artist(name):
+    normalized = _normalize_artist_name(name)
+    return normalized.lower() not in NON_PRIMARY_ARTISTS
+
+
+def _build_l01_library_summary(year, overview):
+    overview = overview or {}
+    metrics = {
+        'track_total': _safe_number(overview.get('track_count'), 0),
+        'artist_total': _safe_number(overview.get('artist_count'), 0),
+        'album_total': _safe_number(overview.get('album_count'), 0),
+        'duration_total_sec': _safe_number(overview.get('total_duration_sec'), 0),
+        'new_track_total': _safe_number(overview.get('new_track_count'), 0),
+        'new_artist_total': _safe_number(overview.get('new_artist_count'), 0),
+        'new_album_total': _safe_number(overview.get('new_album_count'), 0),
+    }
+    coverage = {
+        'lyrics_coverage_ratio': _safe_number(overview.get('lyrics_coverage_ratio'), 0.0),
+        'cover_coverage_ratio': _safe_number(overview.get('cover_coverage_ratio'), 0.0),
+        'genre_coverage_ratio': _safe_number(overview.get('genre_coverage_ratio'), 0.0),
+        'album_coverage_ratio': _safe_number(overview.get('album_coverage_ratio'), 0.0),
+        'duration_coverage_ratio': _safe_number(overview.get('duration_coverage_ratio'), 0.0),
+        'artist_coverage_ratio': _safe_number(overview.get('artist_coverage_ratio'), 0.0),
+    }
+
+    duration_hours = round(metrics['duration_total_sec'] / 3600, 1) if metrics['duration_total_sec'] else 0
+    summary_text = (
+        f'到 {year} 年底，你的歌曲库已收录 {metrics["track_total"]} 首歌，'
+        f'覆盖 {metrics["artist_total"]} 位歌手与 {metrics["album_total"]} 张专辑，'
+        f'总时长约 {duration_hours} 小时。今年你又新加入了 {metrics["new_track_total"]} 首歌。'
+    )
+    summary_text = _append_coverage_warning(summary_text, '专辑', coverage['album_coverage_ratio'])
+    return {
+        'page_id': 'L01',
+        'title': '歌曲库总览',
+        'summary_text': summary_text,
+        'metrics': metrics,
+        'coverage': coverage,
+    }
+
+
+def _build_l02_library_growth(year, rows):
+    rows = rows or []
+    summary_row = next((row for row in rows if row.get('row_type') == 'summary'), None)
+    month_rows = [row for row in rows if row.get('row_type') == 'month']
+
+    monthly_new_tracks = [
+        {
+            'month': row.get('period_key'),
+            'track_count': _safe_number(row.get('track_count'), 0),
+            'artist_count': _safe_number(row.get('artist_count'), 0),
+            'album_count': _safe_number(row.get('album_count'), 0),
+        }
+        for row in sorted(month_rows, key=lambda item: item.get('period_key') or '')
+    ]
+    peak_row = max(month_rows, key=lambda row: (_safe_number(row.get('track_count'), 0), row.get('period_key') or ''), default=None)
+
+    def _top_items(row_type):
+        return [
+            {
+                'label': row.get('bucket_label'),
+                'item_count': _safe_number(row.get('item_count'), 0),
+                'ratio': _safe_number(row.get('ratio'), 0.0),
+            }
+            for row in rows
+            if row.get('row_type') == row_type
+        ]
+
+    new_track_total = sum(item['track_count'] for item in monthly_new_tracks)
+    new_artist_total = _safe_number((summary_row or {}).get('artist_count'), None)
+    new_album_total = _safe_number((summary_row or {}).get('album_count'), None)
+    if new_artist_total is None:
+        new_artist_total = max((item['artist_count'] for item in monthly_new_tracks), default=0)
+    if new_album_total is None:
+        new_album_total = max((item['album_count'] for item in monthly_new_tracks), default=0)
+
+    top_genre = next(iter(sorted(_top_items('genre'), key=lambda item: (-item['item_count'], item['label'] or ''))), None)
+    recognized_top_genre = next(
+        iter(sorted(
+            [item for item in _top_items('genre') if not _is_unrecognized_genre(item.get('label'))],
+            key=lambda item: (-item['item_count'], item['label'] or '')
+        )),
+        None,
+    )
+    summary_text = (
+        f'{year} 年你共新增了 {new_track_total} 首歌曲、{new_artist_total} 位歌手和 {new_album_total} 张专辑。'
+        f'其中 {(peak_row.get("period_key") if peak_row else "--")} 是扩库最活跃的月份，'
+        f'当月新增了 {_safe_number(peak_row.get("track_count"), 0) if peak_row else 0} 首。'
+    )
+    if top_genre and _is_unrecognized_genre(top_genre.get('label')) and recognized_top_genre and recognized_top_genre.get('label'):
+        summary_text += f' 新增内容里未识别曲风较多，已识别部分以 {recognized_top_genre["label"]} 最突出。'
+    elif top_genre and top_genre.get('label'):
+        summary_text += f' 从新增内容来看，今年你扩得最多的是 {top_genre["label"]}。'
+
+    return {
+        'page_id': 'L02',
+        'title': '年度新增分析',
+        'summary_text': summary_text,
+        'new_track_total': new_track_total,
+        'new_artist_total': new_artist_total,
+        'new_album_total': new_album_total,
+        'peak_new_month': peak_row.get('period_key') if peak_row else None,
+        'peak_new_month_track_total': _safe_number(peak_row.get('track_count'), 0) if peak_row else 0,
+        'monthly_new_tracks': monthly_new_tracks,
+        'top_artists': _top_items('artist'),
+        'top_albums': _top_items('album'),
+        'top_languages': _top_items('language'),
+        'top_genres': _top_items('genre'),
+    }
+
+
+def _build_l03_library_profile(structure):
+    structure = structure or {}
+    language_distribution = structure.get('language_distribution') or []
+    duration_distribution = structure.get('duration_distribution') or []
+    genre_distribution = structure.get('genre_distribution') or []
+
+    top_language = language_distribution[0] if language_distribution else None
+    top_vocal_language = next(
+        (item for item in language_distribution if item.get('bucket_label') not in {'纯音乐', '未知语种'}),
+        None,
+    )
+    top_duration = max(duration_distribution, key=lambda item: (_safe_number(item.get('item_count'), 0), item.get('bucket_label') or ''), default=None)
+    top_recognized_genre = next((item for item in genre_distribution if item.get('bucket_label') != '未识别'), None)
+
+    if top_recognized_genre:
+        if top_language and top_language.get('bucket_label') == '纯音乐' and top_vocal_language:
+            summary_text = (
+                f'你的歌曲库以 纯音乐 为主，带人声的部分里 {top_vocal_language.get("bucket_label")} 最多，'
+                f'时长主要集中在 {top_duration.get("bucket_label") if top_duration else "未知区间"}，'
+                f'已识别曲风里 {top_recognized_genre.get("bucket_label")} 最突出。'
+            )
+        else:
+            summary_text = (
+                f'你的歌曲库以 {top_language.get("bucket_label") if top_language else "未知语种"} 歌曲为主，'
+                f'时长主要集中在 {top_duration.get("bucket_label") if top_duration else "未知区间"}，'
+                f'已识别曲风里 {top_recognized_genre.get("bucket_label")} 最突出。'
+            )
+    else:
+        summary_text = '目前歌曲库的语种与曲风信息仍在逐步补全，以下画像基于已识别部分生成。'
+
+    return {
+        'page_id': 'L03',
+        'title': '歌曲库结构分析',
+        'summary_text': summary_text,
+        'language_distribution': language_distribution,
+        'duration_distribution': duration_distribution,
+        'genre_distribution': genre_distribution,
+    }
+
+
+def _build_p08(top_genres):
+    top_genres = list(top_genres or [])
+    data_coverage = 1.0 if top_genres else 0.0
+    if not top_genres:
+        return {
+            'top_genres': [],
+            'data_coverage': 0.0,
+            'summary_text': '--',
+        }
+
+    sorted_genres = sorted(
+        top_genres,
+        key=lambda item: (
+            1 if _is_unrecognized_genre(item.get('genre')) else 0,
+            -_safe_number(item.get('play_count'), 0),
+            str(item.get('genre') or ''),
+        ),
+    )
+    top_genre = sorted_genres[0]
+    summary_text = f'这一年你最常听的曲风是 {top_genre.get("genre")}，共播放 {_safe_number(top_genre.get("play_count"), 0)} 次。'
+    return {
+        'top_genres': sorted_genres,
+        'data_coverage': data_coverage,
+        'summary_text': summary_text,
+    }
+
+
+def _build_p16_summary(page):
+    if not page:
+        return None
+    top_track = page.get('top_track') or {}
+    page['summary_text'] = (
+        f'这一年陪伴你最多的是 {page.get("artist") or "--"}。'
+        f'你共播放了 TA 的作品 {_safe_number(page.get("play_count"), 0)} 次，'
+        f'其中最常听的是《{top_track.get("title") or "--"}》。'
+    )
+    return page
+
+
+def _build_p23_summary(page):
+    if not page:
+        return None
+    page['summary_text'] = (
+        f'这一年最常陪着你的是《{page.get("album") or "--"}》。'
+        f'你一共播放了这张专辑 {_safe_number(page.get("play_count"), 0)} 次，'
+        f'在 {_safe_number(page.get("active_days"), 0)} 天里都听过它。'
+    )
+    return page
+
+
+def _build_p24_summary(rows):
+    rows = list(rows or [])
+    if not rows:
+        return rows
+    top_albums_text = '、'.join(f'《{item.get("album") or "--"}》' for item in rows[:3])
+    summary_text = f'这一年你最常回去听的专辑主要集中在 {top_albums_text}。'
+    rows[0]['summary_text'] = summary_text
+    return rows
+
+
+def _build_p25_summary(page):
+    if not page:
+        return None
+    page['summary_text'] = (
+        f'{page.get("title") or "--"} 是这一年最能代表你的一首歌。'
+        f'你共播放了它 {_safe_number(page.get("year_play_count"), 0)} 次，'
+        f'在 {_safe_number(page.get("year_active_days"), 0)} 天里都听过它。'
+    )
+    return page
+
+
+def _build_p31_summary(rows, overview=None):
+    rows = list(rows or [])
+    overview = overview or {}
+    lyrics_ratio = _safe_number(overview.get("lyrics_coverage_ratio"), 0.0)
+    cover_ratio = _safe_number(overview.get("cover_coverage_ratio"), 0.0)
+    genre_ratio = _safe_number(overview.get("genre_coverage_ratio"), 0.0)
+    coverage_text = (
+        f'歌词覆盖率 {round(lyrics_ratio * 100)}%，'
+        f'封面覆盖率 {round(cover_ratio * 100)}%，'
+        f'曲风覆盖率 {round(genre_ratio * 100)}%。'
+    )
+    weak_coverage = max(lyrics_ratio, cover_ratio, genre_ratio) < 0.2
+    if rows and not weak_coverage:
+        top_credit = rows[0]
+        summary_text = f'已识别词曲人里，{top_credit.get("credit_name") or "--"} 最突出。当前元数据覆盖率方面：{coverage_text}'
+    elif rows:
+        summary_text = f'当前词曲人与相关元数据覆盖率不足，暂不强调年度代表人物。当前元数据覆盖率方面：{coverage_text}'
+    else:
+        summary_text = f'当前元数据覆盖率方面：{coverage_text}'
+    return {
+        'items': rows,
+        'summary_text': summary_text,
+    }
+
+
 def collect_dataset_payloads(cursor, year):
     plan = build_query_plan(year)
     payloads = {}
@@ -329,8 +815,10 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
     p01 = dataset_payloads.get('data_p01_summary')
     p02 = dataset_payloads.get('data_p02_overview')
     p03 = dataset_payloads.get('data_p03_explore')
+    p04 = dataset_payloads.get('data_lib_overview')
     p05_rows = dataset_payloads.get('data_p05_explore_repeat') or []
     p06_rows = dataset_payloads.get('data_p06_keyword_source_rows') or []
+    p07_rows = dataset_payloads.get('data_lib_structure') or []
     p08 = dataset_payloads.get('data_p08_genres') or []
     p09_rows = dataset_payloads.get('data_p09_genre_evolution') or []
     p10_rows = dataset_payloads.get('data_p10_taste_inputs') or []
@@ -353,11 +841,17 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
     p29_rows = dataset_payloads.get('data_p29_artist_rank_detail') or []
     p30_rows = dataset_payloads.get('data_p30_yearly_artist_rank') or []
     p31_rows = dataset_payloads.get('data_p31_credits') or []
+    l02_rows = dataset_payloads.get('data_l02_library_growth') or []
 
     p05 = _build_p05(p05_rows)
     p06 = _extract_keywords(p06_rows)
+    p07 = _build_library_structure(p07_rows)
+    p08 = _build_p08(p08)
     p09 = _build_p09(p09_rows)
     p10 = _build_taste_score(p10_rows)
+    l01 = _build_l01_library_summary(year, p04)
+    l02 = _build_l02_library_growth(year, l02_rows)
+    l03 = _build_l03_library_profile(p07)
 
     active_dates = [row['date'] for row in p18_rows if row.get('is_active')]
     p18 = {
@@ -380,9 +874,22 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
             'latest_night_sort_minute': p20_row.get('night_sort_minute'),
         }
 
-    p16_summary_row = next((row for row in p16_rows if row.get('row_type') == 'summary'), None)
-    p16_month_rows = [row for row in p16_rows if row.get('row_type') == 'month']
-    p16_track_row = next((row for row in p16_rows if row.get('row_type') == 'track'), None)
+    normalized_p16_rows = [{**row, 'artist': _normalize_artist_name(row.get('artist'))} for row in p16_rows]
+    p16_summary_candidates = [
+        row for row in normalized_p16_rows
+        if row.get('row_type') == 'summary' and _is_primary_artist(row.get('artist'))
+    ]
+    p16_summary_row = max(
+        p16_summary_candidates,
+        key=lambda row: (
+            _safe_number(row.get('play_count'), 0),
+            _safe_number(row.get('listened_sec'), 0),
+            row.get('artist') or '',
+        ),
+        default=None,
+    )
+    p16_month_rows = [row for row in normalized_p16_rows if row.get('row_type') == 'month' and row.get('artist') == (p16_summary_row or {}).get('artist')]
+    p16_track_row = next((row for row in normalized_p16_rows if row.get('row_type') == 'track' and row.get('artist') == (p16_summary_row or {}).get('artist')), None)
     p16 = None
     if p16_summary_row:
         p16 = {
@@ -403,6 +910,7 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
                 'play_count': p16_track_row.get('track_play_count', 0),
             } if p16_track_row else None,
         }
+    p16 = _build_p16_summary(p16)
 
     p17_weekday_rows = [row for row in p17_rows if row.get('row_type') == 'weekday']
     p17_bucket_rows = [row for row in p17_rows if row.get('row_type') == 'bucket']
@@ -430,9 +938,10 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
             'weekday_distribution': list(sorted(p17_weekday_rows, key=lambda row: row.get('weekday_num') or 0)),
         }
 
-    p28_summary_row = next((row for row in p28_rows if row.get('row_type') == 'summary'), None)
-    p28_first_track_row = next((row for row in p28_rows if row.get('row_type') == 'first_track'), None)
-    p28_peak_day_row = next((row for row in p28_rows if row.get('row_type') == 'peak_day'), None)
+    normalized_p28_rows = [{**row, 'artist': _normalize_artist_name(row.get('artist'))} for row in p28_rows]
+    p28_summary_row = next((row for row in normalized_p28_rows if row.get('row_type') == 'summary' and row.get('artist') == (p16_summary_row or {}).get('artist')), None)
+    p28_first_track_row = next((row for row in normalized_p28_rows if row.get('row_type') == 'first_track' and row.get('artist') == (p16_summary_row or {}).get('artist')), None)
+    p28_peak_day_row = next((row for row in normalized_p28_rows if row.get('row_type') == 'peak_day' and row.get('artist') == (p16_summary_row or {}).get('artist')), None)
     p28 = None
     if p28_summary_row:
         p28 = {
@@ -496,8 +1005,20 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
             } if representative_track_row else None,
         }
 
-    p27_artist_rows = [row for row in p27_rows if row.get('row_type') == 'artist']
-    p27_track_rows = [row for row in p27_rows if row.get('row_type') == 'track']
+    normalized_p27_rows = [{**row, 'artist': _normalize_artist_name(row.get('artist'))} for row in p27_rows]
+    p27_artist_rows = [
+        row for row in normalized_p27_rows
+        if row.get('row_type') == 'artist' and _is_primary_artist(row.get('artist'))
+    ]
+    p27_artist_rows = sorted(
+        p27_artist_rows,
+        key=lambda row: (
+            -_safe_number(row.get('play_count'), 0),
+            -_safe_number(row.get('listened_sec'), 0),
+            row.get('artist') or '',
+        ),
+    )
+    p27_track_rows = [row for row in normalized_p27_rows if row.get('row_type') == 'track']
     p27 = []
     for artist_row in p27_artist_rows:
         artist_name = artist_row.get('artist')
@@ -513,12 +1034,24 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
             } if top_track else None,
         })
 
-    p29_artist_rows = [row for row in p29_rows if row.get('row_type') == 'artist']
-    p29_track_rows = [row for row in p29_rows if row.get('row_type') == 'track']
+    normalized_p29_rows = [{**row, 'artist': _normalize_artist_name(row.get('artist'))} for row in p29_rows]
+    p29_artist_rows = [
+        row for row in normalized_p29_rows
+        if row.get('row_type') == 'artist' and _is_primary_artist(row.get('artist'))
+    ]
+    p29_artist_rows = sorted(
+        p29_artist_rows,
+        key=lambda row: (
+            -_safe_number(row.get('play_count'), 0),
+            -_safe_number(row.get('listened_sec'), 0),
+            row.get('artist') or '',
+        ),
+    )
+    p29_track_rows = [row for row in normalized_p29_rows if row.get('row_type') == 'track']
     p29 = []
-    for artist_row in sorted(p29_artist_rows, key=lambda row: row.get('artist_rank') or 999):
-        artist_rank = artist_row.get('artist_rank')
-        top_track = next((row for row in p29_track_rows if row.get('artist_rank') == artist_rank), None)
+    for index, artist_row in enumerate(p29_artist_rows, start=1):
+        artist_rank = index
+        top_track = next((row for row in p29_track_rows if row.get('artist') == artist_row.get('artist')), None)
         p29.append({
             'artist_rank': artist_rank,
             'artist': artist_row.get('artist'),
@@ -531,26 +1064,88 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
             } if top_track else None,
         })
 
+    p22 = sorted(
+        [
+            {
+                **row,
+                'repeat_index': _repeat_index(row),
+            }
+            for row in p22_rows
+        ],
+        key=lambda row: (
+            -_safe_number(row.get('repeat_index'), 0),
+            -_safe_number(row.get('play_count'), 0),
+            -_safe_number(row.get('active_days'), 0),
+            str(row.get('title') or ''),
+        ),
+    )
+
+    rankable_p24_rows = [row for row in p24_rows if _is_rankable_album(row.get('album'))]
+    p24 = sorted(rankable_p24_rows, key=_album_sort_key)
+    if p24:
+        p23 = p24[0]
+    elif not _is_rankable_album((p23 or {}).get('album')):
+        p23 = None
+    p23 = _build_p23_summary(p23)
+    p24 = _build_p24_summary(p24)
+
+    p26 = sorted(
+        [
+            {
+                **row,
+                'song_score': _song_score(row),
+            }
+            for row in p26_rows
+        ],
+        key=lambda row: (
+            -_safe_number(row.get('song_score'), 0),
+            -_safe_number(row.get('play_count'), 0),
+            -_safe_number(row.get('active_days'), 0),
+            -_safe_number(row.get('listened_sec'), 0),
+            str(row.get('title') or ''),
+        ),
+    )
+
+    if p25 is None and p26:
+        top_song = p26[0]
+        p25 = {
+            'track_id': top_song.get('track_id'),
+            'title': top_song.get('title'),
+            'artist': top_song.get('artist'),
+            'album': top_song.get('album'),
+            'first_played_at': top_song.get('first_played_at'),
+            'year_play_count': top_song.get('play_count'),
+            'year_listened_sec': top_song.get('listened_sec'),
+            'year_active_days': top_song.get('active_days'),
+            'song_score': top_song.get('song_score'),
+        }
+    p25 = _build_p25_summary(p25)
+
+    normalized_p30_rows = [
+        {**row, 'artist': _normalize_artist_name(row.get('artist'))}
+        for row in p30_rows
+        if _is_primary_artist(row.get('artist'))
+    ]
     p30 = list(sorted(
-        p30_rows,
+        normalized_p30_rows,
         key=lambda row: ((row.get('play_year') or 0), (row.get('artist_rank') or 0))
     ))
 
-    p31 = list(sorted(
+    p31_items = list(sorted(
         p31_rows,
         key=lambda row: (row.get('credit_type') or '', -(row.get('play_count') or 0), -(row.get('listened_sec') or 0))
     ))
+    p31 = _build_p31_summary(p31_items, p04)
 
     pages = {
         'P01': p01,
         'P02': p02,
         'P03': p03,
+        'P04': p04,
         'P05': p05,
         'P06': p06,
-        'P08': {
-            'top_genres': list(p08),
-            'data_coverage': 1.0 if p08 else 0.0,
-        },
+        'P07': p07,
+        'P08': p08,
         'P09': p09,
         'P10': p10,
         'P12': p12,
@@ -562,16 +1157,19 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
         'P18': p18,
         'P19': p19,
         'P20': p20,
-        'P22': list(p22_rows),
+        'P22': p22,
         'P23': p23,
-        'P24': list(p24_rows),
+        'P24': p24,
         'P25': p25,
-        'P26': list(p26_rows),
+        'P26': p26,
         'P27': p27,
         'P28': p28,
         'P29': p29,
         'P30': p30,
         'P31': p31,
+        'L01': l01,
+        'L02': l02,
+        'L03': l03,
     }
 
     pages['P32'] = {
@@ -580,7 +1178,7 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
         'artist_journey': p28,
         'most_active_weekday': p17['most_active_weekday'] if p17 else None,
         'song_of_year': p25,
-        'top_credit': p31[0] if p31 else None,
+        'top_credit': (p31.get('items') or [None])[0] if p31 else None,
         'latest_night_track': p20['latest_night_track'] if p20 else None,
         'year_play_count': p02.get('year_play_count') if p02 else None,
         'year_listened_sec': p02.get('year_listened_sec') if p02 else None,
