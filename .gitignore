@@ -69,3 +69,9 @@ buck-out/
 /coverage
 .worktrees/
 publish/releaseBody.md
+# python cache
+__pycache__/
+*.pyc
+
+# local analysis artifacts
+tmp/

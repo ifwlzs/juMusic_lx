@@ -2,24 +2,155 @@
 
 import argparse
 import hashlib
-import re
+import json
 import os
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse, unquote
 
 import pymssql
 from mutagen import File as MutagenFile
 
 TABLE_NAME = 'ods_jumusic_music_info'
+ARTIST_ALIAS_TABLE_NAME = 'ods_jumusic_artist_alias'
 SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg', '.opus'}
 WAREHOUSE_COLUMNS = [
     'batch_id', 'root_path', 'file_path', 'file_name', 'file_ext', 'file_size', 'file_mtime', 'file_md5',
     'is_readable', 'title', 'artist', 'album', 'album_artist', 'track_no', 'disc_no', 'genre', 'year',
     'duration_sec', 'bitrate', 'sample_rate', 'channels',
     'embedded_lyric', 'embedded_lyric_format', 'embedded_lyric_length',
+    'genre_essentia_label', 'genre_essentia_raw_label', 'genre_essentia_path', 'genre_essentia_parent', 'genre_essentia_child', 'genre_essentia_depth',
+    'genre_essentia_confidence', 'genre_essentia_model', 'genre_essentia_source', 'genre_essentia_inferred_at',
     'scan_status', 'scan_error', 'etl_created_at', 'etl_updated_at'
 ]
+COMMENT_SQLS = [
+    f"""
+IF EXISTS (
+    SELECT 1 FROM sys.tables t WHERE t.object_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}')
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM sys.extended_properties
+        WHERE major_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND minor_id = 0 AND name = N'MS_Description'
+    )
+        EXEC sys.sp_dropextendedproperty
+            @name=N'MS_Description',
+            @level0type=N'SCHEMA', @level0name=N'dbo',
+            @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}';
+
+    EXEC sys.sp_addextendedproperty
+        @name=N'MS_Description',
+        @value=N'juMusic 歌手别名映射表；用于把文件名或标签中的别名统一归并到标准歌手名',
+        @level0type=N'SCHEMA', @level0name=N'dbo',
+        @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND name = N'alias_name')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}'), 'alias_name', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'alias_name';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'原始别名，通常来自文件名、标签或人工整理结果', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'alias_name';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND name = N'alias_name_norm')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}'), 'alias_name_norm', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'alias_name_norm';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'归一化后的别名键；去空白并转小写，用于唯一匹配', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'alias_name_norm';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND name = N'canonical_artist')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}'), 'canonical_artist', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'canonical_artist';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'标准歌手名；命中 alias 后最终写入歌曲维表 artist 的值', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'canonical_artist';
+END
+""",
+    f"""
+IF EXISTS (
+    SELECT 1 FROM sys.tables t WHERE t.object_id = OBJECT_ID(N'dbo.{TABLE_NAME}')
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM sys.extended_properties
+        WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = 0 AND name = N'MS_Description'
+    )
+        EXEC sys.sp_dropextendedproperty
+            @name=N'MS_Description',
+            @level0type=N'SCHEMA', @level0name=N'dbo',
+            @level1type=N'TABLE', @level1name=N'{TABLE_NAME}';
+
+    EXEC sys.sp_addextendedproperty
+        @name=N'MS_Description',
+        @value=N'juMusic 歌曲维表；存放本地/远端扫描后的音频文件元数据，作为年报与分析维度补充',
+        @level0type=N'SCHEMA', @level0name=N'dbo',
+        @level1type=N'TABLE', @level1name=N'{TABLE_NAME}';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'file_path')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'file_path', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'file_path';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'音频文件完整路径，作为唯一去重键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'file_path';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'duration_sec')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'duration_sec', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'duration_sec';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'歌曲时长（秒），保留 3 位小数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'duration_sec';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'genre_essentia_label')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'genre_essentia_label', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_label';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外挂 Essentia / Linux 识别得到的主曲风标签', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_label';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'genre_essentia_confidence')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'genre_essentia_confidence', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_confidence';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外挂 Essentia 主曲风置信度，范围通常为 0-1', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_confidence';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'genre_essentia_model')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'genre_essentia_model', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_model';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外挂 Essentia 识别使用的模型标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_model';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'genre_essentia_source')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'genre_essentia_source', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_source';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外挂识别来源，例如 wsl / linux / docker', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_source';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND name = N'genre_essentia_inferred_at')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{TABLE_NAME}'), 'genre_essentia_inferred_at', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_inferred_at';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外挂 Essentia 识别完成时间', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_essentia_inferred_at';
+END
+""",
+]
+
+VIRTUAL_SINGER_DIR_MARKER = '▓虚拟歌姬▓'
 
 
 def iter_music_files(root_path):
@@ -76,6 +207,102 @@ def _parse_int_prefix(value):
 
 def _row_values(row, columns):
     return [row.get(column) for column in columns]
+
+
+def _is_virtual_singer_directory(file_info):
+    target = ' '.join([
+        str(file_info.get('root_path') or ''),
+        str(file_info.get('file_path') or ''),
+    ])
+    return VIRTUAL_SINGER_DIR_MARKER in target
+
+
+def _normalize_artist_text(value):
+    if not value:
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    text = (
+        text.replace('／', '/')
+        .replace('、', '/')
+        .replace('，', '/')
+        .replace(',', '/')
+        .replace(';', '/')
+        .replace('；', '/')
+        .replace('&', '/')
+        .replace(' feat. ', '/')
+        .replace(' feat ', '/')
+        .replace('×', '/')
+        .replace(' x ', '/')
+        .replace(' X ', '/')
+    )
+    parts = [part.strip() for part in re.split(r'\s*/\s*', text) if part.strip()]
+    deduped = []
+    for part in parts:
+        if part not in deduped:
+            deduped.append(part)
+    return ' / '.join(deduped) if deduped else None
+
+
+def _normalize_artist_alias_key(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    text = re.sub(r'\s+', '', text)
+    return text.lower()
+
+
+def apply_artist_alias_map(artist, artist_alias_map):
+    normalized_artist = _normalize_artist_text(artist)
+    if not normalized_artist:
+        return normalized_artist
+
+    mapped_parts = []
+    for part in [item.strip() for item in normalized_artist.split('/') if item.strip()]:
+        normalized_key = _normalize_artist_alias_key(part)
+        canonical_artist = artist_alias_map.get(normalized_key, part) if normalized_key else part
+        canonical_artist = _normalize_artist_text(canonical_artist) or canonical_artist
+        if canonical_artist and canonical_artist not in mapped_parts:
+            mapped_parts.append(canonical_artist)
+
+    return ' / '.join(mapped_parts) if mapped_parts else normalized_artist
+
+
+def load_artist_alias_map(conn):
+    cursor = conn.cursor()
+    cursor.execute(f"""
+SELECT alias_name_norm, canonical_artist
+FROM dbo.{ARTIST_ALIAS_TABLE_NAME}
+WHERE is_enabled = 1
+""")
+    rows = cursor.fetchall()
+    cursor.close()
+    return {
+        str(alias_name_norm): str(canonical_artist)
+        for alias_name_norm, canonical_artist in rows
+        if alias_name_norm and canonical_artist
+    }
+
+
+def _extract_artist_from_virtual_singer_filename(file_name):
+    stem = Path(file_name).stem.strip()
+    if not stem:
+        return None
+
+    bracket_match = re.match(r'^[\[\(【](.+?)[\]\)】]', stem)
+    if bracket_match:
+        return _normalize_artist_text(bracket_match.group(1))
+
+    separator_match = re.match(r'^(.+?)\s*[-—–_/／]\s*.+$', stem)
+    if separator_match:
+        return _normalize_artist_text(separator_match.group(1))
+
+    return None
 
 
 def empty_audio_metadata(status='SUCCESS', error=None):
@@ -197,8 +424,81 @@ def extract_audio_metadata(file_path):
     return result
 
 
+def split_genre_essentia_label(label):
+    raw_label = None if label is None else str(label).strip()
+    if not raw_label:
+        return {
+            'genre_essentia_raw_label': None,
+            'genre_essentia_path': None,
+            'genre_essentia_parent': None,
+            'genre_essentia_child': None,
+            'genre_essentia_depth': None,
+            'genre_essentia_label': None,
+        }
+
+    parts = [part.strip() for part in raw_label.split('---') if part and part.strip()]
+    if not parts:
+        return {
+            'genre_essentia_raw_label': None,
+            'genre_essentia_path': None,
+            'genre_essentia_parent': None,
+            'genre_essentia_child': None,
+            'genre_essentia_depth': None,
+            'genre_essentia_label': None,
+        }
+
+    path = '---'.join(parts)
+    parent = parts[0] if len(parts) >= 1 else None
+    child = parts[1] if len(parts) >= 2 else None
+    display_label = child or parent or path
+
+    return {
+        'genre_essentia_raw_label': raw_label,
+        'genre_essentia_path': path,
+        'genre_essentia_parent': parent,
+        'genre_essentia_child': child,
+        'genre_essentia_depth': len(parts),
+        'genre_essentia_label': display_label,
+    }
+
+
+def load_genre_inference_map(path):
+    items = json.loads(Path(path).read_text(encoding='utf-8'))
+    result = {}
+    for item in items or []:
+        file_path = item.get('file_path')
+        if not file_path:
+            continue
+        result[str(file_path)] = dict(item)
+    return result
+
+
 def ensure_table(conn):
     cursor = conn.cursor()
+    cursor.execute(f"""
+IF OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.{ARTIST_ALIAS_TABLE_NAME} (
+        id bigint identity(1,1) primary key,
+        alias_name nvarchar(255) not null,
+        alias_name_norm nvarchar(255) not null,
+        canonical_artist nvarchar(255) not null,
+        is_enabled bit not null default 1,
+        note nvarchar(500) null,
+        etl_created_at datetime2 not null default sysdatetime(),
+        etl_updated_at datetime2 not null default sysdatetime()
+    )
+END
+""")
+    cursor.execute(f"""
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes WHERE name = 'ux_{ARTIST_ALIAS_TABLE_NAME}_alias_name_norm' AND object_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}')
+)
+BEGIN
+    CREATE UNIQUE INDEX ux_{ARTIST_ALIAS_TABLE_NAME}_alias_name_norm
+    ON dbo.{ARTIST_ALIAS_TABLE_NAME}(alias_name_norm)
+END
+""")
     cursor.execute(f"""
 IF OBJECT_ID(N'dbo.{TABLE_NAME}', N'U') IS NULL
 BEGIN
@@ -228,6 +528,16 @@ BEGIN
         embedded_lyric nvarchar(max) null,
         embedded_lyric_format varchar(20) null,
         embedded_lyric_length int null,
+        genre_essentia_label nvarchar(255) null,
+        genre_essentia_raw_label nvarchar(255) null,
+        genre_essentia_path nvarchar(255) null,
+        genre_essentia_parent nvarchar(100) null,
+        genre_essentia_child nvarchar(100) null,
+        genre_essentia_depth int null,
+        genre_essentia_confidence decimal(18,6) null,
+        genre_essentia_model nvarchar(255) null,
+        genre_essentia_source nvarchar(100) null,
+        genre_essentia_inferred_at datetime2 null,
         scan_status varchar(20) not null,
         scan_error nvarchar(2000) null,
         etl_created_at datetime2 not null,
@@ -235,6 +545,19 @@ BEGIN
     )
 END
 """)
+    for alter_sql in [
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_label') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_label nvarchar(255) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_raw_label') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_raw_label nvarchar(255) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_path') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_path nvarchar(255) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_parent') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_parent nvarchar(100) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_child') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_child nvarchar(100) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_depth') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_depth int null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_confidence') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_confidence decimal(18,6) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_model') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_model nvarchar(255) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_source') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_source nvarchar(100) null",
+        f"IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_inferred_at') IS NULL ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_inferred_at datetime2 null",
+    ]:
+        cursor.execute(alter_sql)
     cursor.execute(f"""
 IF COL_LENGTH('dbo.{TABLE_NAME}', 'embedded_lyric') IS NULL
 BEGIN
@@ -269,6 +592,8 @@ BEGIN
     CREATE INDEX ix_{TABLE_NAME}_batch_id ON dbo.{TABLE_NAME}(batch_id)
 END
 """)
+    for sql in COMMENT_SQLS:
+        cursor.execute(sql)
     conn.commit()
     cursor.close()
 
@@ -299,41 +624,126 @@ def upsert_music_rows(conn, rows):
     return {'updated': updated, 'inserted': inserted}
 
 
+def load_existing_music_index(conn, root_path):
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""
+SELECT file_path, file_size, file_mtime
+FROM dbo.{TABLE_NAME}
+WHERE root_path = %s
+""",
+        (str(Path(root_path)),),
+    )
+    rows = cursor.fetchall()
+    cursor.close()
+    return {
+        str(file_path): {
+            'file_size': file_size,
+            'file_mtime': file_mtime,
+        }
+        for file_path, file_size, file_mtime in rows
+        if file_path
+    }
+
+
 def new_batch_id(now=None):
     current = now or datetime.now()
     return current.strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:8]
 
 
-def build_music_row(file_info, metadata, batch_id, now=None):
+def build_music_row(file_info, metadata, batch_id, now=None, artist_alias_map=None, genre_inference=None):
     current = now or datetime.now()
     row = {}
     row.update(file_info)
     row.update(metadata)
+    if _is_virtual_singer_directory(file_info):
+        artist_from_filename = _extract_artist_from_virtual_singer_filename(file_info.get('file_name'))
+        if artist_from_filename:
+            row['artist'] = artist_from_filename
+    row['artist'] = _normalize_artist_text(row.get('artist'))
+    if artist_alias_map:
+        row['artist'] = apply_artist_alias_map(row.get('artist'), artist_alias_map)
+    row['genre_essentia_label'] = None
+    row['genre_essentia_raw_label'] = None
+    row['genre_essentia_path'] = None
+    row['genre_essentia_parent'] = None
+    row['genre_essentia_child'] = None
+    row['genre_essentia_depth'] = None
+    row['genre_essentia_confidence'] = None
+    row['genre_essentia_model'] = None
+    row['genre_essentia_source'] = None
+    row['genre_essentia_inferred_at'] = None
+    if genre_inference:
+        genre_parts = split_genre_essentia_label(
+            genre_inference.get('genre_essentia_raw_label')
+            or genre_inference.get('genre_essentia_path')
+            or genre_inference.get('genre_essentia_label')
+        )
+        row.update(genre_parts)
+        row['genre_essentia_confidence'] = genre_inference.get('genre_essentia_confidence')
+        row['genre_essentia_model'] = genre_inference.get('genre_essentia_model')
+        row['genre_essentia_source'] = genre_inference.get('genre_essentia_source')
+        row['genre_essentia_inferred_at'] = genre_inference.get('genre_essentia_inferred_at')
     row['batch_id'] = batch_id
     row['etl_created_at'] = current
     row['etl_updated_at'] = current
     return row
 
 
-def collect_music_rows(root_path, batch_id=None, now=None, limit=None):
+def _is_file_changed(file_info, existing_row):
+    if not existing_row:
+        return True
+    return (
+        existing_row.get('file_size') != file_info.get('file_size')
+        or existing_row.get('file_mtime') != file_info.get('file_mtime')
+    )
+
+
+def collect_music_rows(root_path, batch_id=None, now=None, limit=None, artist_alias_map=None, changed_only=False, existing_index=None, genre_inference_map=None):
     batch = batch_id or new_batch_id(now=now)
     rows = []
-    stats = {'scanned': 0, 'success': 0, 'failed': 0}
+    stats = {'scanned': 0, 'success': 0, 'failed': 0, 'skipped': 0}
     for file_path in iter_music_files(root_path):
         if limit is not None and stats['scanned'] >= limit:
             break
         stats['scanned'] += 1
         file_info = extract_file_info(file_path, root_path=root_path)
+        if changed_only and not _is_file_changed(file_info, (existing_index or {}).get(file_info['file_path'])):
+            stats['skipped'] += 1
+            continue
         metadata = extract_audio_metadata(file_path)
         if metadata['scan_status'] == 'FAILED':
             stats['failed'] += 1
         else:
             stats['success'] += 1
-        rows.append(build_music_row(file_info, metadata, batch_id=batch, now=now))
+        rows.append(build_music_row(
+            file_info,
+            metadata,
+            batch_id=batch,
+            now=now,
+            artist_alias_map=artist_alias_map,
+            genre_inference=(genre_inference_map or {}).get(file_info['file_path']),
+        ))
     return rows, stats
 
 
+def parse_db_url(db_url):
+    parsed = urlparse(db_url)
+    if parsed.scheme not in ('mssql+pymssql', 'pymssql'):
+        raise ValueError('db_url scheme must be mssql+pymssql or pymssql')
+    return {
+        'server': parsed.hostname,
+        'port': parsed.port or 1433,
+        'user': unquote(parsed.username) if parsed.username else None,
+        'password': unquote(parsed.password) if parsed.password else None,
+        'database': parsed.path.lstrip('/') or None,
+    }
+
+
 def load_db_config_from_env():
+    db_url = os.environ.get('JUMUSIC_DB_URL')
+    if db_url:
+        return parse_db_url(db_url)
     return {
         'server': os.environ['JUMUSIC_DB_SERVER'],
         'port': int(os.environ.get('JUMUSIC_DB_PORT', '1433')),
@@ -359,19 +769,42 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--root-path', default=None)
     parser.add_argument('--limit', type=int, default=None)
+    parser.add_argument('--changed-only', action='store_true')
+    parser.add_argument('--genre-inference-json', default=None)
     return parser.parse_args()
 
 
-def main(root_path, limit=None):
+def main(root_path, limit=None, changed_only=False, genre_inference_json=None):
     if not root_path:
         raise ValueError('root_path is required')
     db_config = load_db_config_from_env()
     conn = connect_db(db_config)
-    ensure_table(conn)
-    rows, scan_stats = collect_music_rows(root_path, limit=limit)
-    load_stats = upsert_music_rows(conn, rows)
-    print(
-        f"done scanned={scan_stats['scanned']} success={scan_stats['success']} "
-        f"failed={scan_stats['failed']} updated={load_stats['updated']} inserted={load_stats['inserted']}"
-    )
-    return {'scan': scan_stats, 'load': load_stats}
+    try:
+        ensure_table(conn)
+        artist_alias_map = load_artist_alias_map(conn)
+        existing_index = load_existing_music_index(conn, root_path) if changed_only else None
+        genre_inference_map = load_genre_inference_map(genre_inference_json) if genre_inference_json else None
+        rows, scan_stats = collect_music_rows(
+            root_path,
+            limit=limit,
+            artist_alias_map=artist_alias_map,
+            changed_only=changed_only,
+            existing_index=existing_index,
+            genre_inference_map=genre_inference_map,
+        )
+        load_stats = upsert_music_rows(conn, rows)
+        print(
+            f"done scanned={scan_stats['scanned']} success={scan_stats['success']} "
+            f"failed={scan_stats['failed']} skipped={scan_stats['skipped']} "
+            f"updated={load_stats['updated']} inserted={load_stats['inserted']}"
+        )
+        return {'scan': scan_stats, 'load': load_stats}
+    finally:
+        close_method = getattr(conn, 'close', None)
+        if callable(close_method):
+            close_method()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    main(root_path=args.root_path, limit=args.limit, changed_only=args.changed_only, genre_inference_json=args.genre_inference_json)

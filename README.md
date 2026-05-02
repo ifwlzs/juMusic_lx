@@ -43,6 +43,132 @@
 
 从 v1.0.0 起，我们发布了一个独立的[数据同步服务](https://github.com/lyswhut/lx-music-sync-server#readme)。如果你有服务器，可以将其部署到服务器上作为私人多端同步服务使用，详情看该项目说明。
 
+## juMusic ODS 导入与年报取数（当前仓库约定）
+
+> 这一节用于记录当前仓库里和 juMusic 本地数据分析相关的长期使用方法，便于后续继续维护。
+> 当前主路线是：**本地 / WebDAV 数据 → ODS 入库 → 数据库直连取数**。
+> `report_{year}.json` 仅保留为开发调试产物，不再作为长期主链路。
+
+### 1. 统一 ODS 导入入口
+
+当前统一入口脚本：
+
+- `scripts/import_jumusic_ods.ps1`
+
+作用：
+
+1. 导入歌曲维表：`ods_jumusic_music_info`
+2. 导入播放历史事实表：`ods_jumusic_play_history`
+
+示例：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\import_jumusic_ods.ps1 `
+  -MusicRoot "Z:\Music" `
+  -PlayHistoryJson "tests\lx_play_history_all.json" `
+  -DbUrl "mssql+pymssql://sa:ifwlzs@192.168.2.156:1433/db_tgmsg"
+```
+
+仅导入播放历史：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\import_jumusic_ods.ps1 `
+  -SkipMusic `
+  -PlayHistoryJson "tests\lx_play_history_all.json" `
+  -DbUrl "mssql+pymssql://sa:ifwlzs@192.168.2.156:1433/db_tgmsg"
+```
+
+仅导入歌曲维表：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\import_jumusic_ods.ps1 `
+  -MusicRoot "Z:\Music" `
+  -SkipHistory `
+  -DbUrl "mssql+pymssql://sa:ifwlzs@192.168.2.156:1433/db_tgmsg"
+```
+
+### 2. 底层导入脚本
+
+#### 2.1 播放历史事实表
+
+- 脚本：`scripts/play_history_etl/load_play_history.py`
+- 包装入口：`scripts/play_history_etl/import_play_history_to_db.ps1`
+- 目标表：`dbo.ods_jumusic_play_history`
+
+特点：
+
+1. 自动建表
+2. 自动扩列（处理长 WebDAV / URI 标识）
+3. 自动补表注释 / 列注释
+4. 基于 `session_hash` 去重增量导入
+5. 秒数字段保留小数精度
+
+#### 2.2 歌曲维表
+
+- 脚本：`scripts/music_etl/load_music_info.py`
+- 目标表：`dbo.ods_jumusic_music_info`
+
+特点：
+
+1. 自动建表
+2. 自动补表注释 / 列注释
+3. 基于 `file_path` 幂等更新 / 插入
+4. 读取本地音频标签、时长、技术参数等
+
+### 3. 数据库连接方式
+
+推荐优先使用单串连接：
+
+```text
+mssql+pymssql://sa:password@host:1433/db_name
+```
+
+当前脚本普遍支持：
+
+1. 直接传 `--db-url`
+2. 或设置环境变量 `JUMUSIC_DB_URL`
+
+旧式环境变量仍可继续使用：
+
+- `JUMUSIC_DB_SERVER`
+- `JUMUSIC_DB_PORT`
+- `JUMUSIC_DB_USER`
+- `JUMUSIC_DB_PASSWORD`
+- `JUMUSIC_DB_DATABASE`
+
+### 4. 年报数据库直连入口
+
+当前脚本：
+
+- `scripts/year_report/build_year_report.py`
+
+支持：
+
+1. `--input-json`：调试模式
+2. `--db-url`：正式数据库直连模式
+
+正式数据库直连示例：
+
+```powershell
+python .\scripts\year_report\build_year_report.py `
+  --year 2026 `
+  --db-url "mssql+pymssql://sa:ifwlzs@192.168.2.156:1433/db_tgmsg" `
+  --output .\publish\report_2026_from_db.json
+```
+
+当前数据库直连查询基于：
+
+- `dbo.ods_jumusic_play_history`
+- `dbo.ods_jumusic_music_info`
+- `dbo.dim_com_date`
+
+### 5. 当前约定
+
+1. ODS 入库是长期主链路；
+2. 年报 / 报表优先直连数据库取数；
+3. `report_{year}.json` 只作为开发调试与临时预览产物；
+4. 后续如果切到帆软数据集，也应继续以数据库事实表 / 维表为单一真实来源。
+
 ## 贡献代码
 
 本项目欢迎 PR，但为了 PR 能顺利合并，需要注意以下几点：
