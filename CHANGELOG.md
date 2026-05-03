@@ -35,9 +35,11 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Android 端新增应用图标切换（icon1/icon2），可在设置中切换，默认 icon1，并在重启后保持
 - Android 端应用图标切换新增 icon3（经典）
 - `scripts/music_etl/load_music_info.py` 新增内置歌词抓取能力，入仓字段补充 `embedded_lyric` / `embedded_lyric_format` / `embedded_lyric_length`
+- `scripts/music_etl/load_music_info.py` 新增 ODS 自动补曲风链路，支持 VM 共享目录映射、Essentia 多候选曲风回写、分批超时控制与失败跳过
 - 播放页新增歌词时间轴偏移设置，支持 `-5000ms ~ +5000ms` 范围与快捷步进调整，修改后即时生效
 - 年报 / 歌曲维表新增 Essentia 曲风全量回填脚本，支持 Linux VM 后台批处理、失败样本跳过与可恢复循环入库
 - 新增 `ods_jumusic_genre_dim` 曲风维度表及 seed 脚本，维护 Essentia 曲风英文标准值、中文展示名和父子层级关系
+- 新增 `scripts/year_report/build_year_report.py` 年报 Python 骨架与字段 contract，补齐 `P20` / `P23` / `P24` / `L02` / `P32` 的最小可用聚合
 
 优化
 

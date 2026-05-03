@@ -5,10 +5,17 @@ import hashlib
 import json
 import os
 import re
+import shlex
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, unquote
+
+try:
+    import paramiko
+except ImportError:  # pragma: no cover
+    paramiko = None
 
 import pymssql
 from mutagen import File as MutagenFile
@@ -17,6 +24,32 @@ TABLE_NAME = 'ods_jumusic_music_info'
 ARTIST_ALIAS_TABLE_NAME = 'ods_jumusic_artist_alias'
 GENRE_DIM_TABLE_NAME = 'ods_jumusic_genre_dim'
 SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg', '.opus'}
+# 默认本地音乐根目录，便于后续新增歌曲后直接执行脚本即可。
+DEFAULT_LOCAL_MUSIC_ROOT = r'Z:\Music'
+# VM 共享目录固定映射到宿主机音乐库，用于远端 Essentia 曲风识别。
+DEFAULT_VM_MUSIC_ROOT = '/mnt/hgfs/Music'
+# VM 上的曲风识别脚本、模型与工作目录都固定为当前挑战环境已验证路径。
+DEFAULT_VM_GENRE_WORKDIR = '/root/juMusic_tmp'
+DEFAULT_VM_GENRE_SCRIPT = f'{DEFAULT_VM_GENRE_WORKDIR}/run_essentia_genre_inference.py'
+DEFAULT_VM_EMBEDDING_MODEL = f'{DEFAULT_VM_GENRE_WORKDIR}/discogs-effnet-bs64-1.pb'
+DEFAULT_VM_CLASSIFIER_MODEL = f'{DEFAULT_VM_GENRE_WORKDIR}/genre_discogs400-discogs-effnet-1.pb'
+DEFAULT_VM_METADATA_JSON = f'{DEFAULT_VM_GENRE_WORKDIR}/genre_discogs400-discogs-effnet-1.json'
+DEFAULT_VM_GENRE_MODEL = 'essentia-external'
+DEFAULT_VM_GENRE_SOURCE = 'vm'
+DEFAULT_VM_TOP_K = 20
+# 曲风推理默认按更小批次循环提交，避免单批次卡太久。
+DEFAULT_VM_GENRE_BATCH_SIZE = 5
+# 单批次远端推理最长运行秒数，超时后直接终止该批并继续后续批次。
+DEFAULT_VM_GENRE_TIMEOUT_SEC = 90
+# 超时或异常批次写入固定来源，避免坏文件无限重试。
+DEFAULT_VM_GENRE_SKIP_SOURCE = 'vm-timeout-skip'
+# VM 默认连接参数固定为当前用户给定值，同时仍允许通过环境变量覆盖。
+DEFAULT_VM_CONFIG = {
+    'host': '192.168.194.133',
+    'port': 22,
+    'username': 'root',
+    'password': 'root',
+}
 WAREHOUSE_COLUMNS = [
     'batch_id', 'root_path', 'file_path', 'file_name', 'file_ext', 'file_size', 'file_mtime', 'file_md5',
     'is_readable', 'title', 'artist', 'album', 'album_artist', 'track_no', 'disc_no', 'genre', 'year',
@@ -243,19 +276,43 @@ def compute_md5(file_path, chunk_size=1024 * 1024):
     return digest.hexdigest()
 
 
-def extract_file_info(file_path, root_path):
+def empty_file_info(file_path, root_path, error=None):
+    """构造文件层兜底信息，避免单个文件瞬时不可读时中断整批补数。"""
     path = Path(file_path)
-    stat = path.stat()
     return {
         'root_path': str(Path(root_path)),
         'file_path': str(path),
         'file_name': path.name,
         'file_ext': path.suffix.lower(),
-        'file_size': stat.st_size,
-        'file_mtime': datetime.fromtimestamp(stat.st_mtime),
-        'file_md5': compute_md5(path),
-        'is_readable': True,
+        'file_size': None,
+        'file_mtime': None,
+        'file_md5': None,
+        'is_readable': False,
+        'file_error': error,
     }
+
+
+def extract_file_info(file_path, root_path):
+    """提取文件基础信息；若文件在扫描过程中消失，则返回失败占位信息继续后续流程。"""
+    path = Path(file_path)
+    result = empty_file_info(path, root_path=root_path)
+    try:
+        stat = path.stat()
+        result['file_size'] = stat.st_size
+        result['file_mtime'] = datetime.fromtimestamp(stat.st_mtime)
+    except OSError as exc:
+        result['file_error'] = str(exc)
+        return result
+
+    try:
+        result['file_md5'] = compute_md5(path)
+    except OSError as exc:
+        result['file_error'] = str(exc)
+        return result
+
+    result['is_readable'] = True
+    result.pop('file_error', None)
+    return result
 
 
 def _first_value(tags, *keys):
@@ -722,6 +779,31 @@ def upsert_music_rows(conn, rows):
     return {'updated': updated, 'inserted': inserted}
 
 
+def fetch_pending_genre_file_paths(conn, batch_id, limit=None):
+    """查询本批次仍未完成 Essentia 曲风识别的歌曲路径。"""
+    cursor = conn.cursor()
+    cursor.execute(f"""
+SELECT file_path
+FROM dbo.{TABLE_NAME}
+WHERE batch_id = %s
+  AND scan_status = 'SUCCESS'
+  AND ISNULL(genre_essentia_source, '') <> %s
+  AND (
+        genre_essentia_label IS NULL
+        OR LTRIM(RTRIM(genre_essentia_label)) = ''
+        OR genre_essentia_path IS NULL
+        OR LTRIM(RTRIM(genre_essentia_path)) = ''
+      )
+ORDER BY file_path
+""", [batch_id, DEFAULT_VM_GENRE_SKIP_SOURCE])
+    rows = cursor.fetchall()
+    cursor.close()
+    file_paths = [row[0] for row in rows if row and row[0]]
+    if limit is not None:
+        return file_paths[:limit]
+    return file_paths
+
+
 def load_existing_music_index(conn, root_path):
     cursor = conn.cursor()
     cursor.execute(
@@ -798,6 +880,7 @@ def _is_file_changed(file_info, existing_row):
 
 
 def collect_music_rows(root_path, batch_id=None, now=None, limit=None, artist_alias_map=None, changed_only=False, existing_index=None, genre_inference_map=None):
+    """扫描歌曲文件并构造入仓行；单个文件异常时只落失败记录，不影响整批继续。"""
     batch = batch_id or new_batch_id(now=now)
     rows = []
     stats = {'scanned': 0, 'success': 0, 'failed': 0, 'skipped': 0}
@@ -809,7 +892,16 @@ def collect_music_rows(root_path, batch_id=None, now=None, limit=None, artist_al
         if changed_only and not _is_file_changed(file_info, (existing_index or {}).get(file_info['file_path'])):
             stats['skipped'] += 1
             continue
-        metadata = extract_audio_metadata(file_path)
+
+        # 文件层已经判定不可读时，直接落失败记录并继续，避免整批任务被单个坏路径打断。
+        if not file_info.get('is_readable', True):
+            metadata = empty_audio_metadata(
+                status='FAILED',
+                error=file_info.get('file_error') or 'file is not readable',
+            )
+        else:
+            metadata = extract_audio_metadata(file_path)
+
         if metadata['scan_status'] == 'FAILED':
             stats['failed'] += 1
         else:
@@ -851,6 +943,16 @@ def load_db_config_from_env():
     }
 
 
+def load_vm_config_from_env():
+    """读取 VM 连接配置；默认值固定为当前共享目录与 root 账户。"""
+    return {
+        'host': os.environ.get('JUMUSIC_VM_HOST', DEFAULT_VM_CONFIG['host']),
+        'port': int(os.environ.get('JUMUSIC_VM_PORT', str(DEFAULT_VM_CONFIG['port']))),
+        'username': os.environ.get('JUMUSIC_VM_USER', DEFAULT_VM_CONFIG['username']),
+        'password': os.environ.get('JUMUSIC_VM_PASSWORD', DEFAULT_VM_CONFIG['password']),
+    }
+
+
 def connect_db(db_config):
     return pymssql.connect(
         server=db_config['server'],
@@ -863,16 +965,347 @@ def connect_db(db_config):
     )
 
 
+def windows_path_to_vm_path(file_path):
+    """把 Windows 音乐路径映射为 VM 共享目录路径。"""
+    normalized = str(file_path).replace('/', '\\')
+    prefix = DEFAULT_LOCAL_MUSIC_ROOT.rstrip('\\')
+    if normalized.lower().startswith(prefix.lower()):
+        suffix = normalized[len(prefix):].lstrip('\\').replace('\\', '/')
+        return f'{DEFAULT_VM_MUSIC_ROOT}/{suffix}' if suffix else DEFAULT_VM_MUSIC_ROOT
+    return normalized.replace('\\', '/')
+
+
+def vm_path_to_windows_path(file_path):
+    """把 VM 共享目录路径恢复为 Windows 音乐路径。"""
+    normalized = str(file_path).replace('\\', '/')
+    prefix = DEFAULT_VM_MUSIC_ROOT.rstrip('/')
+    if normalized.startswith(prefix):
+        suffix = normalized[len(prefix):].lstrip('/').replace('/', '\\')
+        return f'{DEFAULT_LOCAL_MUSIC_ROOT}\\{suffix}' if suffix else DEFAULT_LOCAL_MUSIC_ROOT
+    return str(file_path)
+
+
+def build_vm_genre_tasks(file_paths):
+    """把待推理文件列表转换为 VM 侧任务 JSON。"""
+    return [
+        {
+            'file_path': windows_path_to_vm_path(file_path),
+            'file_name': Path(str(file_path)).name,
+        }
+        for file_path in file_paths
+    ]
+
+
+def get_tmp_workdir():
+    """统一使用仓库根目录下的 tmp 作为本地中间文件目录。"""
+    workdir = Path(__file__).resolve().parents[2] / 'tmp' / 'music_etl_vm'
+    workdir.mkdir(parents=True, exist_ok=True)
+    return workdir
+
+
+def format_run_summary(root_path, batch_id, limit, scan_stats, load_stats, genre_stats, skip_genre_inference):
+    """把本次执行结果格式化为多行摘要，便于直接从控制台判断各阶段状态。"""
+    root_name = Path(str(root_path)).name if root_path else ''
+    limit_text = 'all' if limit is None else str(limit)
+    skipped = 'yes' if skip_genre_inference else 'no'
+    lines = [
+        f'batch={batch_id or "none"} root_name={root_name or "unknown"} limit={limit_text}',
+        f"scan scanned={scan_stats.get('scanned', 0)} success={scan_stats.get('success', 0)} failed={scan_stats.get('failed', 0)} skipped={scan_stats.get('skipped', 0)}",
+        f"load updated={load_stats.get('updated', 0)} inserted={load_stats.get('inserted', 0)}",
+        f"genre skipped={skipped} pending={genre_stats.get('pending', 0)} received={genre_stats.get('received', 0)} updated={genre_stats.get('updated', 0)} timeout_skipped={genre_stats.get('skipped', 0)}",
+    ]
+    return '\n'.join(lines)
+
+
+def _build_vm_mount_command(vm_music_root=DEFAULT_VM_MUSIC_ROOT):
+    """生成 VM 共享音乐目录挂载命令，保证远端总能看到宿主机音乐库。"""
+    share_name = Path(vm_music_root.rstrip('/')).name
+    return (
+        f"mkdir -p {vm_music_root} && "
+        f"if ! mountpoint -q {vm_music_root}; then "
+        f"vmhgfs-fuse '.host:/{share_name}' {vm_music_root} -o allow_other; "
+        f'fi'
+    )
+
+
+def _build_vm_exec_command(remote_tasks_json, remote_raw_json, top_k, timeout_sec=DEFAULT_VM_GENRE_TIMEOUT_SEC):
+    """拼装 VM 侧推理命令，固定使用共享目录和指定模型文件。"""
+    infer_command = (
+        f'cd {DEFAULT_VM_GENRE_WORKDIR} && '
+        f'source /root/essentia-venv/bin/activate && '
+        f'python {DEFAULT_VM_GENRE_SCRIPT} '
+        f'--tasks-json {remote_tasks_json} '
+        f'--embedding-model-pb {DEFAULT_VM_EMBEDDING_MODEL} '
+        f'--classifier-model-pb {DEFAULT_VM_CLASSIFIER_MODEL} '
+        f'--metadata-json {DEFAULT_VM_METADATA_JSON} '
+        f'--top-k {int(top_k)} '
+        f'--output-json {remote_raw_json}'
+    )
+    return (
+        f'{_build_vm_mount_command()} && '
+        f'timeout --foreground {int(timeout_sec)} '
+        f'bash -lc {shlex.quote(infer_command)}'
+    )
+
+
+def _exec_remote_command(client, command, timeout=3600, poll_interval=0.2):
+    """执行 VM 命令并轮询读取 stdout/stderr，避免阻塞式 read 导致本地长时间挂死。"""
+    _stdin, stdout, _stderr = client.exec_command(command, timeout=timeout)
+    channel = stdout.channel
+    output_chunks = []
+    error_chunks = []
+    deadline = time.monotonic() + max(float(timeout), 0)
+
+    while True:
+        while channel.recv_ready():
+            output_chunks.append(channel.recv(4096).decode('utf-8', errors='ignore'))
+        while channel.recv_stderr_ready():
+            error_chunks.append(channel.recv_stderr(4096).decode('utf-8', errors='ignore'))
+        if channel.exit_status_ready():
+            break
+        if time.monotonic() >= deadline:
+            close = getattr(channel, 'close', None)
+            if callable(close):
+                close()
+            raise TimeoutError(f'remote command timed out: {command}')
+        time.sleep(poll_interval)
+
+    while channel.recv_ready():
+        output_chunks.append(channel.recv(4096).decode('utf-8', errors='ignore'))
+    while channel.recv_stderr_ready():
+        error_chunks.append(channel.recv_stderr(4096).decode('utf-8', errors='ignore'))
+
+    output = ''.join(output_chunks)
+    error = ''.join(error_chunks)
+    exit_code = channel.recv_exit_status()
+    if exit_code != 0:
+        raise RuntimeError(f'remote command failed: {command}\nstdout:\n{output}\nstderr:\n{error}')
+    return output
+
+
+def build_vm_request_id(batch_id):
+    """为每次 VM 推理生成唯一请求号，避免同一批次重试时覆盖远端临时文件。"""
+    return f'{batch_id}-{uuid.uuid4().hex[:8]}'
+
+
+def run_vm_genre_inference(
+    file_paths,
+    batch_id,
+    vm_config=None,
+    top_k=DEFAULT_VM_TOP_K,
+    request_id=None,
+    timeout_sec=DEFAULT_VM_GENRE_TIMEOUT_SEC,
+):
+    """调用 VM 的 Essentia 脚本，对指定歌曲列表输出主曲风结果。"""
+    if not file_paths:
+        return []
+
+    if paramiko is None:
+        raise RuntimeError('paramiko is required to run VM genre inference')
+
+    vm_settings = vm_config or load_vm_config_from_env()
+    current_request_id = request_id or build_vm_request_id(batch_id)
+    local_workdir = get_tmp_workdir()
+    local_tasks_json = local_workdir / f'tasks_{current_request_id}.json'
+    local_raw_json = local_workdir / f'raw_predictions_{current_request_id}.json'
+    remote_tasks_json = f'{DEFAULT_VM_GENRE_WORKDIR}/tasks_{current_request_id}.json'
+    remote_raw_json = f'{DEFAULT_VM_GENRE_WORKDIR}/raw_predictions_{current_request_id}.json'
+    local_tasks_json.write_text(
+        json.dumps(build_vm_genre_tasks(file_paths), ensure_ascii=False, indent=2),
+        encoding='utf-8',
+    )
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    sftp = None
+    try:
+        client.connect(
+            hostname=vm_settings['host'],
+            port=vm_settings['port'],
+            username=vm_settings['username'],
+            password=vm_settings['password'],
+            timeout=20,
+        )
+        sftp = client.open_sftp()
+        sftp.put(str(local_tasks_json), remote_tasks_json)
+        _exec_remote_command(
+            client,
+            _build_vm_exec_command(
+                remote_tasks_json=remote_tasks_json,
+                remote_raw_json=remote_raw_json,
+                top_k=top_k,
+                timeout_sec=timeout_sec,
+            ),
+        )
+        sftp.get(remote_raw_json, str(local_raw_json))
+    finally:
+        if sftp is not None:
+            sftp.close()
+        client.close()
+
+    return json.loads(local_raw_json.read_text(encoding='utf-8'))
+
+
+def normalize_genre_inference_results(items, inferred_at=None):
+    """把 VM 原始推理结果转换为可直接回写当前 ODS 结构的字段。"""
+    timestamp = inferred_at or datetime.now().isoformat()
+    normalized = []
+    for item in items or []:
+        file_path = item.get('file_path')
+        if not file_path:
+            continue
+        genre_parts = split_genre_essentia_label(
+            item.get('genre_essentia_raw_label')
+            or item.get('genre_essentia_path')
+            or item.get('genre_essentia_label')
+            or item.get('label')
+        )
+        normalized.append({
+            'file_path': vm_path_to_windows_path(file_path),
+            **genre_parts,
+            'genre_essentia_confidence': item.get('genre_essentia_confidence', item.get('confidence')),
+            'genre_essentia_model': item.get('genre_essentia_model') or DEFAULT_VM_GENRE_MODEL,
+            'genre_essentia_source': item.get('genre_essentia_source') or DEFAULT_VM_GENRE_SOURCE,
+            'genre_essentia_inferred_at': item.get('genre_essentia_inferred_at') or timestamp,
+        })
+    return normalized
+
+
+def apply_genre_inference_results(conn, rows, now=None):
+    """按 file_path 把 Essentia 主曲风与结构化路径信息回写进 ODS。"""
+    cursor = conn.cursor()
+    updated = 0
+    current = now or datetime.now()
+    sql = f"""
+UPDATE dbo.{TABLE_NAME}
+SET
+    genre_essentia_label = %s,
+    genre_essentia_raw_label = %s,
+    genre_essentia_path = %s,
+    genre_essentia_parent = %s,
+    genre_essentia_child = %s,
+    genre_essentia_depth = %s,
+    genre_essentia_confidence = %s,
+    genre_essentia_model = %s,
+    genre_essentia_source = %s,
+    genre_essentia_inferred_at = %s,
+    etl_updated_at = %s
+WHERE file_path = %s
+"""
+    for row in rows:
+        cursor.execute(sql, [
+            row['genre_essentia_label'],
+            row['genre_essentia_raw_label'],
+            row['genre_essentia_path'],
+            row['genre_essentia_parent'],
+            row['genre_essentia_child'],
+            row['genre_essentia_depth'],
+            row['genre_essentia_confidence'],
+            row['genre_essentia_model'],
+            row['genre_essentia_source'],
+            row['genre_essentia_inferred_at'],
+            current,
+            row['file_path'],
+        ])
+        if cursor.rowcount:
+            updated += 1
+    conn.commit()
+    cursor.close()
+    return {'updated': updated}
+
+
+def mark_genre_inference_skipped(conn, file_paths, reason, now=None):
+    """把超时或失败的歌曲批次标记为已跳过，避免同一批坏文件无限重试。"""
+    cursor = conn.cursor()
+    updated = 0
+    current = now or datetime.now()
+    sql = f"""
+UPDATE dbo.{TABLE_NAME}
+SET
+    genre_essentia_label = %s,
+    genre_essentia_raw_label = %s,
+    genre_essentia_path = %s,
+    genre_essentia_parent = %s,
+    genre_essentia_child = %s,
+    genre_essentia_depth = %s,
+    genre_essentia_confidence = %s,
+    genre_essentia_model = %s,
+    genre_essentia_source = %s,
+    genre_essentia_inferred_at = %s,
+    etl_updated_at = %s
+WHERE file_path = %s
+"""
+    for file_path in file_paths:
+        cursor.execute(sql, [
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            DEFAULT_VM_GENRE_MODEL,
+            DEFAULT_VM_GENRE_SKIP_SOURCE,
+            current,
+            current,
+            file_path,
+        ])
+        if cursor.rowcount:
+            updated += 1
+    conn.commit()
+    cursor.close()
+    return {'updated': updated}
+
+
+def run_genre_inference_pipeline(conn, batch_id, now=None, limit=None, batch_size=DEFAULT_VM_GENRE_BATCH_SIZE):
+    """执行“查询待推理歌曲 -> 分批调 VM 推理 -> 分批回写 ODS”的完整链路。"""
+    total_pending = 0
+    total_received = 0
+    total_updated = 0
+    total_skipped = 0
+    current_batch_size = limit or batch_size
+
+    while True:
+        pending_file_paths = fetch_pending_genre_file_paths(conn, batch_id=batch_id, limit=current_batch_size)
+        if not pending_file_paths:
+            break
+
+        total_pending += len(pending_file_paths)
+        try:
+            raw_results = run_vm_genre_inference(
+                pending_file_paths,
+                batch_id=batch_id,
+                request_id=build_vm_request_id(batch_id),
+            )
+            normalized_rows = normalize_genre_inference_results(raw_results, inferred_at=(now or datetime.now()).isoformat())
+            update_stats = apply_genre_inference_results(conn, normalized_rows, now=now)
+            total_received += len(normalized_rows)
+            total_updated += update_stats['updated']
+        except Exception as exc:
+            skip_stats = mark_genre_inference_skipped(conn, pending_file_paths, reason=str(exc), now=now)
+            total_skipped += skip_stats['updated']
+
+    return {
+        'pending': total_pending,
+        'received': total_received,
+        'updated': total_updated,
+        'skipped': total_skipped,
+    }
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root-path', default=None)
+    # 默认固定到本地音乐目录，这样后续新增歌曲后直接执行脚本即可。
+    parser.add_argument('--root-path', default=DEFAULT_LOCAL_MUSIC_ROOT)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--changed-only', action='store_true')
     parser.add_argument('--genre-inference-json', default=None)
+    parser.add_argument('--skip-genre-inference', action='store_true')
     return parser.parse_args()
 
 
-def main(root_path, limit=None, changed_only=False, genre_inference_json=None):
+def main(root_path=DEFAULT_LOCAL_MUSIC_ROOT, limit=None, changed_only=False, genre_inference_json=None, skip_genre_inference=False):
+    """执行歌曲扫描入仓，并在未跳过时自动补跑 VM 曲风识别链路。"""
     if not root_path:
         raise ValueError('root_path is required')
     db_config = load_db_config_from_env()
@@ -891,12 +1324,21 @@ def main(root_path, limit=None, changed_only=False, genre_inference_json=None):
             genre_inference_map=genre_inference_map,
         )
         load_stats = upsert_music_rows(conn, rows)
-        print(
-            f"done scanned={scan_stats['scanned']} success={scan_stats['success']} "
-            f"failed={scan_stats['failed']} skipped={scan_stats['skipped']} "
-            f"updated={load_stats['updated']} inserted={load_stats['inserted']}"
-        )
-        return {'scan': scan_stats, 'load': load_stats}
+        # 某些测试桩或人工构造输入可能未带 batch_id，这里做兜底避免关闭连接前抛异常。
+        batch_id = next((row.get('batch_id') for row in rows if row.get('batch_id')), None)
+        genre_stats = {'pending': 0, 'received': 0, 'updated': 0, 'skipped': 0}
+        if batch_id and not skip_genre_inference:
+            genre_stats = run_genre_inference_pipeline(conn, batch_id=batch_id, now=None, limit=limit)
+        print(format_run_summary(
+            root_path=root_path,
+            batch_id=batch_id,
+            limit=limit,
+            scan_stats=scan_stats,
+            load_stats=load_stats,
+            genre_stats=genre_stats,
+            skip_genre_inference=skip_genre_inference,
+        ))
+        return {'scan': scan_stats, 'load': load_stats, 'genre': genre_stats}
     finally:
         close_method = getattr(conn, 'close', None)
         if callable(close_method):
@@ -905,4 +1347,10 @@ def main(root_path, limit=None, changed_only=False, genre_inference_json=None):
 
 if __name__ == '__main__':
     args = parse_args()
-    main(root_path=args.root_path, limit=args.limit, changed_only=args.changed_only, genre_inference_json=args.genre_inference_json)
+    main(
+        root_path=args.root_path,
+        limit=args.limit,
+        changed_only=args.changed_only,
+        genre_inference_json=args.genre_inference_json,
+        skip_genre_inference=args.skip_genre_inference,
+    )

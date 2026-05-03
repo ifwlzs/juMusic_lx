@@ -428,6 +428,51 @@ class FakeConnection:
         self.closed = True
 
 
+class FakeRemoteChannel:
+    def __init__(self, stdout_chunks=None, stderr_chunks=None, exit_code=0, ready_after_checks=1):
+        self.stdout_chunks = [chunk.encode('utf-8') for chunk in (stdout_chunks or [])]
+        self.stderr_chunks = [chunk.encode('utf-8') for chunk in (stderr_chunks or [])]
+        self.exit_code = exit_code
+        self.ready_after_checks = ready_after_checks
+        self.exit_ready_checks = 0
+        self.closed = False
+
+    def exit_status_ready(self):
+        self.exit_ready_checks += 1
+        return self.exit_ready_checks > self.ready_after_checks
+
+    def recv_ready(self):
+        return bool(self.stdout_chunks)
+
+    def recv_stderr_ready(self):
+        return bool(self.stderr_chunks)
+
+    def recv(self, _size):
+        return self.stdout_chunks.pop(0) if self.stdout_chunks else b''
+
+    def recv_stderr(self, _size):
+        return self.stderr_chunks.pop(0) if self.stderr_chunks else b''
+
+    def recv_exit_status(self):
+        return self.exit_code
+
+    def close(self):
+        self.closed = True
+
+
+class FakeRemoteStream:
+    def __init__(self, channel):
+        self.channel = channel
+
+
+class FakeSSHClient:
+    def __init__(self, channel):
+        self.channel = channel
+
+    def exec_command(self, command, timeout=None):
+        return None, FakeRemoteStream(self.channel), FakeRemoteStream(self.channel)
+
+
 def test_ensure_table_creates_target_table_and_indexes():
     module = load_module()
     conn = FakeConnection()
@@ -800,10 +845,11 @@ def test_main_runs_table_creation_collection_and_upsert(monkeypatch, capsys):
     monkeypatch.setattr(module, 'ensure_table', lambda conn: calls.append(('ensure_table', conn)))
     monkeypatch.setattr(module, 'load_artist_alias_map', lambda conn: {})
     monkeypatch.setattr(module, 'collect_music_rows', lambda root_path, batch_id=None, now=None, limit=None, artist_alias_map=None, changed_only=False, existing_index=None, genre_inference_map=None: (
-        [{'file_path': 'masked', 'scan_status': 'SUCCESS'}],
+        [{'file_path': 'masked', 'scan_status': 'SUCCESS', 'batch_id': 'batch-1'}],
         {'scanned': 1, 'success': 1, 'failed': 0, 'skipped': 0},
     ))
     monkeypatch.setattr(module, 'upsert_music_rows', lambda conn, rows: calls.append(('upsert', conn, rows)) or {'updated': 0, 'inserted': 1})
+    monkeypatch.setattr(module, 'run_genre_inference_pipeline', lambda conn, batch_id, now=None, limit=None: calls.append(('genre', conn, batch_id, limit)) or {'pending': 1, 'received': 1, 'updated': 1, 'skipped': 0})
 
     module.main(root_path='X:/Sample', limit=1)
     output = capsys.readouterr().out
@@ -811,8 +857,10 @@ def test_main_runs_table_creation_collection_and_upsert(monkeypatch, capsys):
     assert calls[0][0] == 'connect'
     assert calls[1][0] == 'ensure_table'
     assert calls[2][0] == 'upsert'
-    assert 'scanned=1' in output
-    assert 'inserted=1' in output
+    assert calls[3][0] == 'genre'
+    assert 'scan scanned=1 success=1 failed=0 skipped=0' in output
+    assert 'load updated=0 inserted=1' in output
+    assert 'genre skipped=no pending=1 received=1 updated=1 timeout_skipped=0' in output
     assert 'X:/Sample' not in output
 
 
@@ -828,10 +876,11 @@ def test_main_loads_artist_alias_map_before_collecting_rows(monkeypatch, capsys)
     monkeypatch.setattr(module, 'ensure_table', lambda conn: calls.append(('ensure_table', conn)))
     monkeypatch.setattr(module, 'load_artist_alias_map', lambda conn: calls.append(('load_artist_alias_map', conn)) or {'洛天依official': '洛天依'})
     monkeypatch.setattr(module, 'collect_music_rows', lambda root_path, batch_id=None, now=None, limit=None, artist_alias_map=None, changed_only=False, existing_index=None, genre_inference_map=None: (
-        calls.append(('collect_music_rows', artist_alias_map, changed_only, existing_index, genre_inference_map)) or [{'file_path': 'masked', 'scan_status': 'SUCCESS'}],
+        calls.append(('collect_music_rows', artist_alias_map, changed_only, existing_index, genre_inference_map)) or [{'file_path': 'masked', 'scan_status': 'SUCCESS', 'batch_id': 'batch-1'}],
         {'scanned': 1, 'success': 1, 'failed': 0, 'skipped': 0},
     ))
     monkeypatch.setattr(module, 'upsert_music_rows', lambda conn, rows: calls.append(('upsert', conn, rows)) or {'updated': 0, 'inserted': 1})
+    monkeypatch.setattr(module, 'run_genre_inference_pipeline', lambda conn, batch_id, now=None, limit=None: calls.append(('genre', batch_id, limit)) or {'pending': 1, 'received': 1, 'updated': 1, 'skipped': 0})
 
     module.main(root_path='X:/Sample', limit=1)
     output = capsys.readouterr().out
@@ -840,7 +889,8 @@ def test_main_loads_artist_alias_map_before_collecting_rows(monkeypatch, capsys)
     assert calls[1][0] == 'ensure_table'
     assert calls[2][0] == 'load_artist_alias_map'
     assert calls[3] == ('collect_music_rows', {'洛天依official': '洛天依'}, False, None, None)
-    assert 'inserted=1' in output
+    assert calls[5] == ('genre', 'batch-1', 1)
+    assert 'load updated=0 inserted=1' in output
 
 
 def test_collect_music_rows_respects_limit(monkeypatch):
@@ -910,14 +960,15 @@ def test_collect_music_rows_skips_unchanged_files_when_changed_only(monkeypatch)
     assert stats == {'scanned': 2, 'success': 1, 'failed': 0, 'skipped': 1}
 
 
-def test_parse_args_does_not_hardcode_music_root(monkeypatch):
+def test_parse_args_defaults_to_configured_music_root(monkeypatch):
     module = load_module()
     monkeypatch.setattr('sys.argv', ['load_music_info.py'])
 
     args = module.parse_args()
 
-    assert args.root_path is None
+    assert args.root_path == module.DEFAULT_LOCAL_MUSIC_ROOT
     assert args.changed_only is False
+    assert args.skip_genre_inference is False
 
 
 def test_parse_args_accepts_changed_only(monkeypatch):
@@ -1030,7 +1081,377 @@ def test_module_script_entrypoint_invokes_main(monkeypatch, capsys):
     runpy.run_path(str(MODULE_PATH), run_name='__main__')
     output = capsys.readouterr().out
 
-    assert 'done scanned=' in output
+    assert 'scan scanned=' in output
+    assert 'load updated=' in output
+
+
+def test_collect_music_rows_marks_unreadable_file_info_as_failed_without_crashing(monkeypatch):
+    module = load_module()
+    files = ['a.mp3']
+    monkeypatch.setattr(module, 'iter_music_files', lambda _root: files)
+    monkeypatch.setattr(module, 'extract_file_info', lambda path, root_path: {
+        'root_path': str(root_path),
+        'file_path': str(path),
+        'file_name': str(path),
+        'file_ext': '.mp3',
+        'file_size': None,
+        'file_mtime': None,
+        'file_md5': None,
+        'is_readable': False,
+        'file_error': 'file disappeared while scanning',
+    })
+
+    rows, stats = module.collect_music_rows('Z:/Music', batch_id='batch-1')
+
+    assert len(rows) == 1
+    assert rows[0]['scan_status'] == 'FAILED'
+    assert rows[0]['scan_error'] == 'file disappeared while scanning'
+    assert stats == {'scanned': 1, 'success': 0, 'failed': 1, 'skipped': 0}
+
+
+def test_parse_args_accepts_skip_genre_inference(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr('sys.argv', ['load_music_info.py', '--skip-genre-inference'])
+
+    args = module.parse_args()
+
+    assert args.skip_genre_inference is True
+
+
+def test_load_vm_config_from_env_reads_default_and_override(monkeypatch):
+    module = load_module()
+    monkeypatch.delenv('JUMUSIC_VM_HOST', raising=False)
+    monkeypatch.delenv('JUMUSIC_VM_PORT', raising=False)
+    monkeypatch.delenv('JUMUSIC_VM_USER', raising=False)
+    monkeypatch.delenv('JUMUSIC_VM_PASSWORD', raising=False)
+
+    default_config = module.load_vm_config_from_env()
+
+    assert default_config == module.DEFAULT_VM_CONFIG
+
+    monkeypatch.setenv('JUMUSIC_VM_HOST', '10.0.0.9')
+    monkeypatch.setenv('JUMUSIC_VM_PORT', '2200')
+    monkeypatch.setenv('JUMUSIC_VM_USER', 'tester')
+    monkeypatch.setenv('JUMUSIC_VM_PASSWORD', 'secret')
+
+    override_config = module.load_vm_config_from_env()
+
+    assert override_config == {
+        'host': '10.0.0.9',
+        'port': 2200,
+        'username': 'tester',
+        'password': 'secret',
+    }
+
+
+def test_windows_path_to_vm_path_maps_shared_music_directory():
+    module = load_module()
+
+    result = module.windows_path_to_vm_path(r'Z:\Music\中\邓丽君 - 我只在乎你.mp3')
+
+    assert result == '/mnt/hgfs/Music/中/邓丽君 - 我只在乎你.mp3'
+
+
+def test_vm_path_to_windows_path_restores_local_music_directory():
+    module = load_module()
+
+    result = module.vm_path_to_windows_path('/mnt/hgfs/Music/▓虚拟歌姬▓/洛天依/外婆桥.flac')
+
+    assert result == r'Z:\Music\▓虚拟歌姬▓\洛天依\外婆桥.flac'
+
+
+def test_normalize_genre_inference_results_maps_vm_output_into_structured_fields():
+    module = load_module()
+
+    rows = module.normalize_genre_inference_results([
+        {
+            'file_path': '/mnt/hgfs/Music/中/邓丽君 - 我只在乎你.mp3',
+            'label': 'Pop---Kayōkyoku',
+            'confidence': 0.199437,
+        },
+    ], inferred_at='2026-05-03T16:00:00')
+
+    assert rows[0]['file_path'] == r'Z:\Music\中\邓丽君 - 我只在乎你.mp3'
+    assert rows[0]['genre_essentia_label'] == 'Kayōkyoku'
+    assert rows[0]['genre_essentia_raw_label'] == 'Pop---Kayōkyoku'
+    assert rows[0]['genre_essentia_path'] == 'Pop---Kayōkyoku'
+    assert rows[0]['genre_essentia_parent'] == 'Pop'
+    assert rows[0]['genre_essentia_child'] == 'Kayōkyoku'
+    assert rows[0]['genre_essentia_depth'] == 2
+    assert rows[0]['genre_essentia_confidence'] == 0.199437
+    assert rows[0]['genre_essentia_model'] == 'essentia-external'
+    assert rows[0]['genre_essentia_source'] == 'vm'
+    assert rows[0]['genre_essentia_inferred_at'] == '2026-05-03T16:00:00'
+
+
+def test_fetch_pending_genre_file_paths_returns_only_current_batch_rows():
+    module = load_module()
+    conn = FakeConnection()
+    conn.cursor_obj.rows = [('Z:/Music/a.mp3',), ('Z:/Music/b.mp3',)]
+    conn.cursor_obj.fetchall = lambda: conn.cursor_obj.rows
+
+    result = module.fetch_pending_genre_file_paths(conn, batch_id='batch-1', limit=1)
+
+    assert result == ['Z:/Music/a.mp3']
+    sql_text = conn.cursor_obj.executed[0][0]
+    assert 'genre_essentia_label' in sql_text
+    assert 'genre_essentia_path' in sql_text
+    assert conn.cursor_obj.executed[0][1] == ['batch-1', module.DEFAULT_VM_GENRE_SKIP_SOURCE]
+
+
+def test_build_vm_request_id_appends_unique_suffix(monkeypatch):
+    module = load_module()
+
+    class FakeUuid:
+        hex = 'abcdef1234567890'
+
+    monkeypatch.setattr(module.uuid, 'uuid4', lambda: FakeUuid())
+
+    request_id = module.build_vm_request_id('batch-1')
+
+    assert request_id == 'batch-1-abcdef12'
+
+
+class FakeApplyCursor(FakeCursor):
+    def __init__(self, rowcounts):
+        super().__init__()
+        self._rowcounts = list(rowcounts)
+        self.rowcount = 0
+
+    def execute(self, sql, params=None):
+        super().execute(sql, params)
+        self.rowcount = self._rowcounts.pop(0)
+
+
+class FakeApplyConnection(FakeConnection):
+    def __init__(self, rowcounts):
+        self.cursor_obj = FakeApplyCursor(rowcounts)
+        self.commit_count = 0
+        self.closed = False
+
+
+def test_apply_genre_inference_results_updates_rows_by_file_path():
+    module = load_module()
+    conn = FakeApplyConnection([1, 0])
+
+    stats = module.apply_genre_inference_results(conn, [
+        {
+            'file_path': r'Z:\Music\a.mp3',
+            'genre_essentia_label': 'Ballad',
+            'genre_essentia_raw_label': 'Pop---Ballad',
+            'genre_essentia_path': 'Pop---Ballad',
+            'genre_essentia_parent': 'Pop',
+            'genre_essentia_child': 'Ballad',
+            'genre_essentia_depth': 2,
+            'genre_essentia_confidence': 0.4,
+            'genre_essentia_model': 'essentia-external',
+            'genre_essentia_source': 'vm',
+            'genre_essentia_inferred_at': '2026-05-03T16:00:00',
+        },
+        {
+            'file_path': r'Z:\Music\b.mp3',
+            'genre_essentia_label': 'Rock',
+            'genre_essentia_raw_label': 'Rock',
+            'genre_essentia_path': 'Rock',
+            'genre_essentia_parent': 'Rock',
+            'genre_essentia_child': None,
+            'genre_essentia_depth': 1,
+            'genre_essentia_confidence': 0.2,
+            'genre_essentia_model': 'essentia-external',
+            'genre_essentia_source': 'vm',
+            'genre_essentia_inferred_at': '2026-05-03T16:00:00',
+        },
+    ])
+
+    assert stats == {'updated': 1}
+    sql_text = conn.cursor_obj.executed[0][0]
+    assert 'genre_essentia_raw_label' in sql_text
+    assert 'genre_essentia_path' in sql_text
+    assert conn.commit_count == 1
+
+
+def test_run_genre_inference_pipeline_processes_pending_rows_in_multiple_batches(monkeypatch):
+    module = load_module()
+    conn = object()
+    pending_batches = [
+        [r'Z:\Music\a.mp3', r'Z:\Music\b.mp3'],
+        [r'Z:\Music\c.mp3'],
+        [],
+    ]
+    vm_calls = []
+    apply_calls = []
+
+    def fake_fetch(_conn, batch_id, limit=None):
+        assert batch_id == 'batch-1'
+        assert limit == module.DEFAULT_VM_GENRE_BATCH_SIZE
+        return pending_batches.pop(0)
+
+    def fake_run_vm(file_paths, batch_id, vm_config=None, top_k=module.DEFAULT_VM_TOP_K, request_id=None, timeout_sec=module.DEFAULT_VM_GENRE_TIMEOUT_SEC):
+        vm_calls.append((tuple(file_paths), batch_id))
+        return [{'file_path': path, 'label': f'label-{index}', 'confidence': 0.5} for index, path in enumerate(file_paths, start=1)]
+
+    def fake_normalize(items, inferred_at=None):
+        return [
+            {
+                'file_path': item['file_path'],
+                'genre_essentia_label': item['label'],
+                'genre_essentia_raw_label': item['label'],
+                'genre_essentia_path': item['label'],
+                'genre_essentia_parent': item['label'],
+                'genre_essentia_child': None,
+                'genre_essentia_depth': 1,
+                'genre_essentia_confidence': item['confidence'],
+                'genre_essentia_model': 'essentia-external',
+                'genre_essentia_source': 'vm',
+                'genre_essentia_inferred_at': inferred_at,
+            }
+            for item in items
+        ]
+
+    def fake_apply(_conn, rows, now=None):
+        apply_calls.append([row['file_path'] for row in rows])
+        return {'updated': len(rows)}
+
+    monkeypatch.setattr(module, 'fetch_pending_genre_file_paths', fake_fetch)
+    monkeypatch.setattr(module, 'run_vm_genre_inference', fake_run_vm)
+    monkeypatch.setattr(module, 'normalize_genre_inference_results', fake_normalize)
+    monkeypatch.setattr(module, 'apply_genre_inference_results', fake_apply)
+
+    stats = module.run_genre_inference_pipeline(conn, batch_id='batch-1')
+
+    assert stats == {'pending': 3, 'received': 3, 'updated': 3, 'skipped': 0}
+    assert vm_calls == [
+        ((r'Z:\Music\a.mp3', r'Z:\Music\b.mp3'), 'batch-1'),
+        ((r'Z:\Music\c.mp3',), 'batch-1'),
+    ]
+    assert apply_calls == [
+        [r'Z:\Music\a.mp3', r'Z:\Music\b.mp3'],
+        [r'Z:\Music\c.mp3'],
+    ]
+
+
+def test_run_genre_inference_pipeline_marks_failed_batch_as_skipped_and_continues(monkeypatch):
+    module = load_module()
+    conn = object()
+    pending_batches = [
+        [r'Z:\Music\a.mp3', r'Z:\Music\b.mp3'],
+        [r'Z:\Music\c.mp3'],
+        [],
+    ]
+    skip_calls = []
+    apply_calls = []
+
+    def fake_fetch(_conn, batch_id, limit=None):
+        assert batch_id == 'batch-1'
+        assert limit == module.DEFAULT_VM_GENRE_BATCH_SIZE
+        return pending_batches.pop(0)
+
+    def fake_run_vm(file_paths, batch_id, vm_config=None, top_k=module.DEFAULT_VM_TOP_K, request_id=None, timeout_sec=module.DEFAULT_VM_GENRE_TIMEOUT_SEC):
+        if file_paths[0].endswith('a.mp3'):
+            raise RuntimeError('remote command timed out')
+        return [{'file_path': path, 'label': 'Pop', 'confidence': 0.5} for path in file_paths]
+
+    def fake_normalize(items, inferred_at=None):
+        return [
+            {
+                'file_path': item['file_path'],
+                'genre_essentia_label': item['label'],
+                'genre_essentia_raw_label': item['label'],
+                'genre_essentia_path': item['label'],
+                'genre_essentia_parent': item['label'],
+                'genre_essentia_child': None,
+                'genre_essentia_depth': 1,
+                'genre_essentia_confidence': item['confidence'],
+                'genre_essentia_model': 'essentia-external',
+                'genre_essentia_source': 'vm',
+                'genre_essentia_inferred_at': inferred_at,
+            }
+            for item in items
+        ]
+
+    def fake_apply(_conn, rows, now=None):
+        apply_calls.append([row['file_path'] for row in rows])
+        return {'updated': len(rows)}
+
+    def fake_mark_skipped(_conn, file_paths, reason, now=None):
+        skip_calls.append({'file_paths': list(file_paths), 'reason': reason})
+        return {'updated': len(file_paths)}
+
+    monkeypatch.setattr(module, 'fetch_pending_genre_file_paths', fake_fetch)
+    monkeypatch.setattr(module, 'run_vm_genre_inference', fake_run_vm)
+    monkeypatch.setattr(module, 'normalize_genre_inference_results', fake_normalize)
+    monkeypatch.setattr(module, 'apply_genre_inference_results', fake_apply)
+    monkeypatch.setattr(module, 'mark_genre_inference_skipped', fake_mark_skipped)
+
+    stats = module.run_genre_inference_pipeline(conn, batch_id='batch-1')
+
+    assert stats == {'pending': 3, 'received': 1, 'updated': 1, 'skipped': 2}
+    assert skip_calls == [{
+        'file_paths': [r'Z:\Music\a.mp3', r'Z:\Music\b.mp3'],
+        'reason': 'remote command timed out',
+    }]
+    assert apply_calls == [[r'Z:\Music\c.mp3']]
+
+
+def test_format_run_summary_marks_genre_stage_as_skipped():
+    module = load_module()
+
+    summary = module.format_run_summary(
+        root_path=r'Z:\Music',
+        batch_id='batch-2',
+        limit=None,
+        scan_stats={'scanned': 3, 'success': 3, 'failed': 0, 'skipped': 0},
+        load_stats={'updated': 1, 'inserted': 2},
+        genre_stats={'pending': 0, 'received': 0, 'updated': 0, 'skipped': 0},
+        skip_genre_inference=True,
+    )
+
+    assert 'batch=batch-2' in summary
+    assert 'root_name=Music' in summary
+    assert 'genre skipped=yes pending=0 received=0 updated=0 timeout_skipped=0' in summary
+
+
+def test_build_vm_exec_command_ensures_shared_music_mount_before_inference():
+    module = load_module()
+
+    command = module._build_vm_exec_command(
+        remote_tasks_json='/root/juMusic_tmp/tasks.json',
+        remote_raw_json='/root/juMusic_tmp/raw_predictions.json',
+        top_k=20,
+    )
+
+    assert 'mountpoint -q /mnt/hgfs/Music' in command
+    assert "vmhgfs-fuse '.host:/Music' /mnt/hgfs/Music -o allow_other" in command
+    assert f'timeout --foreground {module.DEFAULT_VM_GENRE_TIMEOUT_SEC}' in command
+    assert f'python {module.DEFAULT_VM_GENRE_SCRIPT}' in command
+
+
+def test_exec_remote_command_reads_stdout_and_stderr_without_blocking():
+    module = load_module()
+    channel = FakeRemoteChannel(stdout_chunks=['hello'], stderr_chunks=['warn'], exit_code=0, ready_after_checks=1)
+    client = FakeSSHClient(channel)
+
+    output = module._exec_remote_command(client, 'echo hello', timeout=1, poll_interval=0)
+
+    assert output == 'hello'
+    assert channel.closed is False
+
+
+def test_exec_remote_command_raises_timeout_and_closes_channel(monkeypatch):
+    module = load_module()
+    channel = FakeRemoteChannel(stdout_chunks=[], stderr_chunks=[], exit_code=0, ready_after_checks=999)
+    client = FakeSSHClient(channel)
+    values = iter([0.0, 0.6, 1.2])
+
+    monkeypatch.setattr(module.time, 'monotonic', lambda: next(values))
+    monkeypatch.setattr(module.time, 'sleep', lambda _interval: None)
+
+    try:
+        module._exec_remote_command(client, 'sleep 2', timeout=1, poll_interval=0)
+        assert False, 'expected TimeoutError'
+    except TimeoutError as exc:
+        assert 'remote command timed out' in str(exc)
+    assert channel.closed is True
 
 
 def test_artist_alias_seed_script_exists():
