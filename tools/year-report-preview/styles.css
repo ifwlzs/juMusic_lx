@@ -50,6 +50,26 @@ body {
   z-index: 3;
 }
 
+/* 左右热区只做弱交互层，不显示显眼按钮，符合“无明显翻页按钮”的要求。 */
+.report-hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18vw;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.report-hit--prev {
+  left: 0;
+}
+
+.report-hit--next {
+  right: 0;
+}
+
 .page {
   min-height: 100vh;
   box-sizing: border-box;
@@ -58,6 +78,14 @@ body {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 16px;
+  transform: translate3d(0, var(--drag-offset, 0px), 0);
+  transition: transform var(--report-transition-duration) ease-out, opacity var(--report-transition-duration) ease-out;
+  opacity: 0.52;
+}
+
+/* 活动页抬高透明度，给当前页一个非常弱但稳定的视觉焦点。 */
+.page.is-active {
+  opacity: 1;
 }
 
 .page__top {

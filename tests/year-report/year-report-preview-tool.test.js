@@ -57,3 +57,21 @@ test('year-report preview registers the confirmed P/L order and template mapping
   assert.match(js, /'L04'/)
   assert.match(js, /renderPage\(/)
 })
+
+test('year-report preview supports wheel click keyboard and touch paging interactions', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /addEventListener\('wheel'/)
+  assert.match(js, /addEventListener\('keydown'/)
+  assert.match(js, /prevHit\.addEventListener\('click'/)
+  assert.match(js, /nextHit\.addEventListener\('click'/)
+  assert.match(js, /addEventListener\('touchstart'/)
+  assert.match(js, /addEventListener\('touchmove'/)
+  assert.match(js, /addEventListener\('touchend'/)
+  assert.match(js, /DRAG_THRESHOLD/)
+  assert.match(js, /prefers-reduced-motion/)
+  assert.match(css, /\.report-hit--prev/)
+  assert.match(css, /\.report-hit--next/)
+  assert.match(css, /\.page\.is-active/)
+})

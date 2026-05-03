@@ -46,15 +46,28 @@ const PAGE_REGISTRY = [
   { pageId: 'L04', template: 'T2', accent: 'accent' },
 ]
 
-// 缓存顶层节点，避免每次重绘都重复查询 DOM。
+// 统一缓存关键 DOM，避免重复查询影响后续翻页响应。
 const app = document.querySelector('[data-role="report-app"]')
 const stage = document.querySelector('[data-role="report-stage"]')
 const progress = document.querySelector('[data-role="progress"]')
+const prevHit = document.querySelector('[data-role="prev-hit"]')
+const nextHit = document.querySelector('[data-role="next-hit"]')
 
-// 预览工具的运行时状态统一保存在这里，便于后续叠加翻页交互。
+// 统一读取 reduced-motion 偏好，后续切页和滚动逻辑都依赖这项兜底。
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+const prefersReducedMotion = () => reducedMotionQuery.matches
+
+// 移动端切页使用半跟手阈值；达到阈值才吸附切页，不够则回弹。
+const DRAG_THRESHOLD = 72
+
+// 运行时状态负责保存报告数据、当前页和交互中的临时变量。
 const state = {
   report: null,
   pages: [],
+  activeIndex: 0,
+  wheelLocked: false,
+  touchStartY: 0,
+  dragOffset: 0,
 }
 
 // 根据 page_id 取页面模板定义，没有配置时默认退回 T3 统计页。
@@ -83,8 +96,9 @@ function normalizePages(report) {
 
 // 按模板输出单页的最小骨架，后续任务会继续细化到四套模板内部结构。
 function renderPage(page, index, total) {
+  const activeClass = index === state.activeIndex ? ' is-active' : ''
   return `
-    <section class="page page--${page.template.toLowerCase()}" data-page-id="${page.page_id}">
+    <section class="page page--${page.template.toLowerCase()}${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}">
       <header class="page__top">
         <span class="page__eyebrow">${page.year} · ${page.page_id}</span>
         <span class="page__count">${index + 1} / ${total}</span>
@@ -97,11 +111,92 @@ function renderPage(page, index, total) {
   `
 }
 
-// 刷新舞台与页序提示，保证数据和视图保持同步。
+// 渲染整份报告后，将当前页滚动到视口顶部，保证桌面与移动体验一致。
 function render() {
   if (!stage || !progress) return
   stage.innerHTML = state.pages.map((page, index) => renderPage(page, index, state.pages.length)).join('')
-  progress.textContent = `${state.report?.year || ''} 年度报告预览 · ${state.pages.length} 页`
+  progress.textContent = `${state.report?.year || ''} 年度报告预览 · ${state.activeIndex + 1} / ${state.pages.length}`
+  syncActivePage(true)
+}
+
+// 将当前活动页同步到 DOM 状态与滚动位置，避免高亮和真实位置脱节。
+function syncActivePage(instant = false) {
+  if (!stage) return
+  const pageElements = [...stage.querySelectorAll('.page')]
+  pageElements.forEach((element, index) => {
+    element.classList.toggle('is-active', index === state.activeIndex)
+  })
+  const activeElement = pageElements[state.activeIndex]
+  if (!activeElement) return
+  activeElement.scrollIntoView({ behavior: instant || prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+}
+
+// 所有前后翻页都通过这个入口裁剪索引，避免越界与重复刷新。
+function setActiveIndex(nextIndex) {
+  const boundedIndex = Math.max(0, Math.min(nextIndex, state.pages.length - 1))
+  if (boundedIndex === state.activeIndex) {
+    syncActivePage(true)
+    return
+  }
+  state.activeIndex = boundedIndex
+  syncActivePage(false)
+  if (progress) progress.textContent = `${state.report?.year || ''} 年度报告预览 · ${state.activeIndex + 1} / ${state.pages.length}`
+}
+
+// 翻到下一页。
+function goNext() {
+  setActiveIndex(state.activeIndex + 1)
+}
+
+// 翻到上一页。
+function goPrev() {
+  setActiveIndex(state.activeIndex - 1)
+}
+
+// 桌面端滚轮映射切页，并做短时间节流，避免一滚跳过多页。
+function bindWheelPaging() {
+  if (!stage) return
+  stage.addEventListener('wheel', event => {
+    event.preventDefault()
+    if (state.wheelLocked) return
+    state.wheelLocked = true
+    if (event.deltaY > 0) goNext()
+    else if (event.deltaY < 0) goPrev()
+    window.setTimeout(() => {
+      state.wheelLocked = false
+    }, 280)
+  }, { passive: false })
+}
+
+// 桌面端热区点击与键盘切页统一注册在这里。
+function bindDesktopPaging() {
+  if (prevHit) prevHit.addEventListener('click', () => { goPrev() })
+  if (nextHit) nextHit.addEventListener('click', () => { goNext() })
+  window.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'PageDown') goNext()
+    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft' || event.key === 'PageUp') goPrev()
+  })
+}
+
+// 移动端使用半跟手方案：拖动时跟手偏移，抬手后按阈值吸附或回弹。
+function bindTouchPaging() {
+  if (!stage) return
+  stage.addEventListener('touchstart', event => {
+    state.touchStartY = event.touches[0].clientY
+    state.dragOffset = 0
+  }, { passive: true })
+
+  stage.addEventListener('touchmove', event => {
+    state.dragOffset = event.touches[0].clientY - state.touchStartY
+    stage.style.setProperty('--drag-offset', `${Math.round(state.dragOffset * 0.35)}px`)
+  }, { passive: true })
+
+  stage.addEventListener('touchend', () => {
+    stage.style.setProperty('--drag-offset', '0px')
+    if (state.dragOffset <= -DRAG_THRESHOLD) goNext()
+    else if (state.dragOffset >= DRAG_THRESHOLD) goPrev()
+    state.dragOffset = 0
+  })
 }
 
 // 当前阶段先读取 mock 数据，为后续 live-report 接入预留统一入口。
@@ -110,12 +205,15 @@ async function loadReport() {
   return response.json()
 }
 
-// 工具启动后先加载数据，再做一次完整渲染。
+// 工具启动后先加载数据，再渲染页面并挂上所有翻页交互。
 async function init() {
   if (!app) return
   state.report = await loadReport()
   state.pages = normalizePages(state.report)
   render()
+  bindWheelPaging()
+  bindDesktopPaging()
+  bindTouchPaging()
 }
 
 void init()
