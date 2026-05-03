@@ -75,3 +75,29 @@ test('year-report preview supports wheel click keyboard and touch paging interac
   assert.match(css, /\.report-hit--next/)
   assert.match(css, /\.page\.is-active/)
 })
+
+test('year-report preview includes rich mock data and page-specific render markers for p01 p12 p24 p32', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const mock = JSON.parse(read('tools/year-report-preview/data/mock-report.json'))
+
+  const pageIds = mock.pages.map(page => page.page_id)
+  assert.deepEqual(pageIds, ['P01', 'P12', 'P24', 'P32'])
+  assert.match(js, /data-page-kind="hero-start"/)
+  assert.match(js, /data-page-kind="season-card"/)
+  assert.match(js, /data-page-kind="album-ranking"/)
+  assert.match(js, /data-page-kind="summary-grid"/)
+})
+
+test('year-report preview renders rich structures for p01 p12 p24 p32', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="hero-start__value"/)
+  assert.match(js, /class="season-card__cover"/)
+  assert.match(js, /class="album-ranking__champion"/)
+  assert.match(js, /class="summary-grid__card"/)
+  assert.match(css, /\.hero-start__value/)
+  assert.match(css, /\.season-card__cover/)
+  assert.match(css, /\.album-ranking__champion/)
+  assert.match(css, /\.summary-grid__card/)
+})

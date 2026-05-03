@@ -5,23 +5,46 @@
       "page_id": "P01",
       "title": "首次使用",
       "year": 2025,
-      "summary_text": "这是你和 juMusic 的开场页。",
+      "summary_text": "从第一次点开，到现在已经一起听了很久。",
       "hero_value": "1324 天",
-      "hero_label": "已经一起听歌这么久"
+      "hero_label": "已经陪你听歌这么久",
+      "first_played_at": "2022-09-18 22:14",
+      "supporting_facts": ["第 1 首：夜航星", "第 1 位常听歌手：不才"]
+    },
+    {
+      "page_id": "P12",
+      "title": "春季最爱",
+      "year": 2025,
+      "summary_text": "春天那段时间，你反复回到这首歌里。",
+      "season_name": "SPRING",
+      "track_title": "若月亮没来",
+      "artist_display": "王宇宙Leto",
+      "play_total": 37,
+      "active_days": 18,
+      "accent_hex": "#34D399"
     },
     {
       "page_id": "P24",
       "title": "年度最爱专辑榜",
       "year": 2025,
-      "summary_text": "你最常回到这些专辑里。",
-      "album_ranking": []
+      "summary_text": "这些专辑，几乎构成了你这一年的背景音。",
+      "album_ranking": [
+        { "rank": 1, "album_display": "微光", "artist_display": "不才", "play_total": 64 },
+        { "rank": 2, "album_display": "失眠宇宙", "artist_display": "王宇宙Leto", "play_total": 51 },
+        { "rank": 3, "album_display": "群青日和", "artist_display": "ヨルシカ", "play_total": 43 }
+      ]
     },
     {
       "page_id": "P32",
       "title": "音乐四格总结",
       "year": 2025,
-      "summary_text": "这一年听歌的轮廓，就停在这里。",
-      "summary_cards": []
+      "summary_text": "这一年最重要的四个听歌结论，停在这里。",
+      "summary_cards": [
+        { "card_id": "song", "headline": "年度歌曲", "value": "若月亮没来", "support_text": "反复陪你到很晚" },
+        { "card_id": "artist", "headline": "年度歌手", "value": "不才", "support_text": "安静地占了很多夜晚" },
+        { "card_id": "album", "headline": "年度专辑", "value": "微光", "support_text": "你最常回到这里" },
+        { "card_id": "night", "headline": "最晚听歌", "value": "03:08", "support_text": "那晚你还没睡" }
+      ]
     }
   ]
 }

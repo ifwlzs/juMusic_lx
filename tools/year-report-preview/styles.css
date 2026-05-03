@@ -3,6 +3,7 @@
   --report-bg: #0B0D1D;
   --report-surface: #0F1225;
   --report-surface-2: #14172F;
+  --report-surface-3: #1B2142;
   --report-primary: #4338CA;
   --report-primary-2: #6366F1;
   --report-primary-3: #7C3AED;
@@ -11,6 +12,9 @@
   --report-text: #F8FAFC;
   --report-text-soft: #CBD5E1;
   --report-text-muted: #94A3B8;
+  --report-border: rgba(148, 163, 184, 0.18);
+  --report-glow: 0 28px 64px rgba(67, 56, 202, 0.34);
+  --report-glow-soft: 0 18px 40px rgba(56, 189, 248, 0.16);
   /* 统一记录交互过渡时长，后续 JS 切页可直接复用。 */
   --report-transition-duration: 260ms;
 }
@@ -34,6 +38,7 @@ body {
   overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(99, 102, 241, 0.24), transparent 32%),
+    radial-gradient(circle at 80% 10%, rgba(56, 189, 248, 0.12), transparent 26%),
     linear-gradient(180deg, var(--report-bg), var(--report-surface));
 }
 
@@ -41,6 +46,11 @@ body {
   height: 100vh;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+
+.report-stage::-webkit-scrollbar {
+  display: none;
 }
 
 .report-progress {
@@ -48,6 +58,14 @@ body {
   right: 16px;
   top: 16px;
   z-index: 3;
+  padding: 10px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  background: rgba(11, 13, 29, 0.58);
+  backdrop-filter: blur(18px);
+  color: var(--report-text-soft);
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 /* 左右热区只做弱交互层，不显示显眼按钮，符合“无明显翻页按钮”的要求。 */
@@ -71,13 +89,14 @@ body {
 }
 
 .page {
+  position: relative;
   min-height: 100vh;
   box-sizing: border-box;
-  padding: 24px 16px 28px;
+  padding: 28px 24px 32px;
   scroll-snap-align: start;
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 16px;
+  gap: 20px;
   transform: translate3d(0, var(--drag-offset, 0px), 0);
   transition: transform var(--report-transition-duration) ease-out, opacity var(--report-transition-duration) ease-out;
   opacity: 0.52;
@@ -88,12 +107,30 @@ body {
   opacity: 1;
 }
 
+.page::before {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border-radius: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  pointer-events: none;
+}
+
+.page__top,
+.page__body {
+  position: relative;
+  z-index: 1;
+}
+
 .page__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: var(--report-text-muted);
   font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .page__body {
@@ -102,10 +139,14 @@ body {
   align-content: start;
 }
 
+.page__body--rich {
+  min-height: 0;
+}
+
 .page__title {
   margin: 0;
-  font-size: 32px;
-  line-height: 1.15;
+  font-size: clamp(32px, 4.8vw, 54px);
+  line-height: 1.08;
 }
 
 .page__summary {
@@ -113,6 +154,7 @@ body {
   color: var(--report-text-soft);
   font-size: 15px;
   line-height: 1.7;
+  max-width: 34rem;
 }
 
 /* T1：故事主视觉页，突出单一主角和中心沉浸感。 */
@@ -143,6 +185,432 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* P01：开场页用中心轨道和超大数字做主记忆点。 */
+.page--hero-start {
+  overflow: hidden;
+}
+
+.page--hero-start::after {
+  content: '';
+  position: absolute;
+  inset: auto -8% 10% auto;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.28), transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.hero-start {
+  position: relative;
+  min-height: calc(100vh - 140px);
+  display: grid;
+  place-items: center;
+}
+
+.hero-start__halo {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(72vw, 520px);
+  height: min(72vw, 520px);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(circle, rgba(67, 56, 202, 0.34), rgba(67, 56, 202, 0.04) 56%, transparent 70%),
+    radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.28), transparent 32%);
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.1),
+    0 0 0 28px rgba(255, 255, 255, 0.015),
+    0 0 0 64px rgba(255, 255, 255, 0.01);
+  filter: blur(2px);
+}
+
+.hero-start__content {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 720px);
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.hero-start__kicker,
+.season-card__kicker,
+.album-ranking__kicker,
+.summary-grid__kicker {
+  margin: 0;
+  color: var(--report-highlight);
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.hero-start__summary {
+  max-width: 24rem;
+}
+
+.hero-start__value {
+  font-size: clamp(64px, 13vw, 132px);
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.06em;
+  color: var(--report-text);
+  text-shadow: 0 0 28px rgba(99, 102, 241, 0.38);
+}
+
+.hero-start__label {
+  margin: 0;
+  color: var(--report-text-soft);
+  font-size: clamp(18px, 2.6vw, 28px);
+}
+
+.hero-start__meta {
+  display: grid;
+  gap: 6px;
+  padding: 16px 20px;
+  border-radius: 22px;
+  background: rgba(15, 18, 37, 0.8);
+  border: 1px solid var(--report-border);
+  box-shadow: var(--report-glow-soft);
+}
+
+.hero-start__meta-label {
+  color: var(--report-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hero-start__meta-value {
+  font-size: clamp(18px, 2.4vw, 24px);
+}
+
+.hero-start__facts {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  width: min(100%, 560px);
+  display: grid;
+  gap: 10px;
+}
+
+.hero-start__fact {
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(20, 23, 47, 0.96), rgba(15, 18, 37, 0.8));
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  color: var(--report-text-soft);
+  box-shadow: var(--report-glow-soft);
+}
+
+/* P12：春季页建立四季模板的封面卡、曲目信息与双指标布局。 */
+.season-card {
+  --season-accent: #34D399;
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 24px;
+}
+
+.season-card__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.season-card__copy {
+  display: grid;
+  gap: 12px;
+}
+
+.season-card__title,
+.album-ranking__title,
+.summary-grid__title {
+  max-width: 10ch;
+}
+
+.season-card__summary {
+  max-width: 28rem;
+}
+
+.season-card__cover {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 32px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--season-accent) 72%, white 6%), rgba(8, 10, 24, 0.96)),
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.34), transparent 20%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02));
+  border: 1px solid color-mix(in srgb, var(--season-accent) 42%, white 8%);
+  box-shadow:
+    0 18px 46px color-mix(in srgb, var(--season-accent) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  overflow: hidden;
+}
+
+.season-card__cover::before,
+.season-card__cover::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+}
+
+.season-card__cover::before {
+  inset: 16% 16% auto auto;
+  width: 44%;
+  height: 44%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.28), transparent 72%);
+}
+
+.season-card__cover::after {
+  inset: auto auto 12% 12%;
+  width: 42%;
+  height: 42%;
+  background: radial-gradient(circle, rgba(8, 10, 24, 0.42), transparent 72%);
+}
+
+.season-card__disc {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 54%;
+  height: 54%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(circle at center, rgba(8, 10, 24, 0.88) 0 16%, rgba(255, 255, 255, 0.16) 17% 18%, rgba(8, 10, 24, 0.78) 19% 100%),
+    repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.12) 0 2px, rgba(255, 255, 255, 0) 2px 8px);
+  box-shadow: 0 18px 36px rgba(8, 10, 24, 0.28);
+}
+
+.season-card__glow {
+  position: absolute;
+  inset: auto 10% 12% auto;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3), transparent 70%);
+  filter: blur(4px);
+}
+
+.season-card__track {
+  display: grid;
+  gap: 6px;
+  padding: 20px 22px;
+  border-radius: 26px;
+  background: rgba(15, 18, 37, 0.82);
+  border: 1px solid color-mix(in srgb, var(--season-accent) 20%, white 4%);
+  box-shadow: var(--report-glow-soft);
+}
+
+.season-card__track-label,
+.season-card__stat-label {
+  color: var(--report-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.season-card__track-title {
+  font-size: clamp(28px, 3.8vw, 44px);
+  line-height: 1.08;
+}
+
+.season-card__artist {
+  color: color-mix(in srgb, var(--season-accent) 74%, white 18%);
+  font-size: 16px;
+}
+
+.season-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.season-card__stat {
+  display: grid;
+  gap: 10px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(16, 24, 39, 0.92), rgba(10, 14, 28, 0.88));
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.season-card__stat-value {
+  font-size: clamp(28px, 4vw, 44px);
+}
+
+/* P24：冠军卡突出层级，后续专辑榜模板可直接沿用。 */
+.album-ranking {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 22px;
+}
+
+.album-ranking__intro {
+  display: grid;
+  gap: 12px;
+}
+
+.album-ranking__summary {
+  max-width: 34rem;
+}
+
+.album-ranking__champion {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 28px 28px;
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.26), rgba(124, 58, 237, 0.12) 42%, rgba(15, 18, 37, 0.94) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  box-shadow: var(--report-glow);
+}
+
+.album-ranking__champion-rank {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.18), rgba(248, 250, 252, 0.04));
+  color: var(--report-text);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.album-ranking__champion-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.album-ranking__champion-label {
+  color: var(--report-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.album-ranking__champion-title {
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 1.04;
+}
+
+.album-ranking__champion-artist,
+.album-ranking__item-artist {
+  color: var(--report-text-soft);
+}
+
+.album-ranking__champion-count {
+  align-self: end;
+  color: var(--report-highlight);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.album-ranking__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.album-ranking__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(15, 18, 37, 0.74);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.album-ranking__item-rank {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(99, 102, 241, 0.14);
+  color: var(--report-text-soft);
+  font-weight: 700;
+}
+
+.album-ranking__item-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.album-ranking__item-title {
+  font-size: 18px;
+}
+
+.album-ranking__item-count {
+  color: var(--report-text-muted);
+  font-size: 14px;
+}
+
+/* P32：四格总结页使用等高网格，适合一页一个模块的停顿式收尾。 */
+.summary-grid {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 22px;
+}
+
+.summary-grid__intro {
+  display: grid;
+  gap: 12px;
+}
+
+.summary-grid__summary {
+  max-width: 30rem;
+}
+
+.summary-grid__cards {
+  gap: 16px;
+}
+
+.summary-grid__card {
+  min-height: 188px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 22px 22px 24px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(20, 23, 47, 0.96), rgba(15, 18, 37, 0.88)),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 34%);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  box-shadow: var(--report-glow-soft);
+}
+
+.summary-grid__headline {
+  color: var(--report-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.summary-grid__value {
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.08;
+}
+
+.summary-grid__support {
+  margin: 0;
+  color: var(--report-text-soft);
+  line-height: 1.7;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* 当用户偏好减弱动画时，统一关闭页面动效与平滑滚动。 */
   * {
@@ -152,17 +620,92 @@ body {
   }
 }
 
+@media (max-width: 1023px) {
+  .page {
+    padding: 24px 18px 28px;
+  }
+
+  .season-card__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .season-card__cover {
+    max-width: min(72vw, 360px);
+    justify-self: center;
+    width: 100%;
+  }
+
+  .album-ranking__champion {
+    grid-template-columns: auto 1fr;
+  }
+
+  .album-ranking__champion-count {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
 @media (max-width: 767px) {
+  .report-progress {
+    left: 16px;
+    right: 16px;
+    top: 14px;
+    text-align: center;
+  }
+
   .page {
     padding: 20px 16px 24px;
+    gap: 16px;
+  }
+
+  .page::before {
+    inset: 10px;
+    border-radius: 24px;
   }
 
   .page__title {
-    font-size: 28px;
+    font-size: clamp(28px, 8.4vw, 40px);
   }
 
+  .hero-start {
+    min-height: calc(100vh - 124px);
+  }
+
+  .hero-start__facts {
+    width: 100%;
+  }
+
+  .season-card,
+  .album-ranking,
+  .summary-grid {
+    min-height: calc(100vh - 124px);
+    align-content: start;
+    padding-top: 28px;
+  }
+
+  .season-card__stats,
   .page--t4 .page__summary-grid,
   .page--t3 .page__stats {
     grid-template-columns: 1fr;
+  }
+
+  .album-ranking__champion,
+  .album-ranking__item {
+    grid-template-columns: 1fr;
+  }
+
+  .album-ranking__champion-rank,
+  .album-ranking__item-rank {
+    width: 54px;
+    height: 54px;
+  }
+
+  .album-ranking__champion-count,
+  .album-ranking__item-count {
+    justify-self: start;
+  }
+
+  .summary-grid__card {
+    min-height: 0;
   }
 }

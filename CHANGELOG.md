@@ -42,6 +42,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增 `scripts/year_report/build_year_report.py` 年报 Python 骨架与字段 contract，补齐 `P20` / `P23` / `P24` / `L02` / `P32` 的最小可用聚合
 - 新增 `tools/year-report-preview/` 本地年度报告预览工具，支持 A 风格全屏分页预览、桌面滚轮/点击切页与移动端上下滑切页
 - 新增年度报告预览工具静态契约测试，以及 `build_year_report.py --input-json --output` 导出 CLI，便于把真实年报 JSON 直接接到预览工具
+- 年度报告预览工具新增 `P01` / `P12` / `P24` / `P32` 首批真实效果页，落地开场主视觉、四季封面卡、专辑冠军榜与四格总结样式
 
 优化
 
