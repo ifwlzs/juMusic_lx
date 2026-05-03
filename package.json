@@ -26,7 +26,9 @@
     "preview:play-detail-bg": "node tools/play-detail-bg-preview/server.js",
     "test:release": "node --test tests/release/versioning.test.js tests/release/windows-shortcuts.test.js",
     "test:media-library": "node --test tests/media-library",
-    "test:python:music-etl": "python -m pytest tests/python/test_load_music_info.py -v"
+    "test:python:music-etl": "python -m pytest tests/python/test_load_music_info.py -v",
+    "preview:year-report": "node tools/year-report-preview/server.js",
+    "test:year-report-preview": "node --test tests/year-report/year-report-preview-tool.test.js"
   },
   "engines": {
     "node": ">= 18",

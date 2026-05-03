@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>juMusic Year Report Preview</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- 顶层应用容器用于承载整份年度报告预览。 -->
+  <div class="report-app" data-role="report-app">
+    <!-- 主舞台区域后续由 preview.js 动态渲染整页内容。 -->
+    <div class="report-stage" data-role="report-stage"></div>
+    <!-- 预留进度区域，后续用于显示当前页序与弱提示。 -->
+    <div class="report-progress" data-role="progress"></div>
+    <!-- 左侧热区按钮用于桌面端快速切到上一页。 -->
+    <button type="button" class="report-hit report-hit--prev" data-role="prev-hit" aria-label="上一页"></button>
+    <!-- 右侧热区按钮用于桌面端快速切到下一页。 -->
+    <button type="button" class="report-hit report-hit--next" data-role="next-hit" aria-label="下一页"></button>
+  </div>
+  <script type="module" src="./preview.js"></script>
+</body>
+</html>
