@@ -97,6 +97,18 @@ function normalizePages(report) {
 // 按模板输出单页的最小骨架，后续任务会继续细化到四套模板内部结构。
 function renderPage(page, index, total) {
   const activeClass = index === state.activeIndex ? ' is-active' : ''
+  if (page.page_id === 'P01') {
+    return `<section class="page page--t1${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="hero-start"></section>`
+  }
+  if (page.page_id === 'P12') {
+    return `<section class="page page--t1${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="season-card"></section>`
+  }
+  if (page.page_id === 'P24') {
+    return `<section class="page page--t2${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="album-ranking"></section>`
+  }
+  if (page.page_id === 'P32') {
+    return `<section class="page page--t4${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="summary-grid"></section>`
+  }
   return `
     <section class="page page--${page.template.toLowerCase()}${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}">
       <header class="page__top">
