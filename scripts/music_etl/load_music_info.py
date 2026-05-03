@@ -15,6 +15,7 @@ from mutagen import File as MutagenFile
 
 TABLE_NAME = 'ods_jumusic_music_info'
 ARTIST_ALIAS_TABLE_NAME = 'ods_jumusic_artist_alias'
+GENRE_DIM_TABLE_NAME = 'ods_jumusic_genre_dim'
 SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.m4a', '.aac', '.wav', '.ape', '.ogg', '.opus'}
 WAREHOUSE_COLUMNS = [
     'batch_id', 'root_path', 'file_path', 'file_name', 'file_ext', 'file_size', 'file_mtime', 'file_md5',
@@ -69,6 +70,75 @@ BEGIN
     IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{ARTIST_ALIAS_TABLE_NAME}'), 'canonical_artist', 'ColumnId') AND name = N'MS_Description')
         EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'canonical_artist';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'标准歌手名；命中 alias 后最终写入歌曲维表 artist 的值', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{ARTIST_ALIAS_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'canonical_artist';
+END
+""",
+    f"""
+IF EXISTS (
+    SELECT 1 FROM sys.tables t WHERE t.object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}')
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM sys.extended_properties
+        WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = 0 AND name = N'MS_Description'
+    )
+        EXEC sys.sp_dropextendedproperty
+            @name=N'MS_Description',
+            @level0type=N'SCHEMA', @level0name=N'dbo',
+            @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}';
+
+    EXEC sys.sp_addextendedproperty
+        @name=N'MS_Description',
+        @value=N'juMusic 曲风维度表；维护 Essentia 曲风英文标准值、中文展示名以及父子层级关系',
+        @level0type=N'SCHEMA', @level0name=N'dbo',
+        @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND name = N'genre_level')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}'), 'genre_level', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_level';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'曲风层级：parent / child / path', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_level';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND name = N'genre_en')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}'), 'genre_en', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_en';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'曲风英文标准值或路径键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_en';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND name = N'genre_zh')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}'), 'genre_zh', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_zh';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'曲风中文展示名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_zh';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND name = N'parent_genre_en')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}'), 'parent_genre_en', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'parent_genre_en';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'父级曲风英文值；path/child 记录可回指 parent', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'parent_genre_en';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND name = N'child_genre_en')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}'), 'child_genre_en', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'child_genre_en';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'子级曲风英文值；path 记录可回指 child', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'child_genre_en';
+END
+""",
+    f"""
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND name = N'genre_depth')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}'), 'genre_depth', 'ColumnId') AND name = N'MS_Description')
+        EXEC sys.sp_dropextendedproperty @name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_depth';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'曲风路径层级深度，通常 parent=1, child=1, path=2', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'{GENRE_DIM_TABLE_NAME}', @level2type=N'COLUMN', @level2name=N'genre_depth';
 END
 """,
     f"""
@@ -497,6 +567,34 @@ IF NOT EXISTS (
 BEGIN
     CREATE UNIQUE INDEX ux_{ARTIST_ALIAS_TABLE_NAME}_alias_name_norm
     ON dbo.{ARTIST_ALIAS_TABLE_NAME}(alias_name_norm)
+END
+""")
+    cursor.execute(f"""
+IF OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.{GENRE_DIM_TABLE_NAME} (
+        id bigint identity(1,1) primary key,
+        genre_level varchar(20) not null,
+        genre_en nvarchar(255) not null,
+        genre_zh nvarchar(255) null,
+        genre_zh_short nvarchar(100) null,
+        parent_genre_en nvarchar(255) null,
+        child_genre_en nvarchar(255) null,
+        genre_depth int null,
+        is_enabled bit not null default 1,
+        note nvarchar(500) null,
+        etl_created_at datetime2 not null default sysdatetime(),
+        etl_updated_at datetime2 not null default sysdatetime()
+    )
+END
+""")
+    cursor.execute(f"""
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes WHERE name = 'ux_{GENRE_DIM_TABLE_NAME}_level_genre_en' AND object_id = OBJECT_ID(N'dbo.{GENRE_DIM_TABLE_NAME}')
+)
+BEGIN
+    CREATE UNIQUE INDEX ux_{GENRE_DIM_TABLE_NAME}_level_genre_en
+    ON dbo.{GENRE_DIM_TABLE_NAME}(genre_level, genre_en)
 END
 """)
     cursor.execute(f"""

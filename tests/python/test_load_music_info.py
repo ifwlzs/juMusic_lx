@@ -482,8 +482,10 @@ def test_ensure_table_contains_comment_sql():
     sql_text = '\n'.join(module.COMMENT_SQLS)
     assert 'ods_jumusic_music_info' in sql_text
     assert 'ods_jumusic_artist_alias' in sql_text
+    assert 'ods_jumusic_genre_dim' in sql_text
     assert '歌曲维表' in sql_text
     assert '歌手别名映射表' in sql_text
+    assert '曲风维度表' in sql_text
     assert 'file_path' in sql_text
     assert 'duration_sec' in sql_text
     assert 'alias_name' in sql_text
@@ -577,6 +579,20 @@ def test_upsert_music_rows_updates_then_inserts():
     assert 'INSERT INTO dbo.ods_jumusic_music_info' in sql_text
     assert stats == {'updated': 1, 'inserted': 1}
     assert conn.commit_count == 1
+
+
+def test_ensure_table_creates_genre_dim_table_and_indexes():
+    module = load_module()
+    conn = FakeConnection()
+
+    module.ensure_table(conn)
+
+    sql_text = '\n'.join(item[0] for item in conn.cursor_obj.executed)
+    assert 'ods_jumusic_genre_dim' in sql_text
+    assert 'ux_ods_jumusic_genre_dim_level_genre_en' in sql_text
+    assert 'genre_zh' in sql_text
+    assert 'parent_genre_en' in sql_text
+    assert 'child_genre_en' in sql_text
 
 
 def test_build_row_combines_file_and_metadata_fields():

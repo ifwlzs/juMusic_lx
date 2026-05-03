@@ -107,6 +107,30 @@ WITH artist_alias_map AS (
   FROM dbo.ods_jumusic_artist_alias
   WHERE is_enabled = 1
 ),
+genre_dim_parent AS (
+  SELECT
+    genre_en,
+    genre_zh
+  FROM dbo.ods_jumusic_genre_dim
+  WHERE is_enabled = 1
+    AND genre_level = 'parent'
+),
+genre_dim_child AS (
+  SELECT
+    genre_en,
+    genre_zh
+  FROM dbo.ods_jumusic_genre_dim
+  WHERE is_enabled = 1
+    AND genre_level = 'child'
+),
+genre_dim_path AS (
+  SELECT
+    genre_en,
+    genre_zh
+  FROM dbo.ods_jumusic_genre_dim
+  WHERE is_enabled = 1
+    AND genre_level = 'path'
+),
 dim_file AS (
   SELECT
     file_name,
@@ -252,17 +276,17 @@ FROM base;
 DECLARE @year int = %s;
 WITH base AS (
   SELECT
-    CAST(COALESCE(file_mtime, etl_created_at) AS datetime2) AS created_at,
-    file_path,
-    root_path,
-    NULLIF(title, '') AS title,
-    NULLIF(artist, '') AS artist_name,
-    NULLIF(album, '') AS album,
-    NULLIF(genre, '') AS genre,
-    NULLIF(embedded_lyric, '') AS embedded_lyric,
-    duration_sec
-  FROM dbo.ods_jumusic_music_info
-  WHERE scan_status = 'SUCCESS'
+    CAST(COALESCE(m.file_mtime, m.etl_created_at) AS datetime2) AS created_at,
+    m.file_path,
+    m.root_path,
+    NULLIF(m.title, '') AS title,
+    NULLIF(m.artist, '') AS artist_name,
+    NULLIF(m.album, '') AS album,
+    NULLIF(m.genre, '') AS genre,
+    NULLIF(m.embedded_lyric, '') AS embedded_lyric,
+    m.duration_sec
+  FROM dbo.ods_jumusic_music_info m
+  WHERE m.scan_status = 'SUCCESS'
 )
 SELECT
   COUNT(*) AS track_count,
@@ -286,21 +310,29 @@ FROM base;
 DECLARE @year int = %s;
 WITH base AS (
   SELECT
-    FORMAT(CAST(COALESCE(file_mtime, etl_created_at) AS datetime2), 'yyyy-MM') AS period_key,
-    file_path,
-    root_path,
-    NULLIF(title, '') AS title,
-    NULLIF(artist, '') AS artist_name,
-    NULLIF(album, '') AS album,
-    NULLIF(genre, '') AS genre,
-    NULLIF(embedded_lyric, '') AS embedded_lyric,
+    FORMAT(CAST(COALESCE(m.file_mtime, m.etl_created_at) AS datetime2), 'yyyy-MM') AS period_key,
+    m.file_path,
+    m.root_path,
+    NULLIF(m.title, '') AS title,
+    NULLIF(m.artist, '') AS artist_name,
+    NULLIF(m.album, '') AS album,
+    NULLIF(m.genre, '') AS genre,
+    NULLIF(m.embedded_lyric, '') AS embedded_lyric,
     {LANGUAGE_CASE_SQL} AS language,
-    COALESCE(NULLIF(genre_essentia_child, ''), NULLIF(genre_essentia_parent, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_label,
-    COALESCE(NULLIF(genre_essentia_parent, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_parent_label,
-    COALESCE(NULLIF(genre_essentia_path, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_path_label
-  FROM dbo.ods_jumusic_music_info
-  WHERE scan_status = 'SUCCESS'
-    AND YEAR(CAST(COALESCE(file_mtime, etl_created_at) AS datetime2)) = @year
+    COALESCE(NULLIF(gd_child.genre_zh, ''), NULLIF(gd_parent.genre_zh, ''), NULLIF(m.genre_essentia_child, ''), NULLIF(m.genre_essentia_parent, ''), NULLIF(m.genre_essentia_label, ''), NULLIF(m.genre, ''), N'未识别') AS genre_label,
+    COALESCE(NULLIF(m.genre_essentia_parent, ''), NULLIF(m.genre_essentia_label, ''), NULLIF(m.genre, ''), N'未识别') AS genre_parent_label,
+    COALESCE(NULLIF(m.genre_essentia_path, ''), NULLIF(m.genre_essentia_label, ''), NULLIF(m.genre, ''), N'未识别') AS genre_path_label
+  FROM dbo.ods_jumusic_music_info m
+  LEFT JOIN dbo.ods_jumusic_genre_dim gd_parent
+    ON gd_parent.is_enabled = 1
+   AND gd_parent.genre_level = 'parent'
+   AND gd_parent.genre_en = NULLIF(m.genre_essentia_parent, '')
+  LEFT JOIN dbo.ods_jumusic_genre_dim gd_child
+    ON gd_child.is_enabled = 1
+   AND gd_child.genre_level = 'child'
+   AND gd_child.genre_en = NULLIF(m.genre_essentia_child, '')
+  WHERE m.scan_status = 'SUCCESS'
+    AND YEAR(CAST(COALESCE(m.file_mtime, m.etl_created_at) AS datetime2)) = @year
 ),
 totals AS (
   SELECT COUNT(*) AS total_count FROM base
@@ -593,20 +625,28 @@ ORDER BY weight DESC, title ASC, track_id ASC;
 DECLARE @year int = %s;
 WITH base AS (
   SELECT
-    LOWER(COALESCE(NULLIF(file_ext, ''), 'unknown')) AS file_ext,
-    file_path,
-    root_path,
-    NULLIF(title, '') AS title,
-    NULLIF(album, '') AS album,
-    NULLIF(genre, '') AS genre,
-    NULLIF(embedded_lyric, '') AS embedded_lyric,
-    COALESCE(duration_sec, 0) AS duration_sec,
+    LOWER(COALESCE(NULLIF(m.file_ext, ''), 'unknown')) AS file_ext,
+    m.file_path,
+    m.root_path,
+    NULLIF(m.title, '') AS title,
+    NULLIF(m.album, '') AS album,
+    NULLIF(m.genre, '') AS genre,
+    NULLIF(m.embedded_lyric, '') AS embedded_lyric,
+    COALESCE(m.duration_sec, 0) AS duration_sec,
     {LANGUAGE_CASE_SQL} AS language,
-    COALESCE(NULLIF(genre_essentia_child, ''), NULLIF(genre_essentia_parent, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_label,
-    COALESCE(NULLIF(genre_essentia_parent, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_parent_label,
-    COALESCE(NULLIF(genre_essentia_path, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_path_label
-  FROM dbo.ods_jumusic_music_info
-  WHERE scan_status = 'SUCCESS'
+    COALESCE(NULLIF(gd_child.genre_zh, ''), NULLIF(gd_parent.genre_zh, ''), NULLIF(m.genre_essentia_child, ''), NULLIF(m.genre_essentia_parent, ''), NULLIF(m.genre_essentia_label, ''), NULLIF(m.genre, ''), N'未识别') AS genre_label,
+    COALESCE(NULLIF(m.genre_essentia_parent, ''), NULLIF(m.genre_essentia_label, ''), NULLIF(m.genre, ''), N'未识别') AS genre_parent_label,
+    COALESCE(NULLIF(m.genre_essentia_path, ''), NULLIF(m.genre_essentia_label, ''), NULLIF(m.genre, ''), N'未识别') AS genre_path_label
+  FROM dbo.ods_jumusic_music_info m
+  LEFT JOIN dbo.ods_jumusic_genre_dim gd_parent
+    ON gd_parent.is_enabled = 1
+   AND gd_parent.genre_level = 'parent'
+   AND gd_parent.genre_en = NULLIF(m.genre_essentia_parent, '')
+  LEFT JOIN dbo.ods_jumusic_genre_dim gd_child
+    ON gd_child.is_enabled = 1
+   AND gd_child.genre_level = 'child'
+   AND gd_child.genre_en = NULLIF(m.genre_essentia_child, '')
+  WHERE m.scan_status = 'SUCCESS'
 ),
 all_counts AS (
   SELECT COUNT(*) AS total_count FROM base
@@ -685,9 +725,11 @@ DECLARE @year int = %s;
 {COMMON_BASE_CTE},
 genre_rows AS (
   SELECT
-    COALESCE(NULLIF(genre_essentia_parent, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_name,
+    COALESCE(NULLIF(gdp.genre_zh, ''), NULLIF(genre_essentia_parent, ''), NULLIF(genre_essentia_label, ''), NULLIF(genre, ''), N'未识别') AS genre_name,
     listened_sec
   FROM base
+  LEFT JOIN genre_dim_parent gdp
+    ON gdp.genre_en = NULLIF(genre_essentia_parent, '')
 ),
 genre_stats AS (
   SELECT
@@ -717,8 +759,10 @@ year_new_unique_tracks AS (
   SELECT
     a.track_id,
     MIN(a.first_played_at) AS first_played_at,
-    MAX(COALESCE(NULLIF(a.genre_essentia_parent, ''), NULLIF(a.genre_essentia_label, ''), NULLIF(a.genre, ''), N'未识别')) AS genre
+    MAX(COALESCE(NULLIF(gdp.genre_zh, ''), NULLIF(a.genre_essentia_parent, ''), NULLIF(a.genre_essentia_label, ''), NULLIF(a.genre, ''), N'未识别')) AS genre
   FROM all_base a
+  LEFT JOIN genre_dim_parent gdp
+    ON gdp.genre_en = NULLIF(a.genre_essentia_parent, '')
   WHERE YEAR(a.first_played_at) = @year
   GROUP BY a.track_id
 ),
@@ -759,16 +803,24 @@ DECLARE @year int = %s;
 {COMMON_BASE_CTE},
 genre_first_seen AS (
   SELECT
-    COALESCE(NULLIF(a.genre_essentia_child, ''), NULLIF(a.genre_essentia_parent, ''), NULLIF(a.genre_essentia_label, ''), NULLIF(a.genre, ''), N'未识别') AS genre,
+    COALESCE(NULLIF(gdc.genre_zh, ''), NULLIF(gdp.genre_zh, ''), NULLIF(a.genre_essentia_child, ''), NULLIF(a.genre_essentia_parent, ''), NULLIF(a.genre_essentia_label, ''), NULLIF(a.genre, ''), N'未识别') AS genre,
     MIN(a.first_played_at) AS first_seen_at
   FROM all_base a
-  GROUP BY COALESCE(NULLIF(a.genre_essentia_child, ''), NULLIF(a.genre_essentia_parent, ''), NULLIF(a.genre_essentia_label, ''), NULLIF(a.genre, ''), N'未识别')
+  LEFT JOIN genre_dim_parent gdp
+    ON gdp.genre_en = NULLIF(a.genre_essentia_parent, '')
+  LEFT JOIN genre_dim_child gdc
+    ON gdc.genre_en = NULLIF(a.genre_essentia_child, '')
+  GROUP BY COALESCE(NULLIF(gdc.genre_zh, ''), NULLIF(gdp.genre_zh, ''), NULLIF(a.genre_essentia_child, ''), NULLIF(a.genre_essentia_parent, ''), NULLIF(a.genre_essentia_label, ''), NULLIF(a.genre, ''), N'未识别')
 ),
 genre_year_rows AS (
   SELECT
-    COALESCE(NULLIF(b.genre_essentia_child, ''), NULLIF(b.genre_essentia_parent, ''), NULLIF(b.genre_essentia_label, ''), NULLIF(b.genre, ''), N'未识别') AS genre,
+    COALESCE(NULLIF(gdc.genre_zh, ''), NULLIF(gdp.genre_zh, ''), NULLIF(b.genre_essentia_child, ''), NULLIF(b.genre_essentia_parent, ''), NULLIF(b.genre_essentia_label, ''), NULLIF(b.genre, ''), N'未识别') AS genre,
     COALESCE(NULLIF(b.artist_norm, ''), NULLIF(b.artist_raw, ''), N'未知歌手') AS artist
   FROM base b
+  LEFT JOIN genre_dim_parent gdp
+    ON gdp.genre_en = NULLIF(b.genre_essentia_parent, '')
+  LEFT JOIN genre_dim_child gdc
+    ON gdc.genre_en = NULLIF(b.genre_essentia_child, '')
 ),
 genre_play_count AS (
   SELECT

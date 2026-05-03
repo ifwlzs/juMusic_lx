@@ -36,8 +36,13 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Android 端应用图标切换新增 icon3（经典）
 - `scripts/music_etl/load_music_info.py` 新增内置歌词抓取能力，入仓字段补充 `embedded_lyric` / `embedded_lyric_format` / `embedded_lyric_length`
 - 播放页新增歌词时间轴偏移设置，支持 `-5000ms ~ +5000ms` 范围与快捷步进调整，修改后即时生效
+- 年报 / 歌曲维表新增 Essentia 曲风全量回填脚本，支持 Linux VM 后台批处理、失败样本跳过与可恢复循环入库
+- 新增 `ods_jumusic_genre_dim` 曲风维度表及 seed 脚本，维护 Essentia 曲风英文标准值、中文展示名和父子层级关系
 
 优化
+
+- 年报曲风相关查询改为优先联表 `ods_jumusic_genre_dim` 显示中文曲风名称，曲库画像 / 曲风进化 / 年度主曲风观感更统一
+- 补全曲风维度表中文翻译，并将真实年报曲风展示切换为中文优先、英文回退
 
 - 媒体来源“更新”改为默认增量同步，优先补新增范围、近期新增歌曲与近期更新歌曲
 - 媒体来源新增“全量校验”入口，只有这个动作才处理源端删歌

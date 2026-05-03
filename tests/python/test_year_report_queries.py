@@ -448,3 +448,7 @@ def test_genre_queries_prefer_structured_essentia_parent_child_path_fields():
     assert 'genre_essentia_parent' in p09_sql or 'genre_essentia_child' in p09_sql or 'genre_essentia_path' in p09_sql
     assert 'genre_essentia_parent' in p10_sql or 'genre_essentia_child' in p10_sql or 'genre_essentia_path' in p10_sql
     assert 'genre_essentia_parent' in l03_sql or 'genre_essentia_child' in l03_sql or 'genre_essentia_path' in l03_sql
+    assert 'ods_jumusic_genre_dim' in p08_sql
+    assert 'ods_jumusic_genre_dim' in p09_sql
+    assert 'ods_jumusic_genre_dim' in p10_sql
+    assert 'ods_jumusic_genre_dim' in l03_sql
