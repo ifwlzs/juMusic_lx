@@ -42,3 +42,18 @@ test('year-report preview styles expose A-style tokens and four page templates',
   assert.match(css, /scroll-snap-align: start;/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
 })
+
+test('year-report preview registers the confirmed P/L order and template mapping', () => {
+  const js = read('tools/year-report-preview/preview.js')
+
+  assert.match(js, /pageId: 'P01', template: 'T1'/)
+  assert.match(js, /pageId: 'P08', template: 'T2'/)
+  assert.match(js, /pageId: 'P18', template: 'T3'/)
+  assert.match(js, /pageId: 'P32', template: 'T4'/)
+  assert.match(js, /pageId: 'L04', template: 'T2'/)
+  assert.match(js, /const PAGE_SEQUENCE = \[/)
+  assert.match(js, /'P01'/)
+  assert.match(js, /'P32'/)
+  assert.match(js, /'L04'/)
+  assert.match(js, /renderPage\(/)
+})
