@@ -40,6 +40,8 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 年报 / 歌曲维表新增 Essentia 曲风全量回填脚本，支持 Linux VM 后台批处理、失败样本跳过与可恢复循环入库
 - 新增 `ods_jumusic_genre_dim` 曲风维度表及 seed 脚本，维护 Essentia 曲风英文标准值、中文展示名和父子层级关系
 - 新增 `scripts/year_report/build_year_report.py` 年报 Python 骨架与字段 contract，补齐 `P20` / `P23` / `P24` / `L02` / `P32` 的最小可用聚合
+- 新增 `tools/year-report-preview/` 本地年度报告预览工具，支持 A 风格全屏分页预览、桌面滚轮/点击切页与移动端上下滑切页
+- 新增年度报告预览工具静态契约测试，以及 `build_year_report.py --input-json --output` 导出 CLI，便于把真实年报 JSON 直接接到预览工具
 
 优化
 
@@ -64,6 +66,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 统一歌单详情来源口径解析逻辑到 `resolveDetailEntrySourceById()`，并在导航与入口列表复用，减少 `songlist_detail` 默认回退导致的来源漂移
 - 调整 icon1/icon2 自适应图标留白比例，支持按需将主体缩小到 45%
 - 优化 WebDAV 媒体源建库链路：同步阶段默认不下载音频读取元数据，目录递归改为并发扫描，并对生成歌单引入“无变化跳过 + 局部更新分批写入”以降低 9000+ 曲目场景负载
+- 优化年度报告预览数据接入策略：优先读取 `live-report.json`，缺失时自动回退 `mock-report.json`，先保证“出效果”，再逐步接实数
 
 文档
 

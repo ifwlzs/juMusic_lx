@@ -1,0 +1,27 @@
+{
+  "year": 2025,
+  "pages": [
+    {
+      "page_id": "P01",
+      "title": "首次使用",
+      "year": 2025,
+      "summary_text": "这是你和 juMusic 的开场页。",
+      "hero_value": "1324 天",
+      "hero_label": "已经一起听歌这么久"
+    },
+    {
+      "page_id": "P24",
+      "title": "年度最爱专辑榜",
+      "year": 2025,
+      "summary_text": "你最常回到这些专辑里。",
+      "album_ranking": []
+    },
+    {
+      "page_id": "P32",
+      "title": "音乐四格总结",
+      "year": 2025,
+      "summary_text": "这一年听歌的轮廓，就停在这里。",
+      "summary_cards": []
+    }
+  ]
+}

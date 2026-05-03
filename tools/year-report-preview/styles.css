@@ -1,0 +1,168 @@
+:root {
+  /* 全局设计 token：统一承载 A 风格的深夜霓虹配色。 */
+  --report-bg: #0B0D1D;
+  --report-surface: #0F1225;
+  --report-surface-2: #14172F;
+  --report-primary: #4338CA;
+  --report-primary-2: #6366F1;
+  --report-primary-3: #7C3AED;
+  --report-accent: #22C55E;
+  --report-highlight: #38BDF8;
+  --report-text: #F8FAFC;
+  --report-text-soft: #CBD5E1;
+  --report-text-muted: #94A3B8;
+  /* 统一记录交互过渡时长，后续 JS 切页可直接复用。 */
+  --report-transition-duration: 260ms;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--report-bg);
+  color: var(--report-text);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+body {
+  overflow: hidden;
+}
+
+.report-app {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.24), transparent 32%),
+    linear-gradient(180deg, var(--report-bg), var(--report-surface));
+}
+
+.report-stage {
+  height: 100vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+}
+
+.report-progress {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 3;
+}
+
+/* 左右热区只做弱交互层，不显示显眼按钮，符合“无明显翻页按钮”的要求。 */
+.report-hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18vw;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.report-hit--prev {
+  left: 0;
+}
+
+.report-hit--next {
+  right: 0;
+}
+
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24px 16px 28px;
+  scroll-snap-align: start;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+  transform: translate3d(0, var(--drag-offset, 0px), 0);
+  transition: transform var(--report-transition-duration) ease-out, opacity var(--report-transition-duration) ease-out;
+  opacity: 0.52;
+}
+
+/* 活动页抬高透明度，给当前页一个非常弱但稳定的视觉焦点。 */
+.page.is-active {
+  opacity: 1;
+}
+
+.page__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--report-text-muted);
+  font-size: 12px;
+}
+
+.page__body {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.page__title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.15;
+}
+
+.page__summary {
+  margin: 0;
+  color: var(--report-text-soft);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* T1：故事主视觉页，突出单一主角和中心沉浸感。 */
+.page--t1 .page__hero {
+  display: grid;
+  gap: 20px;
+  place-items: center;
+  text-align: center;
+}
+
+/* T2：榜单页，强调冠军和分层列表。 */
+.page--t2 .page__ranking {
+  display: grid;
+  gap: 12px;
+}
+
+/* T3：统计卡页，强调图形 / 分布与辅助指标卡。 */
+.page--t3 .page__stats {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* T4：总结四格页，固定使用 2x2 结构收尾。 */
+.page--t4 .page__summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 当用户偏好减弱动画时，统一关闭页面动效与平滑滚动。 */
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding: 20px 16px 24px;
+  }
+
+  .page__title {
+    font-size: 28px;
+  }
+
+  .page--t4 .page__summary-grid,
+  .page--t3 .page__stats {
+    grid-template-columns: 1fr;
+  }
+}

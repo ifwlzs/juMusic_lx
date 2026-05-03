@@ -552,3 +552,26 @@ def test_build_year_report_uses_genre_matches_for_genre_coverage_when_primary_is
 
     # 即使旧字段 primary_genre 缺失，只要曲风映射表中存在候选结果，也应视为已识别曲风。
     assert p31['coverage']['genre_ratio'] == 0.5
+
+
+def test_build_year_report_cli_writes_output_json(tmp_path):
+    import json
+    import subprocess
+    import sys
+
+    output_path = tmp_path / 'report_preview.json'
+    input_path = tmp_path / 'input.json'
+    input_path.write_text(json.dumps({'year': 2025, 'play_history': [], 'library_tracks': []}), encoding='utf-8')
+
+    completed = subprocess.run(
+        [sys.executable, str(MODULE_PATH), '--input-json', str(input_path), '--output', str(output_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert output_path.exists()
+    payload = json.loads(output_path.read_text(encoding='utf-8'))
+    assert payload['year'] == 2025
+    assert isinstance(payload['pages'], list)
+    assert 'Wrote year report JSON' in completed.stdout

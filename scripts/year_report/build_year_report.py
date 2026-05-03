@@ -2013,7 +2013,7 @@ def connect_db(db_config):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description='Build annual report JSON from dataset payloads')
-    parser.add_argument('--year', type=int, required=True)
+    parser.add_argument('--year', type=int, required=False)
     parser.add_argument('--input-json', default=None)
     parser.add_argument('--db-url', default=None)
     parser.add_argument('--output', required=True)
@@ -2027,24 +2027,41 @@ def main(argv=None):
         raise ValueError('either --input-json or --db-url is required')
 
     if args.input_json:
-        dataset_payloads = load_dataset_payloads_from_json(args.input_json)
+        input_payload = load_dataset_payloads_from_json(args.input_json)
+        if isinstance(input_payload, dict) and 'pages' not in input_payload and any(
+            key in input_payload for key in ('play_history', 'library_tracks', 'genre_matches')
+        ):
+            report = build_year_report(input_payload)
+        else:
+            target_year = args.year
+            if target_year is None and isinstance(input_payload, dict):
+                target_year = input_payload.get('year')
+            if target_year is None:
+                raise ValueError('--year is required when --input-json contains dataset payloads')
+            report = build_report_from_dataset_payloads(
+                year=target_year,
+                dataset_payloads=input_payload,
+                generated_at=args.generated_at,
+            )
     else:
+        if args.year is None:
+            raise ValueError('--year is required when using --db-url')
         db_config = load_db_config(args.db_url)
         conn = connect_db(db_config)
         try:
             dataset_payloads = collect_dataset_payloads(conn.cursor(), args.year)
         finally:
             conn.close()
-
-    report = build_report_from_dataset_payloads(
-        year=args.year,
-        dataset_payloads=dataset_payloads,
-        generated_at=args.generated_at,
-    )
+        report = build_report_from_dataset_payloads(
+            year=args.year,
+            dataset_payloads=dataset_payloads,
+            generated_at=args.generated_at,
+        )
     report = make_json_safe(report)
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(f'Wrote year report JSON to {output_path}')
     return report
 
 
