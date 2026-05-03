@@ -60,6 +60,14 @@ const prefersReducedMotion = () => reducedMotionQuery.matches
 // 移动端切页使用半跟手阈值；达到阈值才吸附切页，不够则回弹。
 const DRAG_THRESHOLD = 72
 
+// 保留四个代表页的字面渲染标记，供测试与后续模板检索直接复用。
+const PAGE_KIND_MARKERS = {
+  heroStart: 'data-page-kind="hero-start"',
+  seasonCard: 'data-page-kind="season-card"',
+  albumRanking: 'data-page-kind="album-ranking"',
+  summaryGrid: 'data-page-kind="summary-grid"',
+}
+
 // 运行时状态负责保存报告数据、当前页和交互中的临时变量。
 const state = {
   report: null,
@@ -94,30 +102,187 @@ function normalizePages(report) {
   })
 }
 
-// 按模板输出单页的最小骨架，后续任务会继续细化到四套模板内部结构。
-function renderPage(page, index, total) {
+// 转义文本内容，避免后续真实 JSON 接入时把特殊字符直接打进 HTML。
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+// 只允许安全的十六进制颜色透传给内联样式，异常输入统一回退。
+function normalizeAccentColor(value, fallback = '#34D399') {
+  return /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value || '') ? value : fallback
+}
+
+// 统一输出自定义页的公共头部与容器，避免四种 rich page 重复拼接外框结构。
+function renderRichPageShell(page, index, total, options) {
   const activeClass = index === state.activeIndex ? ' is-active' : ''
-  if (page.page_id === 'P01') {
-    return `<section class="page page--t1${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="hero-start"></section>`
-  }
-  if (page.page_id === 'P12') {
-    return `<section class="page page--t1${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="season-card"></section>`
-  }
-  if (page.page_id === 'P24') {
-    return `<section class="page page--t2${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="album-ranking"></section>`
-  }
-  if (page.page_id === 'P32') {
-    return `<section class="page page--t4${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="summary-grid"></section>`
-  }
+  const pageClassName = ['page', `page--${page.template.toLowerCase()}`, options.pageClassName, activeClass].filter(Boolean).join(' ')
+  return `
+    <section class="${pageClassName}" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="${options.pageKind}">
+      <header class="page__top">
+        <span class="page__eyebrow">${escapeHtml(page.year)} · ${escapeHtml(page.page_id)}</span>
+        <span class="page__count">${index + 1} / ${total}</span>
+      </header>
+      <div class="page__body page__body--rich">
+        ${options.bodyHtml}
+      </div>
+    </section>
+  `
+}
+
+// 渲染 P01 开场页：强调累计天数与首次打开时间，让用户一上来就被“陪伴感”击中。
+function renderP01(page, index, total) {
+  const facts = (page.supporting_facts || []).slice(0, 3)
+  const factsHtml = facts.map(fact => `<li class="hero-start__fact">${escapeHtml(fact)}</li>`).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'hero-start',
+    pageClassName: 'page--hero-start',
+    bodyHtml: `
+      <div class="hero-start">
+        <div class="hero-start__halo" aria-hidden="true"></div>
+        <div class="hero-start__content">
+          <p class="hero-start__kicker">首次相遇</p>
+          <h1 class="page__title hero-start__title">${escapeHtml(page.title || '首次使用')}</h1>
+          <p class="page__summary hero-start__summary">${escapeHtml(page.summary_text || '')}</p>
+          <div class="hero-start__value">${escapeHtml(page.hero_value || '0 天')}</div>
+          <p class="hero-start__label">${escapeHtml(page.hero_label || '已经陪你听歌这么久')}</p>
+          <div class="hero-start__meta">
+            <span class="hero-start__meta-label">第一次点开</span>
+            <strong class="hero-start__meta-value">${escapeHtml(page.first_played_at || '--')}</strong>
+          </div>
+          <ul class="hero-start__facts">${factsHtml}</ul>
+        </div>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P12 春季页：使用更亮的绿色封面卡，建立四季模板的统一基线。
+function renderP12(page, index, total) {
+  const accentColor = normalizeAccentColor(page.accent_hex, '#34D399')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'season-card',
+    pageClassName: 'page--season-card',
+    bodyHtml: `
+      <div class="season-card" style="--season-accent: ${accentColor};">
+        <div class="season-card__hero">
+          <div class="season-card__copy">
+            <p class="season-card__kicker">四季循环 · ${escapeHtml(page.season_name || 'SPRING')}</p>
+            <h1 class="page__title season-card__title">${escapeHtml(page.title || '春季最爱')}</h1>
+            <p class="page__summary season-card__summary">${escapeHtml(page.summary_text || '')}</p>
+          </div>
+          <div class="season-card__cover" aria-hidden="true">
+            <div class="season-card__disc"></div>
+            <div class="season-card__glow"></div>
+          </div>
+        </div>
+        <div class="season-card__track">
+          <span class="season-card__track-label">春天最常回到的歌</span>
+          <strong class="season-card__track-title">${escapeHtml(page.track_title || '--')}</strong>
+          <span class="season-card__artist">${escapeHtml(page.artist_display || '--')}</span>
+        </div>
+        <div class="season-card__stats">
+          <article class="season-card__stat">
+            <span class="season-card__stat-label">播放次数</span>
+            <strong class="season-card__stat-value">${escapeHtml(page.play_total || 0)}</strong>
+          </article>
+          <article class="season-card__stat">
+            <span class="season-card__stat-label">活跃天数</span>
+            <strong class="season-card__stat-value">${escapeHtml(page.active_days || 0)}</strong>
+          </article>
+        </div>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P24 专辑榜：冠军卡单独放大，其余名次保持稳定节奏，方便后续扩榜单模板。
+function renderP24(page, index, total) {
+  const ranking = Array.isArray(page.album_ranking) ? page.album_ranking : []
+  const [champion, ...others] = ranking
+  const championPayload = champion || { rank: 1, album_display: '--', artist_display: '--', play_total: 0 }
+  const othersHtml = others.slice(0, 4).map(item => `
+    <li class="album-ranking__item">
+      <span class="album-ranking__item-rank">#${escapeHtml(item.rank)}</span>
+      <div class="album-ranking__item-copy">
+        <strong class="album-ranking__item-title">${escapeHtml(item.album_display)}</strong>
+        <span class="album-ranking__item-artist">${escapeHtml(item.artist_display)}</span>
+      </div>
+      <span class="album-ranking__item-count">${escapeHtml(item.play_total)} 次</span>
+    </li>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'album-ranking',
+    pageClassName: 'page--album-ranking',
+    bodyHtml: `
+      <div class="album-ranking">
+        <div class="album-ranking__intro">
+          <p class="album-ranking__kicker">年度专辑榜</p>
+          <h1 class="page__title album-ranking__title">${escapeHtml(page.title || '年度最爱专辑榜')}</h1>
+          <p class="page__summary album-ranking__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <article class="album-ranking__champion">
+          <span class="album-ranking__champion-rank">#${escapeHtml(championPayload.rank)}</span>
+          <div class="album-ranking__champion-copy">
+            <span class="album-ranking__champion-label">冠军专辑</span>
+            <strong class="album-ranking__champion-title">${escapeHtml(championPayload.album_display)}</strong>
+            <span class="album-ranking__champion-artist">${escapeHtml(championPayload.artist_display)}</span>
+          </div>
+          <span class="album-ranking__champion-count">${escapeHtml(championPayload.play_total)} 次播放</span>
+        </article>
+        <ol class="album-ranking__list">${othersHtml}</ol>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P32 四格总结：固定四张卡并支持移动端自动折叠为单列，方便收尾页形成停顿感。
+function renderP32(page, index, total) {
+  const cards = Array.isArray(page.summary_cards) ? page.summary_cards : []
+  const cardsHtml = cards.slice(0, 4).map(card => `
+    <article class="summary-grid__card" data-card-id="${escapeHtml(card.card_id || '')}">
+      <span class="summary-grid__headline">${escapeHtml(card.headline || '--')}</span>
+      <strong class="summary-grid__value">${escapeHtml(card.value || '--')}</strong>
+      <p class="summary-grid__support">${escapeHtml(card.support_text || '')}</p>
+    </article>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'summary-grid',
+    pageClassName: 'page--summary-grid',
+    bodyHtml: `
+      <div class="summary-grid">
+        <div class="summary-grid__intro">
+          <p class="summary-grid__kicker">年度四格</p>
+          <h1 class="page__title summary-grid__title">${escapeHtml(page.title || '音乐四格总结')}</h1>
+          <p class="page__summary summary-grid__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="page__summary-grid summary-grid__cards">${cardsHtml}</div>
+      </div>
+    `,
+  })
+}
+
+// 按模板输出单页内容；对已落地的代表页走定制渲染，其余页继续使用通用占位骨架。
+function renderPage(page, index, total) {
+  if (page.page_id === 'P01') return renderP01(page, index, total)
+  if (page.page_id === 'P12') return renderP12(page, index, total)
+  if (page.page_id === 'P24') return renderP24(page, index, total)
+  if (page.page_id === 'P32') return renderP32(page, index, total)
+
+  const activeClass = index === state.activeIndex ? ' is-active' : ''
   return `
     <section class="page page--${page.template.toLowerCase()}${activeClass}" data-page-id="${page.page_id}" data-page-index="${index}">
       <header class="page__top">
-        <span class="page__eyebrow">${page.year} · ${page.page_id}</span>
+        <span class="page__eyebrow">${escapeHtml(page.year)} · ${escapeHtml(page.page_id)}</span>
         <span class="page__count">${index + 1} / ${total}</span>
       </header>
       <div class="page__body">
-        <h1 class="page__title">${page.title}</h1>
-        <p class="page__summary">${page.summary_text || ''}</p>
+        <h1 class="page__title">${escapeHtml(page.title)}</h1>
+        <p class="page__summary">${escapeHtml(page.summary_text || '')}</p>
       </div>
     </section>
   `

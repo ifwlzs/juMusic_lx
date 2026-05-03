@@ -87,3 +87,17 @@ test('year-report preview includes rich mock data and page-specific render marke
   assert.match(js, /data-page-kind="album-ranking"/)
   assert.match(js, /data-page-kind="summary-grid"/)
 })
+
+test('year-report preview renders rich structures for p01 p12 p24 p32', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="hero-start__value"/)
+  assert.match(js, /class="season-card__cover"/)
+  assert.match(js, /class="album-ranking__champion"/)
+  assert.match(js, /class="summary-grid__card"/)
+  assert.match(css, /\.hero-start__value/)
+  assert.match(css, /\.season-card__cover/)
+  assert.match(css, /\.album-ranking__champion/)
+  assert.match(css, /\.summary-grid__card/)
+})
