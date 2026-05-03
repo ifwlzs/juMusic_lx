@@ -199,8 +199,14 @@ function bindTouchPaging() {
   })
 }
 
-// 当前阶段先读取 mock 数据，为后续 live-report 接入预留统一入口。
+// 优先读取 live-report；没有真实导出结果时，再回退到 mock 数据。
 async function loadReport() {
+  try {
+    const response = await fetch('./data/live-report.json', { cache: 'no-store' })
+    if (response.ok) return response.json()
+  } catch {
+    // 真实数据缺失时静默回退到 mock，不打断预览工具启动。
+  }
   const response = await fetch('./data/mock-report.json', { cache: 'no-store' })
   return response.json()
 }

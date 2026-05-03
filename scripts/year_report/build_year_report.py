@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 
@@ -778,3 +781,28 @@ def _has_value(value: Any) -> bool:
     if isinstance(value, str):
         return bool(value.strip())
     return True
+
+
+def _parse_args() -> argparse.Namespace:
+    """解析命令行参数，支持从输入 JSON 直接导出预览工具可消费的年报 JSON。"""
+    parser = argparse.ArgumentParser(description='导出年度报告 JSON。')
+    parser.add_argument('--input-json', required=True, help='输入的年报原始 JSON 文件路径。')
+    parser.add_argument('--output', required=True, help='输出的年报 JSON 文件路径。')
+    return parser.parse_args()
+
+
+def _main() -> int:
+    """读取输入 JSON，构建年度报告，并将结果写到目标路径。"""
+    args = _parse_args()
+    input_path = Path(args.input_json)
+    output_path = Path(args.output)
+    report_input = json.loads(input_path.read_text(encoding='utf-8'))
+    report = build_year_report(report_input)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(f'Wrote year report JSON to {output_path}')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(_main())
