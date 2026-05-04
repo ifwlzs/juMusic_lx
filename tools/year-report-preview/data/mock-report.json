@@ -9,7 +9,122 @@
       "hero_value": "1324 天",
       "hero_label": "已经陪你听歌这么久",
       "first_played_at": "2022-09-18 22:14",
-      "supporting_facts": ["第 1 首：夜航星", "第 1 位常听歌手：不才"]
+      "supporting_facts": [
+        "第 1 首：夜航星",
+        "第 1 位常听歌手：不才"
+      ]
+    },
+    {
+      "page_id": "P02",
+      "title": "年度总览",
+      "year": 2025,
+      "summary_text": "这一年，你把很多夜晚都留给了音乐。",
+      "overview_stats": [
+        {
+          "stat_id": "plays",
+          "label": "播放次数",
+          "value": "5,284",
+          "emphasis": "primary"
+        },
+        {
+          "stat_id": "hours",
+          "label": "听歌时长",
+          "value": "412h",
+          "emphasis": "secondary"
+        },
+        {
+          "stat_id": "tracks",
+          "label": "听过歌曲",
+          "value": "1,268",
+          "emphasis": "secondary"
+        },
+        {
+          "stat_id": "artists",
+          "label": "听过歌手",
+          "value": "286",
+          "emphasis": "secondary"
+        }
+      ],
+      "hero_fact": {
+        "label": "最常听歌时段",
+        "value": "23:00 - 01:00"
+      }
+    },
+    {
+      "page_id": "P03",
+      "title": "年度探索广度",
+      "year": 2025,
+      "summary_text": "你不只是重复喜欢，也在一直扩展自己的听感。",
+      "breadth_metrics": [
+        {
+          "metric_id": "new_artist",
+          "label": "新遇见歌手",
+          "value": "94"
+        },
+        {
+          "metric_id": "new_album",
+          "label": "新遇见专辑",
+          "value": "61"
+        },
+        {
+          "metric_id": "new_language",
+          "label": "新语种",
+          "value": "6"
+        }
+      ],
+      "explore_story": [
+        "3 月探索欲最强",
+        "夏天新歌加入最多",
+        "秋天开始补老专辑"
+      ]
+    },
+    {
+      "page_id": "P04",
+      "title": "外语歌曲",
+      "year": 2025,
+      "summary_text": "今年你最常切到的，是这些不同语言的声音。",
+      "language_cards": [
+        {
+          "language": "日语",
+          "play_total": 612,
+          "share_text": "48%",
+          "track_title": "群青日和",
+          "artist_display": "ヨルシカ"
+        },
+        {
+          "language": "英语",
+          "play_total": 284,
+          "share_text": "22%",
+          "track_title": "Golden Hour",
+          "artist_display": "JVKE"
+        },
+        {
+          "language": "韩语",
+          "play_total": 133,
+          "share_text": "10%",
+          "track_title": "Ditto",
+          "artist_display": "NewJeans"
+        }
+      ]
+    },
+    {
+      "page_id": "P05",
+      "title": "主动探索 vs 重复所爱",
+      "year": 2025,
+      "summary_text": "一边在扩列，一边也在把喜欢反复听到更深。",
+      "balance_compare": {
+        "explore": {
+          "label": "主动探索",
+          "value": "42%",
+          "support_text": "新歌、新专辑、新歌手"
+        },
+        "repeat": {
+          "label": "重复所爱",
+          "value": "58%",
+          "support_text": "熟悉的歌一遍遍陪你"
+        }
+      },
+      "balance_caption": "你还是更偏爱那些已经住进生活里的歌。"
     },
     {
       "page_id": "P12",
@@ -29,9 +144,24 @@
       "year": 2025,
       "summary_text": "这些专辑，几乎构成了你这一年的背景音。",
       "album_ranking": [
-        { "rank": 1, "album_display": "微光", "artist_display": "不才", "play_total": 64 },
-        { "rank": 2, "album_display": "失眠宇宙", "artist_display": "王宇宙Leto", "play_total": 51 },
-        { "rank": 3, "album_display": "群青日和", "artist_display": "ヨルシカ", "play_total": 43 }
+        {
+          "rank": 1,
+          "album_display": "微光",
+          "artist_display": "不才",
+          "play_total": 64
+        },
+        {
+          "rank": 2,
+          "album_display": "失眠宇宙",
+          "artist_display": "王宇宙Leto",
+          "play_total": 51
+        },
+        {
+          "rank": 3,
+          "album_display": "群青日和",
+          "artist_display": "ヨルシカ",
+          "play_total": 43
+        }
       ]
     },
     {
@@ -40,10 +170,30 @@
       "year": 2025,
       "summary_text": "这一年最重要的四个听歌结论，停在这里。",
       "summary_cards": [
-        { "card_id": "song", "headline": "年度歌曲", "value": "若月亮没来", "support_text": "反复陪你到很晚" },
-        { "card_id": "artist", "headline": "年度歌手", "value": "不才", "support_text": "安静地占了很多夜晚" },
-        { "card_id": "album", "headline": "年度专辑", "value": "微光", "support_text": "你最常回到这里" },
-        { "card_id": "night", "headline": "最晚听歌", "value": "03:08", "support_text": "那晚你还没睡" }
+        {
+          "card_id": "song",
+          "headline": "年度歌曲",
+          "value": "若月亮没来",
+          "support_text": "反复陪你到很晚"
+        },
+        {
+          "card_id": "artist",
+          "headline": "年度歌手",
+          "value": "不才",
+          "support_text": "安静地占了很多夜晚"
+        },
+        {
+          "card_id": "album",
+          "headline": "年度专辑",
+          "value": "微光",
+          "support_text": "你最常回到这里"
+        },
+        {
+          "card_id": "night",
+          "headline": "最晚听歌",
+          "value": "03:08",
+          "support_text": "那晚你还没睡"
+        }
       ]
     }
   ]

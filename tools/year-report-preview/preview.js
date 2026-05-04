@@ -66,6 +66,10 @@ const PAGE_KIND_MARKERS = {
   seasonCard: 'data-page-kind="season-card"',
   albumRanking: 'data-page-kind="album-ranking"',
   summaryGrid: 'data-page-kind="summary-grid"',
+  yearOverview: 'data-page-kind="year-overview"',
+  exploreWidth: 'data-page-kind="explore-width"',
+  languageSpotlight: 'data-page-kind="language-spotlight"',
+  tasteBalance: 'data-page-kind="taste-balance"',
 }
 
 // 运行时状态负责保存报告数据、当前页和交互中的临时变量。
@@ -269,6 +273,10 @@ function renderP32(page, index, total) {
 // 按模板输出单页内容；对已落地的代表页走定制渲染，其余页继续使用通用占位骨架。
 function renderPage(page, index, total) {
   if (page.page_id === 'P01') return renderP01(page, index, total)
+  if (page.page_id === 'P02') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="year-overview"></section>`
+  if (page.page_id === 'P03') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="explore-width"></section>`
+  if (page.page_id === 'P04') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="language-spotlight"></section>`
+  if (page.page_id === 'P05') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="taste-balance"></section>`
   if (page.page_id === 'P12') return renderP12(page, index, total)
   if (page.page_id === 'P24') return renderP24(page, index, total)
   if (page.page_id === 'P32') return renderP32(page, index, total)
