@@ -305,6 +305,452 @@ body {
   box-shadow: var(--report-glow-soft);
 }
 
+/* P06：关键词页把词云作为整页主角，强调海报感而不是复杂动画。 */
+.keyword-cloud {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 24px;
+  justify-items: center;
+  text-align: center;
+}
+
+.keyword-cloud__kicker,
+.city-story__kicker,
+.genre-ranking__kicker {
+  margin: 0;
+  color: var(--report-highlight);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.keyword-cloud__cluster {
+  width: min(100%, 980px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 16px;
+}
+
+.keyword-cloud__token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  border-radius: 999px;
+  background: rgba(15, 18, 37, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: var(--report-glow-soft);
+}
+
+.keyword-cloud__token--xl { font-size: clamp(36px, 6vw, 62px); }
+.keyword-cloud__token--lg { font-size: clamp(28px, 4.8vw, 44px); }
+.keyword-cloud__token--md { font-size: clamp(22px, 3.4vw, 30px); }
+.keyword-cloud__token--sm { font-size: clamp(16px, 2.6vw, 22px); }
+.keyword-cloud__token--primary { color: var(--report-text); }
+.keyword-cloud__token--highlight { color: var(--report-highlight); }
+.keyword-cloud__token--accent { color: #7EE7A8; }
+.keyword-cloud__token--muted { color: var(--report-text-muted); }
+
+.keyword-cloud__caption {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--report-text-soft);
+  font-size: 16px;
+}
+
+/* P07：城市陪伴页更像情绪海报，以故事标题为单页主角。 */
+.city-story {
+  position: relative;
+  min-height: calc(100vh - 140px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.city-story__backdrop {
+  position: absolute;
+  inset: 12% 8%;
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.16), transparent 28%),
+    radial-gradient(circle at 72% 62%, rgba(124, 58, 237, 0.22), transparent 32%),
+    linear-gradient(180deg, rgba(15, 18, 37, 0.9), rgba(9, 12, 24, 0.92));
+  border: 1px solid rgba(99, 102, 241, 0.14);
+}
+
+.city-story__content {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 860px);
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  text-align: center;
+}
+
+.city-story__headline {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(34px, 5vw, 60px);
+  line-height: 1.08;
+}
+
+.city-story__support {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--report-text-soft);
+}
+
+.city-story__facts {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  width: min(100%, 760px);
+  display: grid;
+  gap: 12px;
+}
+
+.city-story__fact {
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(11, 13, 29, 0.54);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: var(--report-text-soft);
+}
+
+/* P08：曲风榜沿用榜单语言，但冠军卡单独强调，避免和专辑榜完全一样。 */
+.genre-ranking {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 22px;
+}
+
+.genre-ranking__intro {
+  display: grid;
+  gap: 12px;
+}
+
+.genre-ranking__champion {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 28px 28px;
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(67, 56, 202, 0.26) 42%, rgba(15, 18, 37, 0.94) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(34, 197, 94, 0.16);
+  box-shadow: var(--report-glow);
+}
+
+.genre-ranking__champion-rank,
+.genre-ranking__item-rank {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: rgba(248, 250, 252, 0.08);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.genre-ranking__champion-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.genre-ranking__champion-label {
+  color: var(--report-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.genre-ranking__champion-name {
+  font-size: clamp(32px, 4.6vw, 48px);
+  line-height: 1.05;
+}
+
+.genre-ranking__champion-meta,
+.genre-ranking__item-meta {
+  color: var(--report-text-soft);
+}
+
+.genre-ranking__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.genre-ranking__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(15, 18, 37, 0.74);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.genre-ranking__item-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.genre-ranking__item-name {
+  font-size: 20px;
+}
+
+/* P09：曲风进化页通过时间轴展示全年偏移，让曲风变化本身具有故事节奏。 */
+.genre-evolution {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 22px;
+}
+
+.genre-evolution__intro,
+.taste-score__hero,
+.cover-color__intro {
+  display: grid;
+  gap: 12px;
+}
+
+.genre-evolution__kicker,
+.taste-score__kicker,
+.cover-color__kicker {
+  margin: 0;
+  color: var(--report-highlight);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.genre-evolution__timeline,
+.taste-score__dimensions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.genre-evolution__timeline {
+  display: grid;
+  gap: 14px;
+}
+
+.genre-evolution__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 20px 22px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(20, 23, 47, 0.96), rgba(15, 18, 37, 0.88)),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 32%);
+  border: 1px solid rgba(99, 102, 241, 0.16);
+}
+
+.genre-evolution__month {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: rgba(67, 56, 202, 0.18);
+  color: var(--report-text);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.genre-evolution__item-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.genre-evolution__genre {
+  font-size: clamp(24px, 3.8vw, 34px);
+  line-height: 1.06;
+}
+
+.genre-evolution__value,
+.genre-evolution__caption,
+.cover-color__track,
+.cover-color__hex,
+.cover-color__caption {
+  color: var(--report-text-soft);
+}
+
+.genre-evolution__caption,
+.cover-color__caption {
+  margin: 0;
+  max-width: 32rem;
+}
+
+/* P10：品味分数页用中心分数与维度条形成强记忆点，保持青年化海报观感。 */
+.taste-score {
+  position: relative;
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 24px;
+  overflow: hidden;
+}
+
+.taste-score__orb {
+  position: absolute;
+  inset: 12% auto auto 50%;
+  width: min(56vw, 460px);
+  height: min(56vw, 460px);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(circle, rgba(67, 56, 202, 0.34), rgba(67, 56, 202, 0.06) 56%, transparent 72%),
+    radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.24), transparent 32%);
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.taste-score__hero {
+  position: relative;
+  z-index: 1;
+  justify-items: center;
+  text-align: center;
+}
+
+.taste-score__summary {
+  max-width: 30rem;
+}
+
+.taste-score__value {
+  font-size: clamp(84px, 16vw, 156px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+  text-shadow: 0 0 34px rgba(99, 102, 241, 0.34);
+}
+
+.taste-score__label {
+  margin: 0;
+  max-width: 22rem;
+  color: var(--report-text-soft);
+  font-size: clamp(16px, 2.4vw, 24px);
+}
+
+.taste-score__dimensions {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+}
+
+.taste-score__dimension {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(11, 13, 29, 0.58);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.taste-score__dimension-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.taste-score__dimension-label {
+  color: var(--report-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.taste-score__dimension-value {
+  font-size: 18px;
+}
+
+.taste-score__dimension-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.08);
+  overflow: hidden;
+}
+
+.taste-score__dimension-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--report-highlight), var(--report-primary-2), #7EE7A8);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.26);
+}
+
+/* P11：封面主色页把配色卡做成可浏览卡组，强调审美轨迹而不是静态色块。 */
+.cover-color {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  align-content: center;
+  gap: 22px;
+}
+
+.cover-color__palette {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cover-color__card {
+  display: grid;
+  gap: 16px;
+  padding: 18px 18px 20px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(20, 23, 47, 0.96), rgba(15, 18, 37, 0.88)),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.14), transparent 36%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.cover-color__swatch {
+  --cover-color: #4338CA;
+  min-height: 180px;
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--cover-color) 86%, white 4%), rgba(8, 10, 24, 0.92)),
+    radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.34), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02));
+  border: 1px solid color-mix(in srgb, var(--cover-color) 44%, white 6%);
+  box-shadow:
+    0 18px 38px color-mix(in srgb, var(--cover-color) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.cover-color__meta {
+  display: grid;
+  gap: 6px;
+}
+
+.cover-color__label {
+  font-size: 24px;
+  line-height: 1.08;
+}
+
+/* 继续保留简洁元信息层级，避免颜色卡之外再出现过强干扰元素。 */
+.cover-color__hex {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* P12：春季页建立四季模板的封面卡、曲目信息与双指标布局。 */
 .season-card {
   --season-accent: #34D399;
@@ -950,6 +1396,9 @@ body {
     width: 100%;
   }
 
+  .keyword-cloud,
+  .city-story,
+  .genre-ranking,
   .year-overview,
   .explore-width,
   .language-spotlight,
@@ -962,6 +1411,8 @@ body {
     padding-top: 28px;
   }
 
+  .keyword-cloud__cluster,
+  .cover-color__palette,
   .year-overview__stats,
   .explore-width__layout,
   .explore-width__metrics,

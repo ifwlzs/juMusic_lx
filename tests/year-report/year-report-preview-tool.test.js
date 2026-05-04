@@ -143,3 +143,28 @@ test('year-report preview includes rich mock data and page-specific render marke
   assert.match(js, /data-page-kind="taste-score"/)
   assert.match(js, /data-page-kind="cover-color"/)
 })
+
+
+test('year-report preview renders rich structures for p06 p07 p08', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="keyword-cloud__token\b/)
+  assert.match(js, /class="city-story__headline"/)
+  assert.match(js, /class="genre-ranking__champion"/)
+  assert.match(css, /\.keyword-cloud__token/)
+  assert.match(css, /\.city-story__headline/)
+  assert.match(css, /\.genre-ranking__champion/)
+})
+
+test('year-report preview renders rich structures for p09 p10 p11', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="genre-evolution__item"/)
+  assert.match(js, /class="taste-score__value"/)
+  assert.match(js, /class="cover-color__swatch"/)
+  assert.match(css, /\.genre-evolution__item/)
+  assert.match(css, /\.taste-score__value/)
+  assert.match(css, /\.cover-color__swatch/)
+})

@@ -302,6 +302,187 @@ function renderP05(page, index, total) {
   })
 }
 
+// 渲染 P06 关键词页：用词云做整页主角，形成从统计页转入情绪页的停顿。
+function renderP06(page, index, total) {
+  const tokens = (page.keyword_cloud || []).slice(0, 8)
+  const tokenHtml = tokens.map(token => `
+    <span class="keyword-cloud__token keyword-cloud__token--${escapeHtml(token.weight || 'md')} keyword-cloud__token--${escapeHtml(token.accent || 'primary')}">${escapeHtml(token.label)}</span>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'keyword-cloud',
+    pageClassName: 'page--keyword-cloud',
+    bodyHtml: `
+      <div class="keyword-cloud">
+        <div class="keyword-cloud__intro">
+          <p class="keyword-cloud__kicker">年度关键词</p>
+          <h1 class="page__title keyword-cloud__title">${escapeHtml(page.title || '年度关键词')}</h1>
+          <p class="page__summary keyword-cloud__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="keyword-cloud__cluster">${tokenHtml}</div>
+        <p class="keyword-cloud__caption">${escapeHtml(page.keyword_caption || '')}</p>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P07 城市陪伴页：更像一张故事海报，用 headline 和弱事实卡维持情绪。
+function renderP07(page, index, total) {
+  const factsHtml = (page.city_facts || []).slice(0, 4).map(item => `
+    <li class="city-story__fact">${escapeHtml(item)}</li>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'city-story',
+    pageClassName: 'page--city-story',
+    bodyHtml: `
+      <div class="city-story">
+        <div class="city-story__backdrop" aria-hidden="true"></div>
+        <div class="city-story__content">
+          <p class="city-story__kicker">城市陪伴</p>
+          <h1 class="page__title city-story__title">${escapeHtml(page.title || '城市陪伴')}</h1>
+          <p class="page__summary city-story__summary">${escapeHtml(page.summary_text || '')}</p>
+          <h2 class="city-story__headline">${escapeHtml(page.city_story?.headline || '')}</h2>
+          <p class="city-story__support">${escapeHtml(page.city_story?.support_text || '')}</p>
+          <ul class="city-story__facts">${factsHtml}</ul>
+        </div>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P08 曲风榜页：冠军曲风单独放大，榜单节奏与专辑榜保持同家族语言。
+function renderP08(page, index, total) {
+  const ranking = Array.isArray(page.genre_ranking) ? page.genre_ranking : []
+  const [champion, ...others] = ranking
+  const championPayload = champion || { rank: 1, genre_name: '--', play_total: 0, share_text: '--' }
+  const listHtml = others.slice(0, 4).map(item => `
+    <li class="genre-ranking__item">
+      <span class="genre-ranking__item-rank">#${escapeHtml(item.rank)}</span>
+      <div class="genre-ranking__item-copy">
+        <strong class="genre-ranking__item-name">${escapeHtml(item.genre_name)}</strong>
+        <span class="genre-ranking__item-meta">${escapeHtml(item.play_total)} 次 · ${escapeHtml(item.share_text)}</span>
+      </div>
+    </li>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'genre-ranking',
+    pageClassName: 'page--genre-ranking',
+    bodyHtml: `
+      <div class="genre-ranking">
+        <div class="genre-ranking__intro">
+          <p class="genre-ranking__kicker">年度曲风榜</p>
+          <h1 class="page__title genre-ranking__title">${escapeHtml(page.title || '年度曲风 Top5')}</h1>
+          <p class="page__summary genre-ranking__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <article class="genre-ranking__champion">
+          <span class="genre-ranking__champion-rank">#${escapeHtml(championPayload.rank)}</span>
+          <div class="genre-ranking__champion-copy">
+            <span class="genre-ranking__champion-label">年度主曲风</span>
+            <strong class="genre-ranking__champion-name">${escapeHtml(championPayload.genre_name)}</strong>
+            <span class="genre-ranking__champion-meta">${escapeHtml(championPayload.play_total)} 次播放 · ${escapeHtml(championPayload.share_text)}</span>
+          </div>
+        </article>
+        <ol class="genre-ranking__list">${listHtml}</ol>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P09 曲风进化页：将全年曲风偏移整理为时间轴，让“变化”本身成为主视觉。
+function renderP09(page, index, total) {
+  const items = Array.isArray(page.genre_timeline) ? page.genre_timeline : []
+  const itemsHtml = items.slice(0, 6).map(item => `
+    <li class="genre-evolution__item">
+      <span class="genre-evolution__month">${escapeHtml(item.month)}</span>
+      <div class="genre-evolution__item-copy">
+        <strong class="genre-evolution__genre">${escapeHtml(item.genre_name)}</strong>
+        <span class="genre-evolution__value">${escapeHtml(item.value)}</span>
+      </div>
+    </li>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'genre-evolution',
+    pageClassName: 'page--genre-evolution',
+    bodyHtml: `
+      <div class="genre-evolution">
+        <div class="genre-evolution__intro">
+          <p class="genre-evolution__kicker">曲风进化历</p>
+          <h1 class="page__title genre-evolution__title">${escapeHtml(page.title || '曲风进化历')}</h1>
+          <p class="page__summary genre-evolution__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <ol class="genre-evolution__timeline">${itemsHtml}</ol>
+        <p class="genre-evolution__caption">${escapeHtml(page.genre_shift_summary || '')}</p>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P10 品味分数页：用中心分数和维度条组合，做出“人格画像”感而不是普通数据卡。
+function renderP10(page, index, total) {
+  const score = page.taste_score || {}
+  const dimensions = Array.isArray(page.taste_dimensions) ? page.taste_dimensions : []
+  const dimensionHtml = dimensions.slice(0, 4).map(item => {
+    const numericValue = Number(item.value) || 0
+    return `
+      <li class="taste-score__dimension">
+        <div class="taste-score__dimension-top">
+          <span class="taste-score__dimension-label">${escapeHtml(item.label)}</span>
+          <strong class="taste-score__dimension-value">${escapeHtml(item.value)}</strong>
+        </div>
+        <div class="taste-score__dimension-track">
+          <span class="taste-score__dimension-fill" style="width: ${Math.max(0, Math.min(numericValue, 100))}%;"></span>
+        </div>
+      </li>
+    `
+  }).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'taste-score',
+    pageClassName: 'page--taste-score',
+    bodyHtml: `
+      <div class="taste-score">
+        <div class="taste-score__orb" aria-hidden="true"></div>
+        <div class="taste-score__hero">
+          <p class="taste-score__kicker">品味曲风分数</p>
+          <h1 class="page__title taste-score__title">${escapeHtml(page.title || '品味曲风分数')}</h1>
+          <p class="page__summary taste-score__summary">${escapeHtml(page.summary_text || '')}</p>
+          <div class="taste-score__value">${escapeHtml(score.value || '--')}</div>
+          <p class="taste-score__label">${escapeHtml(score.label || '')}</p>
+        </div>
+        <ul class="taste-score__dimensions">${dimensionHtml}</ul>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P11 封面主色页：把颜色块和代表歌曲组合展示，突出用户审美轨迹的可视化。
+function renderP11(page, index, total) {
+  const palette = Array.isArray(page.cover_palette) ? page.cover_palette : []
+  const paletteHtml = palette.slice(0, 5).map(item => `
+    <article class="cover-color__card">
+      <div class="cover-color__swatch" style="--cover-color: ${normalizeAccentColor(item.hex, '#4338CA')};"></div>
+      <div class="cover-color__meta">
+        <strong class="cover-color__label">${escapeHtml(item.label)}</strong>
+        <span class="cover-color__track">${escapeHtml(item.track_title)}</span>
+        <span class="cover-color__hex">${escapeHtml(item.hex)}</span>
+      </div>
+    </article>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'cover-color',
+    pageClassName: 'page--cover-color',
+    bodyHtml: `
+      <div class="cover-color">
+        <div class="cover-color__intro">
+          <p class="cover-color__kicker">年度封面主色</p>
+          <h1 class="page__title cover-color__title">${escapeHtml(page.title || '年度封面主色')}</h1>
+          <p class="page__summary cover-color__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="cover-color__palette">${paletteHtml}</div>
+        <p class="cover-color__caption">${escapeHtml(page.palette_note || '')}</p>
+      </div>
+    `,
+  })
+}
+
 // 渲染 P12 春季页：使用更亮的绿色封面卡，建立四季模板的统一基线。
 function renderP12(page, index, total) {
   const accentColor = normalizeAccentColor(page.accent_hex, '#34D399')
@@ -414,12 +595,12 @@ function renderPage(page, index, total) {
   if (page.page_id === 'P03') return renderP03(page, index, total)
   if (page.page_id === 'P04') return renderP04(page, index, total)
   if (page.page_id === 'P05') return renderP05(page, index, total)
-  if (page.page_id === 'P06') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="keyword-cloud"></section>`
-  if (page.page_id === 'P07') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="city-story"></section>`
-  if (page.page_id === 'P08') return `<section class="page page--t2" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="genre-ranking"></section>`
-  if (page.page_id === 'P09') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="genre-evolution"></section>`
-  if (page.page_id === 'P10') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="taste-score"></section>`
-  if (page.page_id === 'P11') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="cover-color"></section>`
+  if (page.page_id === 'P06') return renderP06(page, index, total)
+  if (page.page_id === 'P07') return renderP07(page, index, total)
+  if (page.page_id === 'P08') return renderP08(page, index, total)
+  if (page.page_id === 'P09') return renderP09(page, index, total)
+  if (page.page_id === 'P10') return renderP10(page, index, total)
+  if (page.page_id === 'P11') return renderP11(page, index, total)
   if (page.page_id === 'P12') return renderP12(page, index, total)
   if (page.page_id === 'P24') return renderP24(page, index, total)
   if (page.page_id === 'P32') return renderP32(page, index, total)
