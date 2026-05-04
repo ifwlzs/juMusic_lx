@@ -107,7 +107,7 @@ test('year-report preview includes rich mock data and page-specific render marke
   const mock = JSON.parse(read('tools/year-report-preview/data/mock-report.json'))
 
   const pageIds = mock.pages.map(page => page.page_id)
-  assert.deepEqual(pageIds, ['P01', 'P02', 'P03', 'P04', 'P05', 'P12', 'P24', 'P32'])
+  assert.deepEqual(pageIds.filter(pageId => ['P02', 'P03', 'P04', 'P05'].includes(pageId)), ['P02', 'P03', 'P04', 'P05'])
   assert.match(js, /data-page-kind="year-overview"/)
   assert.match(js, /data-page-kind="explore-width"/)
   assert.match(js, /data-page-kind="language-spotlight"/)
@@ -127,4 +127,44 @@ test('year-report preview renders rich structures for p02 p03 p04 p05', () => {
   assert.match(css, /\.explore-width__metric/)
   assert.match(css, /\.language-spotlight__card/)
   assert.match(css, /\.taste-balance__split/)
+})
+
+
+test('year-report preview includes rich mock data and page-specific render markers for p06 p07 p08 p09 p10 p11', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const mock = JSON.parse(read('tools/year-report-preview/data/mock-report.json'))
+
+  const pageIds = mock.pages.map(page => page.page_id)
+  assert.deepEqual(pageIds, ['P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10', 'P11', 'P12', 'P24', 'P32'])
+  assert.match(js, /data-page-kind="keyword-cloud"/)
+  assert.match(js, /data-page-kind="city-story"/)
+  assert.match(js, /data-page-kind="genre-ranking"/)
+  assert.match(js, /data-page-kind="genre-evolution"/)
+  assert.match(js, /data-page-kind="taste-score"/)
+  assert.match(js, /data-page-kind="cover-color"/)
+})
+
+
+test('year-report preview renders rich structures for p06 p07 p08', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="keyword-cloud__token\b/)
+  assert.match(js, /class="city-story__headline"/)
+  assert.match(js, /class="genre-ranking__champion"/)
+  assert.match(css, /\.keyword-cloud__token/)
+  assert.match(css, /\.city-story__headline/)
+  assert.match(css, /\.genre-ranking__champion/)
+})
+
+test('year-report preview renders rich structures for p09 p10 p11', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="genre-evolution__item"/)
+  assert.match(js, /class="taste-score__value"/)
+  assert.match(js, /class="cover-color__swatch"/)
+  assert.match(css, /\.genre-evolution__item/)
+  assert.match(css, /\.taste-score__value/)
+  assert.match(css, /\.cover-color__swatch/)
 })
