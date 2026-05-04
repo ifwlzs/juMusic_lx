@@ -70,6 +70,12 @@ const PAGE_KIND_MARKERS = {
   exploreWidth: 'data-page-kind="explore-width"',
   languageSpotlight: 'data-page-kind="language-spotlight"',
   tasteBalance: 'data-page-kind="taste-balance"',
+  keywordCloud: 'data-page-kind="keyword-cloud"',
+  cityStory: 'data-page-kind="city-story"',
+  genreRanking: 'data-page-kind="genre-ranking"',
+  genreEvolution: 'data-page-kind="genre-evolution"',
+  tasteScore: 'data-page-kind="taste-score"',
+  coverColor: 'data-page-kind="cover-color"',
 }
 
 // 运行时状态负责保存报告数据、当前页和交互中的临时变量。
@@ -408,6 +414,12 @@ function renderPage(page, index, total) {
   if (page.page_id === 'P03') return renderP03(page, index, total)
   if (page.page_id === 'P04') return renderP04(page, index, total)
   if (page.page_id === 'P05') return renderP05(page, index, total)
+  if (page.page_id === 'P06') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="keyword-cloud"></section>`
+  if (page.page_id === 'P07') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="city-story"></section>`
+  if (page.page_id === 'P08') return `<section class="page page--t2" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="genre-ranking"></section>`
+  if (page.page_id === 'P09') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="genre-evolution"></section>`
+  if (page.page_id === 'P10') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="taste-score"></section>`
+  if (page.page_id === 'P11') return `<section class="page page--t1" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="cover-color"></section>`
   if (page.page_id === 'P12') return renderP12(page, index, total)
   if (page.page_id === 'P24') return renderP24(page, index, total)
   if (page.page_id === 'P32') return renderP32(page, index, total)
