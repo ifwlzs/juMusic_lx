@@ -81,7 +81,7 @@ test('year-report preview includes rich mock data and page-specific render marke
   const mock = JSON.parse(read('tools/year-report-preview/data/mock-report.json'))
 
   const pageIds = mock.pages.map(page => page.page_id)
-  assert.deepEqual(pageIds, ['P01', 'P12', 'P24', 'P32'])
+  assert.deepEqual(pageIds.filter(pageId => ['P01', 'P12', 'P24', 'P32'].includes(pageId)), ['P01', 'P12', 'P24', 'P32'])
   assert.match(js, /data-page-kind="hero-start"/)
   assert.match(js, /data-page-kind="season-card"/)
   assert.match(js, /data-page-kind="album-ranking"/)
@@ -100,4 +100,31 @@ test('year-report preview renders rich structures for p01 p12 p24 p32', () => {
   assert.match(css, /\.season-card__cover/)
   assert.match(css, /\.album-ranking__champion/)
   assert.match(css, /\.summary-grid__card/)
+})
+
+test('year-report preview includes rich mock data and page-specific render markers for p02 p03 p04 p05', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const mock = JSON.parse(read('tools/year-report-preview/data/mock-report.json'))
+
+  const pageIds = mock.pages.map(page => page.page_id)
+  assert.deepEqual(pageIds, ['P01', 'P02', 'P03', 'P04', 'P05', 'P12', 'P24', 'P32'])
+  assert.match(js, /data-page-kind="year-overview"/)
+  assert.match(js, /data-page-kind="explore-width"/)
+  assert.match(js, /data-page-kind="language-spotlight"/)
+  assert.match(js, /data-page-kind="taste-balance"/)
+})
+
+
+test('year-report preview renders rich structures for p02 p03 p04 p05', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="year-overview__hero-value"/)
+  assert.match(js, /class="explore-width__metric"/)
+  assert.match(js, /class="language-spotlight__card"/)
+  assert.match(js, /class="taste-balance__split"/)
+  assert.match(css, /\.year-overview__hero-value/)
+  assert.match(css, /\.explore-width__metric/)
+  assert.match(css, /\.language-spotlight__card/)
+  assert.match(css, /\.taste-balance__split/)
 })
