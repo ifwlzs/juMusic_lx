@@ -165,6 +165,137 @@ function renderP01(page, index, total) {
   })
 }
 
+// 渲染 P02 总览页：用一个主数字带四张总量卡，形成前半段连续进入后的第一张统计总览页。
+function renderP02(page, index, total) {
+  const stats = (page.overview_stats || []).slice(0, 4)
+  const heroStat = stats[0] || { label: '播放次数', value: '--' }
+  const secondaryStats = stats.slice(1)
+  const cardsHtml = secondaryStats.map(stat => `
+    <article class="year-overview__stat year-overview__stat--${escapeHtml(stat.emphasis || 'secondary')}">
+      <span class="year-overview__stat-label">${escapeHtml(stat.label)}</span>
+      <strong class="year-overview__stat-value">${escapeHtml(stat.value)}</strong>
+    </article>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'year-overview',
+    pageClassName: 'page--year-overview',
+    bodyHtml: `
+      <div class="year-overview">
+        <div class="year-overview__intro">
+          <p class="year-overview__kicker">年度总览</p>
+          <h1 class="page__title year-overview__title">${escapeHtml(page.title || '年度总览')}</h1>
+          <p class="page__summary year-overview__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="year-overview__hero">
+          <span class="year-overview__hero-label">${escapeHtml(heroStat.label)}</span>
+          <strong class="year-overview__hero-value">${escapeHtml(heroStat.value)}</strong>
+          <div class="year-overview__hero-fact">
+            <span class="year-overview__hero-fact-label">${escapeHtml(page.hero_fact?.label || '最常听歌时段')}</span>
+            <strong class="year-overview__hero-fact-value">${escapeHtml(page.hero_fact?.value || '--')}</strong>
+          </div>
+        </div>
+        <div class="year-overview__stats">${cardsHtml}</div>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P03 探索页：把探索指标和一列探索轨迹放在同页，既有统计也有故事感。
+function renderP03(page, index, total) {
+  const metrics = (page.breadth_metrics || []).slice(0, 3)
+  const metricHtml = metrics.map(metric => `
+    <article class="explore-width__metric">
+      <span class="explore-width__metric-label">${escapeHtml(metric.label)}</span>
+      <strong class="explore-width__metric-value">${escapeHtml(metric.value)}</strong>
+    </article>
+  `).join('')
+  const storyHtml = (page.explore_story || []).slice(0, 4).map(item => `
+    <li class="explore-width__story-item">${escapeHtml(item)}</li>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'explore-width',
+    pageClassName: 'page--explore-width',
+    bodyHtml: `
+      <div class="explore-width">
+        <div class="explore-width__intro">
+          <p class="explore-width__kicker">探索广度</p>
+          <h1 class="page__title explore-width__title">${escapeHtml(page.title || '年度探索广度')}</h1>
+          <p class="page__summary explore-width__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="explore-width__layout">
+          <div class="explore-width__metrics">${metricHtml}</div>
+          <div class="explore-width__story">
+            <span class="explore-width__story-label">探索轨迹</span>
+            <ul class="explore-width__story-list">${storyHtml}</ul>
+          </div>
+        </div>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P04 外语歌曲页：突出不同语言的占比卡与代表歌曲，避免退回普通榜单感。
+function renderP04(page, index, total) {
+  const cards = (page.language_cards || []).slice(0, 3)
+  const cardsHtml = cards.map(card => `
+    <article class="language-spotlight__card">
+      <div class="language-spotlight__card-top">
+        <span class="language-spotlight__language">${escapeHtml(card.language)}</span>
+        <strong class="language-spotlight__share">${escapeHtml(card.share_text)}</strong>
+      </div>
+      <strong class="language-spotlight__track">${escapeHtml(card.track_title)}</strong>
+      <span class="language-spotlight__artist">${escapeHtml(card.artist_display)}</span>
+      <span class="language-spotlight__plays">${escapeHtml(card.play_total)} 次播放</span>
+    </article>
+  `).join('')
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'language-spotlight',
+    pageClassName: 'page--language-spotlight',
+    bodyHtml: `
+      <div class="language-spotlight">
+        <div class="language-spotlight__intro">
+          <p class="language-spotlight__kicker">多语言聆听</p>
+          <h1 class="page__title language-spotlight__title">${escapeHtml(page.title || '外语歌曲')}</h1>
+          <p class="page__summary language-spotlight__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="language-spotlight__cards">${cardsHtml}</div>
+      </div>
+    `,
+  })
+}
+
+// 渲染 P05 对照页：使用左右分栏表达探索与重复所爱的拉扯，避免做成传统饼图。
+function renderP05(page, index, total) {
+  const explore = page.balance_compare?.explore || { label: '主动探索', value: '--', support_text: '' }
+  const repeat = page.balance_compare?.repeat || { label: '重复所爱', value: '--', support_text: '' }
+  return renderRichPageShell(page, index, total, {
+    pageKind: 'taste-balance',
+    pageClassName: 'page--taste-balance',
+    bodyHtml: `
+      <div class="taste-balance">
+        <div class="taste-balance__intro">
+          <p class="taste-balance__kicker">听歌偏好</p>
+          <h1 class="page__title taste-balance__title">${escapeHtml(page.title || '主动探索 vs 重复所爱')}</h1>
+          <p class="page__summary taste-balance__summary">${escapeHtml(page.summary_text || '')}</p>
+        </div>
+        <div class="taste-balance__split">
+          <article class="taste-balance__panel taste-balance__panel--explore">
+            <span class="taste-balance__panel-label">${escapeHtml(explore.label)}</span>
+            <strong class="taste-balance__panel-value">${escapeHtml(explore.value)}</strong>
+            <p class="taste-balance__panel-support">${escapeHtml(explore.support_text)}</p>
+          </article>
+          <article class="taste-balance__panel taste-balance__panel--repeat">
+            <span class="taste-balance__panel-label">${escapeHtml(repeat.label)}</span>
+            <strong class="taste-balance__panel-value">${escapeHtml(repeat.value)}</strong>
+            <p class="taste-balance__panel-support">${escapeHtml(repeat.support_text)}</p>
+          </article>
+        </div>
+        <p class="taste-balance__caption">${escapeHtml(page.balance_caption || '')}</p>
+      </div>
+    `,
+  })
+}
+
 // 渲染 P12 春季页：使用更亮的绿色封面卡，建立四季模板的统一基线。
 function renderP12(page, index, total) {
   const accentColor = normalizeAccentColor(page.accent_hex, '#34D399')
@@ -273,10 +404,10 @@ function renderP32(page, index, total) {
 // 按模板输出单页内容；对已落地的代表页走定制渲染，其余页继续使用通用占位骨架。
 function renderPage(page, index, total) {
   if (page.page_id === 'P01') return renderP01(page, index, total)
-  if (page.page_id === 'P02') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="year-overview"></section>`
-  if (page.page_id === 'P03') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="explore-width"></section>`
-  if (page.page_id === 'P04') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="language-spotlight"></section>`
-  if (page.page_id === 'P05') return `<section class="page page--t3" data-page-id="${page.page_id}" data-page-index="${index}" data-page-kind="taste-balance"></section>`
+  if (page.page_id === 'P02') return renderP02(page, index, total)
+  if (page.page_id === 'P03') return renderP03(page, index, total)
+  if (page.page_id === 'P04') return renderP04(page, index, total)
+  if (page.page_id === 'P05') return renderP05(page, index, total)
   if (page.page_id === 'P12') return renderP12(page, index, total)
   if (page.page_id === 'P24') return renderP24(page, index, total)
   if (page.page_id === 'P32') return renderP32(page, index, total)

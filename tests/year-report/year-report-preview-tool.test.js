@@ -113,3 +113,18 @@ test('year-report preview includes rich mock data and page-specific render marke
   assert.match(js, /data-page-kind="language-spotlight"/)
   assert.match(js, /data-page-kind="taste-balance"/)
 })
+
+
+test('year-report preview renders rich structures for p02 p03 p04 p05', () => {
+  const js = read('tools/year-report-preview/preview.js')
+  const css = read('tools/year-report-preview/styles.css')
+
+  assert.match(js, /class="year-overview__hero-value"/)
+  assert.match(js, /class="explore-width__metric"/)
+  assert.match(js, /class="language-spotlight__card"/)
+  assert.match(js, /class="taste-balance__split"/)
+  assert.match(css, /\.year-overview__hero-value/)
+  assert.match(css, /\.explore-width__metric/)
+  assert.match(css, /\.language-spotlight__card/)
+  assert.match(css, /\.taste-balance__split/)
+})
