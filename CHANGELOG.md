@@ -43,6 +43,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增 `tools/year-report-preview/` 本地年度报告预览工具，支持 A 风格全屏分页预览、桌面滚轮/点击切页与移动端上下滑切页
 - 新增年度报告预览工具静态契约测试，以及 `build_year_report.py --input-json --output` 导出 CLI，便于把真实年报 JSON 直接接到预览工具
 - 年度报告预览工具新增 `P01` / `P12` / `P24` / `P32` 首批真实效果页，落地开场主视觉、四季封面卡、专辑冠军榜与四格总结样式
+- 年度报告预览工具继续补齐 `P02 ~ P05` 连续统计页，新增年度总览、探索广度、外语歌曲与主动探索 / 重复所爱四个真实效果页
 
 优化
 
