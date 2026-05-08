@@ -1,0 +1,1093 @@
+{
+  "meta": {
+    "year": 2025,
+    "design_width": 390,
+    "design_height": 844,
+    "page_order": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12",
+      "P13",
+      "P14",
+      "P15",
+      "P16",
+      "P17",
+      "P18",
+      "P19",
+      "P20",
+      "P21",
+      "P23",
+      "P25",
+      "L04A",
+      "L04B"
+    ],
+    "page_total": 25,
+    "theme_name": "netease-young-editorial"
+  },
+  "pages": [
+    {
+      "page_id": "P01",
+      "template": "hero-cover",
+      "section": "故事开场",
+      "title": "第一次相遇",
+      "year": 2025,
+      "summary_text": "最早的一次记录停在 2024-06-01 08:30:00，当时你点开的是《旧日来信》。",
+      "payload": {
+        "first_played_at": "2024-06-01 08:30:00",
+        "companionship_days": 579,
+        "companionship_years": 2,
+        "first_track": {
+          "played_at": "2024-06-01 08:30:00",
+          "track_title": "旧日来信",
+          "artist_display": "Aimer",
+          "album_display": "Penny Rain",
+          "cover_path": "covers/legacy-1.jpg"
+        }
+      }
+    },
+    {
+      "page_id": "P02",
+      "template": "overview-stats",
+      "section": "年度概览",
+      "title": "年度总览",
+      "year": 2025,
+      "summary_text": "这一年你一共播放了 62 次，活跃了 7 天。",
+      "payload": {
+        "overview_metrics": {
+          "total_play_count": 62,
+          "total_listened_sec": 11300,
+          "total_listened_hours": 3.14,
+          "active_day_total": 7,
+          "unique_track_total": 6,
+          "new_song_total": 6,
+          "new_song_ratio": 1.0
+        }
+      }
+    },
+    {
+      "page_id": "P03",
+      "template": "breadth-stats",
+      "section": "探索广度",
+      "title": "年度探索广度",
+      "year": 2025,
+      "summary_text": "今年你听过 5 位歌手、4 种曲风，其中有 4 位新歌手。",
+      "payload": {
+        "breadth_metrics": {
+          "artist_total": 5,
+          "new_artist_total": 4,
+          "genre_total": 4,
+          "new_genre_total": 3,
+          "track_total": 6
+        }
+      }
+    },
+    {
+      "page_id": "P04",
+      "template": "foreign-language",
+      "section": "外语歌单",
+      "title": "外语歌曲",
+      "year": 2025,
+      "summary_text": "今年你主要在 日语 歌里停留得最久，一共打开了 20 次。",
+      "payload": {
+        "foreign_language_total": 1,
+        "language_ranking": [
+          {
+            "language_name": "日语",
+            "play_total": 20,
+            "track_total": 3
+          }
+        ],
+        "spotlight_track": {
+          "track_title": "残響散歌",
+          "artist_display": "Aimer",
+          "album_display": "残響散歌",
+          "play_count": 8,
+          "active_days": 6,
+          "listened_sec": 1720,
+          "cover_path": "covers/lib-4.jpg",
+          "score": 6.272,
+          "language_name": "日语"
+        }
+      }
+    },
+    {
+      "page_id": "P05",
+      "template": "exploration-contrast",
+      "section": "听歌方式",
+      "title": "主动探索 vs 重复所爱",
+      "year": 2025,
+      "summary_text": "今年主动搜索带来了 26 次播放，而旧歌回访覆盖了 0 个活跃日。",
+      "payload": {
+        "exploration_metrics": {
+          "search_play_total": 26,
+          "search_ratio": 0.4194,
+          "repeat_track_ratio": 0.0,
+          "repeat_active_day_total": 0
+        },
+        "spotlight_tracks": {
+          "search_top_track": {
+            "track_title": "若月亮没来",
+            "artist_display": "王宇宙Leto",
+            "album_display": "若月亮没来",
+            "play_count": 12,
+            "active_days": 8,
+            "listened_sec": 1800,
+            "cover_path": "covers/t1.jpg",
+            "score": 9.075
+          },
+          "revisit_top_track": null
+        }
+      }
+    },
+    {
+      "page_id": "P06",
+      "template": "keyword-poster",
+      "section": "年度关键词",
+      "title": "年度关键词",
+      "year": 2025,
+      "summary_text": "今年最常出现的关键词是“旧日来信”，它反复出现在你这一年的歌单里。",
+      "payload": {
+        "keywords": [
+          {
+            "keyword": "旧日来信",
+            "count": 1,
+            "representative_track_title": "旧日来信",
+            "representative_artist_display": "Aimer"
+          },
+          {
+            "keyword": "days",
+            "count": 1,
+            "representative_track_title": "旧日来信",
+            "representative_artist_display": "Aimer"
+          },
+          {
+            "keyword": "letter",
+            "count": 1,
+            "representative_track_title": "旧日来信",
+            "representative_artist_display": "Aimer"
+          },
+          {
+            "keyword": "old",
+            "count": 1,
+            "representative_track_title": "旧日来信",
+            "representative_artist_display": "Aimer"
+          },
+          {
+            "keyword": "若月亮没来",
+            "count": 1,
+            "representative_track_title": "若月亮没来",
+            "representative_artist_display": "王宇宙Leto"
+          },
+          {
+            "keyword": "路灯也可照窗台",
+            "count": 1,
+            "representative_track_title": "若月亮没来",
+            "representative_artist_display": "王宇宙Leto"
+          },
+          {
+            "keyword": "亮归航",
+            "count": 1,
+            "representative_track_title": "夜航星",
+            "representative_artist_display": "不才"
+          },
+          {
+            "keyword": "夜航星",
+            "count": 1,
+            "representative_track_title": "夜航星",
+            "representative_artist_display": "不才"
+          },
+          {
+            "keyword": "借一盏午夜街灯照",
+            "count": 1,
+            "representative_track_title": "夜航星",
+            "representative_artist_display": "不才"
+          },
+          {
+            "keyword": "shining",
+            "count": 1,
+            "representative_track_title": "Polaris",
+            "representative_artist_display": "Aimer"
+          },
+          {
+            "keyword": "polaris",
+            "count": 1,
+            "representative_track_title": "Polaris",
+            "representative_artist_display": "Aimer"
+          },
+          {
+            "keyword": "star",
+            "count": 1,
+            "representative_track_title": "Polaris",
+            "representative_artist_display": "Aimer"
+          }
+        ],
+        "keyword_total": 12
+      }
+    },
+    {
+      "page_id": "P07",
+      "template": "story-placeholder",
+      "section": "氛围章节",
+      "title": "城市陪伴",
+      "year": 2025,
+      "summary_text": "先用一页轻故事，把这一年的陪伴感接起来。",
+      "payload": {
+        "story_card": {
+          "headline": "这一年，很多通勤和夜路都被音乐接住了",
+          "subline": "哪怕暂时没有城市轨迹，你依然在 7 个日子里留下了听歌痕迹。",
+          "note": "City mood"
+        }
+      }
+    },
+    {
+      "page_id": "P08",
+      "template": "genre-ranking",
+      "section": "曲风章节",
+      "title": "年度曲风 Top5",
+      "year": 2025,
+      "summary_text": "已识别部分里，古风 是今年最突出的主角。",
+      "payload": {
+        "genre_ranking": [
+          {
+            "genre_name": "古风",
+            "weighted_track_count": 21.0,
+            "track_count": 1,
+            "play_total": 21
+          },
+          {
+            "genre_name": "国语流行",
+            "weighted_track_count": 21.0,
+            "track_count": 2,
+            "play_total": 21
+          },
+          {
+            "genre_name": "J-Pop",
+            "weighted_track_count": 12.0,
+            "track_count": 2,
+            "play_total": 12
+          },
+          {
+            "genre_name": "Anime",
+            "weighted_track_count": 8.0,
+            "track_count": 1,
+            "play_total": 8
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "P09",
+      "template": "genre-timeline",
+      "section": "曲风章节",
+      "title": "曲风进化历",
+      "year": 2025,
+      "summary_text": "从 国语流行 到 Anime，这一年的曲风重心一直在慢慢漂移。",
+      "payload": {
+        "monthly_genre_timeline": [
+          {
+            "month": 1,
+            "top_genre": "国语流行",
+            "top_weighted_track_count": 12.0,
+            "genre_weights": [
+              {
+                "genre_name": "国语流行",
+                "weighted_track_count": 12.0,
+                "track_count": 1,
+                "play_total": 12
+              }
+            ]
+          },
+          {
+            "month": 3,
+            "top_genre": "古风",
+            "top_weighted_track_count": 21.0,
+            "genre_weights": [
+              {
+                "genre_name": "古风",
+                "weighted_track_count": 21.0,
+                "track_count": 1,
+                "play_total": 21
+              }
+            ]
+          },
+          {
+            "month": 4,
+            "top_genre": "J-Pop",
+            "top_weighted_track_count": 7.0,
+            "genre_weights": [
+              {
+                "genre_name": "J-Pop",
+                "weighted_track_count": 7.0,
+                "track_count": 1,
+                "play_total": 7
+              }
+            ]
+          },
+          {
+            "month": 6,
+            "top_genre": "J-Pop",
+            "top_weighted_track_count": 5.0,
+            "genre_weights": [
+              {
+                "genre_name": "J-Pop",
+                "weighted_track_count": 5.0,
+                "track_count": 1,
+                "play_total": 5
+              }
+            ]
+          },
+          {
+            "month": 9,
+            "top_genre": "国语流行",
+            "top_weighted_track_count": 9.0,
+            "genre_weights": [
+              {
+                "genre_name": "国语流行",
+                "weighted_track_count": 9.0,
+                "track_count": 1,
+                "play_total": 9
+              }
+            ]
+          },
+          {
+            "month": 11,
+            "top_genre": "Anime",
+            "top_weighted_track_count": 8.0,
+            "genre_weights": [
+              {
+                "genre_name": "Anime",
+                "weighted_track_count": 8.0,
+                "track_count": 1,
+                "play_total": 8
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "P10",
+      "template": "genre-score",
+      "section": "曲风章节",
+      "title": "品味曲风分数",
+      "year": 2025,
+      "summary_text": "这一年的曲风探索分数先定格在 85 分。",
+      "payload": {
+        "taste_score": 85,
+        "score_breakdown": {
+          "breadth_score": 32,
+          "balance_score": 38,
+          "new_genre_score": 15
+        }
+      }
+    },
+    {
+      "page_id": "P11",
+      "template": "cover-color",
+      "section": "封面颜色",
+      "title": "年度封面主色",
+      "year": 2025,
+      "summary_text": "当前最常出现的封面主色是 #E6C6B6。",
+      "payload": {
+        "cover_color_summary": {
+          "counted_track_total": 7,
+          "excluded_track_total": 0,
+          "top_colors": [
+            {
+              "color_hex": "#E6C6B6",
+              "track_count": 2,
+              "representative_track_title": "旧日来信",
+              "representative_artist_display": "Aimer",
+              "representative_cover_path": "covers/legacy-1.jpg"
+            },
+            {
+              "color_hex": "#394B8A",
+              "track_count": 1,
+              "representative_track_title": "夜航星",
+              "representative_artist_display": "不才",
+              "representative_cover_path": "covers/t2.jpg"
+            },
+            {
+              "color_hex": "#6A8FE8",
+              "track_count": 1,
+              "representative_track_title": "群青",
+              "representative_artist_display": "YOASOBI",
+              "representative_cover_path": "covers/lib-2.jpg"
+            },
+            {
+              "color_hex": "#6FA8CF",
+              "track_count": 1,
+              "representative_track_title": "海底",
+              "representative_artist_display": "一支榴莲",
+              "representative_cover_path": "covers/lib-3.jpg"
+            },
+            {
+              "color_hex": "#D88D5F",
+              "track_count": 1,
+              "representative_track_title": "残響散歌",
+              "representative_artist_display": "Aimer",
+              "representative_cover_path": "covers/lib-4.jpg"
+            },
+            {
+              "color_hex": "#F0D7A2",
+              "track_count": 1,
+              "representative_track_title": "若月亮没来",
+              "representative_artist_display": "王宇宙Leto",
+              "representative_cover_path": "covers/t1.jpg"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "page_id": "P12",
+      "template": "season-favorite",
+      "section": "四季最爱",
+      "title": "春季最爱",
+      "year": 2025,
+      "summary_text": "春天里你最常回到《夜航星》。",
+      "payload": {
+        "season_key": "spring",
+        "season_label": "春",
+        "favorite_track": {
+          "track_title": "夜航星",
+          "artist_display": "不才",
+          "album_display": "不才作品集",
+          "play_count": 21,
+          "active_days": 15,
+          "listened_sec": 3500,
+          "cover_path": "covers/t2.jpg",
+          "score": 16.196
+        }
+      }
+    },
+    {
+      "page_id": "P13",
+      "template": "season-favorite",
+      "section": "四季最爱",
+      "title": "夏季最爱",
+      "year": 2025,
+      "summary_text": "夏天里你最常回到《群青》。",
+      "payload": {
+        "season_key": "summer",
+        "season_label": "夏",
+        "favorite_track": {
+          "track_title": "群青",
+          "artist_display": "YOASOBI",
+          "album_display": "THE BOOK",
+          "play_count": 5,
+          "active_days": 4,
+          "listened_sec": 1200,
+          "cover_path": "covers/lib-2.jpg",
+          "score": 4.0
+        }
+      }
+    },
+    {
+      "page_id": "P14",
+      "template": "season-favorite",
+      "section": "四季最爱",
+      "title": "秋季最爱",
+      "year": 2025,
+      "summary_text": "秋天里你最常回到《残響散歌》。",
+      "payload": {
+        "season_key": "autumn",
+        "season_label": "秋",
+        "favorite_track": {
+          "track_title": "残響散歌",
+          "artist_display": "Aimer",
+          "album_display": "残響散歌",
+          "play_count": 8,
+          "active_days": 6,
+          "listened_sec": 1720,
+          "cover_path": "covers/lib-4.jpg",
+          "score": 6.272
+        }
+      }
+    },
+    {
+      "page_id": "P15",
+      "template": "season-favorite",
+      "section": "四季最爱",
+      "title": "冬季最爱",
+      "year": 2025,
+      "summary_text": "冬天里你最常回到《若月亮没来》。",
+      "payload": {
+        "season_key": "winter",
+        "season_label": "冬",
+        "favorite_track": {
+          "track_title": "若月亮没来",
+          "artist_display": "王宇宙Leto",
+          "album_display": "若月亮没来",
+          "play_count": 12,
+          "active_days": 8,
+          "listened_sec": 1800,
+          "cover_path": "covers/t1.jpg",
+          "score": 9.075
+        }
+      }
+    },
+    {
+      "page_id": "P16",
+      "template": "artist-hero",
+      "section": "歌手章节",
+      "title": "年度最爱歌手",
+      "year": 2025,
+      "summary_text": "今年陪你最久的歌手是 不才，一共出现了 21 次。",
+      "payload": {
+        "top_artist": {
+          "artist_display": "不才",
+          "play_total": 21,
+          "listened_sec": 3500,
+          "track_total": 1,
+          "top_track_title": "夜航星",
+          "monthly_distribution": [
+            {
+              "month": 1,
+              "play_total": 0
+            },
+            {
+              "month": 2,
+              "play_total": 0
+            },
+            {
+              "month": 3,
+              "play_total": 21
+            },
+            {
+              "month": 4,
+              "play_total": 0
+            },
+            {
+              "month": 5,
+              "play_total": 0
+            },
+            {
+              "month": 6,
+              "play_total": 0
+            },
+            {
+              "month": 7,
+              "play_total": 0
+            },
+            {
+              "month": 8,
+              "play_total": 0
+            },
+            {
+              "month": 9,
+              "play_total": 0
+            },
+            {
+              "month": 10,
+              "play_total": 0
+            },
+            {
+              "month": 11,
+              "play_total": 0
+            },
+            {
+              "month": 12,
+              "play_total": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "page_id": "P17",
+      "template": "week-rhythm",
+      "section": "节奏习惯",
+      "title": "一周听歌心情",
+      "year": 2025,
+      "summary_text": "周末更松弛，工作日更像把情绪重新拧紧。",
+      "payload": {
+        "weekday_distribution": [
+          {
+            "weekday": 1,
+            "weekday_label": "周一",
+            "play_total": 0,
+            "listened_sec": 0,
+            "bpm_value": null,
+            "bpm_source": null
+          },
+          {
+            "weekday": 2,
+            "weekday_label": "周二",
+            "play_total": 9,
+            "listened_sec": 1680,
+            "bpm_value": 78,
+            "bpm_source": "median"
+          },
+          {
+            "weekday": 3,
+            "weekday_label": "周三",
+            "play_total": 5,
+            "listened_sec": 1200,
+            "bpm_value": 126,
+            "bpm_source": "median"
+          },
+          {
+            "weekday": 4,
+            "weekday_label": "周四",
+            "play_total": 0,
+            "listened_sec": 0,
+            "bpm_value": null,
+            "bpm_source": null
+          },
+          {
+            "weekday": 5,
+            "weekday_label": "周五",
+            "play_total": 12,
+            "listened_sec": 1800,
+            "bpm_value": 112,
+            "bpm_source": "median"
+          },
+          {
+            "weekday": 6,
+            "weekday_label": "周六",
+            "play_total": 30,
+            "listened_sec": 5720,
+            "bpm_value": 104,
+            "bpm_source": "median"
+          },
+          {
+            "weekday": 7,
+            "weekday_label": "周日",
+            "play_total": 6,
+            "listened_sec": 900,
+            "bpm_value": 90,
+            "bpm_source": "median"
+          }
+        ],
+        "weekend_vs_workday": {
+          "workday_play_total": 26,
+          "weekend_play_total": 36
+        },
+        "bpm_coverage_ratio": 1.0,
+        "mood_summary": "周末更松弛，工作日更像把情绪重新拧紧。"
+      }
+    },
+    {
+      "page_id": "P18",
+      "template": "calendar-heatmap",
+      "section": "节奏习惯",
+      "title": "年度听歌日历",
+      "year": 2025,
+      "summary_text": "今年你一共在 7 天里点开过音乐，最长连续记录是 2 天。",
+      "payload": {
+        "active_day_total": 7,
+        "longest_streak_day_total": 2,
+        "peak_date": "2025-03-08",
+        "heatmap_cells": [
+          {
+            "date": "2025-01-03",
+            "play_total": 12,
+            "intensity": 4,
+            "month": 1,
+            "weekday": 5
+          },
+          {
+            "date": "2025-03-08",
+            "play_total": 15,
+            "intensity": 4,
+            "month": 3,
+            "weekday": 6
+          },
+          {
+            "date": "2025-03-09",
+            "play_total": 6,
+            "intensity": 2,
+            "month": 3,
+            "weekday": 7
+          },
+          {
+            "date": "2025-04-12",
+            "play_total": 7,
+            "intensity": 2,
+            "month": 4,
+            "weekday": 6
+          },
+          {
+            "date": "2025-06-18",
+            "play_total": 5,
+            "intensity": 2,
+            "month": 6,
+            "weekday": 3
+          },
+          {
+            "date": "2025-09-16",
+            "play_total": 9,
+            "intensity": 3,
+            "month": 9,
+            "weekday": 2
+          },
+          {
+            "date": "2025-11-22",
+            "play_total": 8,
+            "intensity": 3,
+            "month": 11,
+            "weekday": 6
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "P19",
+      "template": "time-preference",
+      "section": "时间偏好",
+      "title": "最爱时段",
+      "year": 2025,
+      "summary_text": "你最常在晚间听歌，其中最密集的一小时落在 21:00-21:59。",
+      "payload": {
+        "time_bucket_distribution": [
+          {
+            "bucket_key": "morning",
+            "bucket_label": "上午",
+            "play_total": 12
+          },
+          {
+            "bucket_key": "evening",
+            "bucket_label": "晚间",
+            "play_total": 44
+          },
+          {
+            "bucket_key": "late-night",
+            "bucket_label": "深夜",
+            "play_total": 6
+          }
+        ],
+        "top_bucket": {
+          "bucket_key": "evening",
+          "bucket_label": "晚间",
+          "play_total": 44
+        },
+        "peak_hour": {
+          "hour": 21,
+          "label": "21:00-21:59",
+          "play_total": 15
+        },
+        "representative_track": {
+          "track_title": "夜航星",
+          "artist_display": "不才",
+          "album_display": "不才作品集",
+          "play_count": 15,
+          "active_days": 12,
+          "listened_sec": 2600,
+          "cover_path": "covers/t2.jpg",
+          "score": 11.958
+        }
+      }
+    },
+    {
+      "page_id": "P20",
+      "template": "late-night-hero",
+      "section": "深夜偏好",
+      "title": "深夜听歌",
+      "year": 2025,
+      "summary_text": "今年最晚的一次听歌出现在 03:08，那时你在听《若月亮没来》。",
+      "payload": {
+        "latest_night_record": {
+          "latest_time": "03:08",
+          "track_title": "若月亮没来",
+          "artist_display": "王宇宙Leto",
+          "cover_path": "covers/t1.jpg",
+          "night_sort_minute": 1628
+        },
+        "late_night_total": 7,
+        "late_night_track_total": 6,
+        "representative_tracks": [
+          {
+            "track_title": "夜航星",
+            "artist_display": "不才",
+            "late_night_play_total": 2,
+            "latest_time": "01:55",
+            "cover_path": "covers/t2.jpg"
+          },
+          {
+            "track_title": "若月亮没来",
+            "artist_display": "王宇宙Leto",
+            "late_night_play_total": 1,
+            "latest_time": "03:08",
+            "cover_path": "covers/t1.jpg"
+          },
+          {
+            "track_title": "海底",
+            "artist_display": "一支榴莲",
+            "late_night_play_total": 1,
+            "latest_time": "23:15",
+            "cover_path": "covers/lib-3.jpg"
+          },
+          {
+            "track_title": "残響散歌",
+            "artist_display": "Aimer",
+            "late_night_play_total": 1,
+            "latest_time": "22:10",
+            "cover_path": "covers/lib-4.jpg"
+          },
+          {
+            "track_title": "Polaris",
+            "artist_display": "Aimer",
+            "late_night_play_total": 1,
+            "latest_time": "",
+            "cover_path": "covers/lib-1.jpg"
+          },
+          {
+            "track_title": "群青",
+            "artist_display": "YOASOBI",
+            "late_night_play_total": 1,
+            "latest_time": "",
+            "cover_path": "covers/lib-2.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "P21",
+      "template": "timeline-night",
+      "section": "深夜轨迹",
+      "title": "历年最晚记录",
+      "year": 2025,
+      "summary_text": "历年最晚的一次出现在 2025 年 03:08，那晚你在听《若月亮没来》。",
+      "payload": {
+        "layout_mode": "timeline",
+        "latest_night_history": [
+          {
+            "year": 2024,
+            "latest_time": "01:05",
+            "track_title": "旧日来信",
+            "artist_display": "Aimer",
+            "cover_path": "covers/legacy-1.jpg",
+            "night_sort_minute": 1505,
+            "is_peak_record": false
+          },
+          {
+            "year": 2025,
+            "latest_time": "03:08",
+            "track_title": "若月亮没来",
+            "artist_display": "王宇宙Leto",
+            "cover_path": "covers/t1.jpg",
+            "night_sort_minute": 1628,
+            "is_peak_record": true
+          }
+        ],
+        "peak_record_year": 2025
+      }
+    },
+    {
+      "page_id": "P23",
+      "template": "album-hero",
+      "section": "专辑章节",
+      "title": "年度之最专辑",
+      "year": 2025,
+      "summary_text": "今年听得最多的专辑是《不才作品集》，它陪你循环了 21 次。",
+      "payload": {
+        "top_album": {
+          "rank": 1,
+          "album_display": "不才作品集",
+          "artist_display": "不才",
+          "play_total": 21,
+          "track_total": 1,
+          "active_days": 15,
+          "listened_sec": 3500,
+          "representative_track_title": "夜航星",
+          "cover_path": "covers/t2.jpg"
+        }
+      }
+    },
+    {
+      "page_id": "P25",
+      "template": "song-hero",
+      "section": "年度歌曲",
+      "title": "年度歌曲",
+      "year": 2025,
+      "summary_text": "《夜航星》用更长时间的陪伴，成了你的年度歌曲。",
+      "payload": {
+        "song_of_year": {
+          "track_title": "夜航星",
+          "artist_display": "不才",
+          "album_display": "不才作品集",
+          "play_count": 21,
+          "active_days": 15,
+          "listened_sec": 3500,
+          "cover_path": "covers/t2.jpg",
+          "peak_month": 3,
+          "score": 16.196
+        }
+      }
+    },
+    {
+      "page_id": "L04A",
+      "template": "artist-library-ranking",
+      "section": "曲库专题",
+      "title": "歌曲库歌手榜",
+      "year": 2025,
+      "summary_text": "全曲库收藏最多的歌手目前是 Aimer。",
+      "payload": {
+        "ranking": [
+          {
+            "rank": 1,
+            "artist_display": "Aimer",
+            "track_total": 3,
+            "album_total": 3,
+            "top_track_title": "旧日来信"
+          },
+          {
+            "rank": 2,
+            "artist_display": "YOASOBI",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "群青"
+          },
+          {
+            "rank": 3,
+            "artist_display": "一支榴莲",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "海底"
+          },
+          {
+            "rank": 4,
+            "artist_display": "不才",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "夜航星"
+          },
+          {
+            "rank": 5,
+            "artist_display": "王宇宙Leto",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "若月亮没来"
+          },
+          {
+            "rank": 6,
+            "artist_display": "陈奕迅",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "K歌之王"
+          },
+          {
+            "rank": 7,
+            "artist_display": "孙燕姿",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "开始懂了"
+          },
+          {
+            "rank": 8,
+            "artist_display": "米津玄師",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "Lemon"
+          },
+          {
+            "rank": 9,
+            "artist_display": "RADWIMPS",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "前前前世"
+          },
+          {
+            "rank": 10,
+            "artist_display": "星街すいせい",
+            "track_total": 1,
+            "album_total": 1,
+            "top_track_title": "Stellar Stellar"
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "L04B",
+      "template": "artist-new-ranking",
+      "section": "曲库专题",
+      "title": "年度新增歌手榜",
+      "year": 2025,
+      "summary_text": "今年扩坑最多的歌手是 Aimer。",
+      "payload": {
+        "ranking": [
+          {
+            "rank": 1,
+            "artist_display": "Aimer",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": null
+          },
+          {
+            "rank": 2,
+            "artist_display": "YOASOBI",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": null
+          },
+          {
+            "rank": 3,
+            "artist_display": "一支榴莲",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": null
+          },
+          {
+            "rank": 4,
+            "artist_display": "王宇宙Leto",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": null
+          },
+          {
+            "rank": 5,
+            "artist_display": "陈奕迅",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": "第一次加入曲库"
+          },
+          {
+            "rank": 6,
+            "artist_display": "孙燕姿",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": "久违补收藏"
+          },
+          {
+            "rank": 7,
+            "artist_display": "米津玄師",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": "从单曲开始扩列"
+          },
+          {
+            "rank": 8,
+            "artist_display": "RADWIMPS",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": "电影原声入坑"
+          },
+          {
+            "rank": 9,
+            "artist_display": "星街すいせい",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": "直播切片种草"
+          },
+          {
+            "rank": 10,
+            "artist_display": "周深",
+            "new_track_total": 1,
+            "new_album_total": 1,
+            "highlight_tag": "第一次加入曲库"
+          }
+        ]
+      }
+    }
+  ]
+}
