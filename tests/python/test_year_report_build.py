@@ -441,17 +441,48 @@ def test_build_year_report_supports_primary_and_weighted_genre_views():
 
     # 主曲风口径应取每首歌最高置信度的曲风，并保留无映射歌曲的原始主曲风。
     assert l03['primary_genre_distribution'] == [
-        {'genre_name': 'Anime', 'track_count': 1},
-        {'genre_name': 'Pop', 'track_count': 1},
-        {'genre_name': 'Vocaloid', 'track_count': 1},
+        {'genre_name': 'Anime', 'genre_name_zh': '动漫', 'track_count': 1},
+        {'genre_name': 'Pop', 'genre_name_zh': '流行', 'track_count': 1},
+        {'genre_name': 'Vocaloid', 'genre_name_zh': 'Vocaloid', 'track_count': 1},
     ]
     # 加权口径应把同一首歌的多个候选曲风都累加进来，按置信度折算歌曲条数。
     assert l03['weighted_genre_distribution'] == [
-        {'genre_name': 'Anime', 'weighted_track_count': 1.01},
-        {'genre_name': 'Vocaloid', 'weighted_track_count': 1.0},
-        {'genre_name': 'Pop', 'weighted_track_count': 0.82},
-        {'genre_name': 'Rock', 'weighted_track_count': 0.11},
+        {'genre_name': 'Anime', 'genre_name_zh': '动漫', 'weighted_track_count': 1.01},
+        {'genre_name': 'Vocaloid', 'genre_name_zh': 'Vocaloid', 'weighted_track_count': 1.0},
+        {'genre_name': 'Pop', 'genre_name_zh': '流行', 'weighted_track_count': 0.82},
+        {'genre_name': 'Rock', 'genre_name_zh': '摇滚', 'weighted_track_count': 0.11},
     ]
+
+
+def test_build_year_report_l03_emits_chinese_genre_labels_for_library_structure():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2026,
+        'library_tracks': [
+            {
+                'track_id': 'track-1',
+                'track_title': '月亮备忘录',
+                'artist_display': '歌手A',
+                'primary_genre': 'Pop---J-pop',
+                'language_norm': '日语',
+                'first_added_year': 2026,
+            },
+        ],
+        'genre_matches': [
+            {
+                'track_id': 'track-1',
+                'genre_name': 'Pop---J-pop',
+                'match_score': 0.9,
+            },
+        ],
+    })
+    l03 = {page['page_id']: page for page in report['pages']}['L03']
+
+    assert l03['primary_genre_distribution'][0]['genre_name'] == 'Pop---J-pop'
+    assert l03['primary_genre_distribution'][0]['genre_name_zh'] == '日系流行'
+    assert l03['weighted_genre_distribution'][0]['genre_name'] == 'Pop---J-pop'
+    assert l03['weighted_genre_distribution'][0]['genre_name_zh'] == '日系流行'
 
 
 def test_build_year_report_aggregates_language_distribution_from_language_norm():
@@ -570,6 +601,18 @@ def test_build_year_report_builds_p32_summary_cards_from_existing_sections():
                 'track_title': 'Add B',
             },
         ],
+        'genre_matches': [
+            {
+                'track_id': 'n1',
+                'genre_name': 'Pop---J-pop',
+                'match_score': 0.91,
+            },
+            {
+                'track_id': 'n2',
+                'genre_name': 'Anime',
+                'match_score': 0.46,
+            },
+        ],
     })
     p32 = {page['page_id']: page for page in report['pages']}['P32']
 
@@ -580,6 +623,9 @@ def test_build_year_report_builds_p32_summary_cards_from_existing_sections():
     assert 'top-new-artist' in card_ids
     assert 'library-structure' in card_ids
     assert p32['summary_text']
+
+    structure_card = next(card for card in p32['summary_cards'] if card['card_id'] == 'library-structure')
+    assert structure_card['value'] == '日系流行'
 
 
 def test_build_year_report_uses_genre_matches_for_genre_coverage_when_primary_is_missing():

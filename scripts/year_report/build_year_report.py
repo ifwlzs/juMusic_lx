@@ -1826,7 +1826,7 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
         cards.append({
             'card_id': 'library-structure',
             'headline': '曲库最显著结构',
-            'value': top_genre.get('genre_name') or '未知曲风',
+            'value': top_genre.get('genre_name_zh') or top_genre.get('genre_name') or '未知曲风',
             'support_text': f"加权歌曲数 {top_genre.get('weighted_track_count') or 0}",
         })
 
@@ -1931,6 +1931,7 @@ def _build_genre_views(
     primary_distribution = [
         {
             'genre_name': genre_name,
+            'genre_name_zh': _map_genre_name_to_zh(genre_name),
             'track_count': track_count,
         }
         for genre_name, track_count in sorted(
@@ -1941,6 +1942,7 @@ def _build_genre_views(
     weighted_distribution = [
         {
             'genre_name': genre_name,
+            'genre_name_zh': _map_genre_name_to_zh(genre_name),
             'weighted_track_count': round(weighted_track_count, 2),
         }
         for genre_name, weighted_track_count in sorted(
@@ -1993,6 +1995,39 @@ def _resolve_primary_genre_map(
             primary_genre_map[track_id] = str(row.get('primary_genre')).strip()
 
     return primary_genre_map
+
+
+def _map_genre_name_to_zh(genre_name: Any) -> str:
+    """把内部曲风路径映射成面向用户展示的中文标签。"""
+    normalized = str(genre_name or '').strip()
+    if not normalized:
+        return '未知曲风'
+    genre_map = {
+        'J-Pop': '日系流行',
+        'Pop---J-pop': '日系流行',
+        'Pop---K-pop': '韩流流行',
+        'Pop---Ballad': '抒情流行',
+        'Electronic---Dance-pop': '舞曲流行',
+        'Rock---Pop Rock': '流行摇滚',
+        'Rock---Folk Rock': '民谣摇滚',
+        'Anime': '动漫',
+        'Folk': '民谣',
+        '国语流行': '华语流行',
+        'Mandopop': '华语流行',
+        '古风': '古风',
+        'Vocaloid': 'Vocaloid',
+        'Pop': '流行',
+        'Rock': '摇滚',
+    }
+    if normalized in genre_map:
+        return genre_map[normalized]
+    if '---' in normalized:
+        parent_name, child_name = normalized.split('---', 1)
+        if child_name in genre_map:
+            return genre_map[child_name]
+        if parent_name in genre_map:
+            return genre_map[parent_name]
+    return normalized
 
 
 def _group_genre_matches_by_track(genre_matches: list[dict[str, Any]]) -> dict[Any, list[dict[str, Any]]]:

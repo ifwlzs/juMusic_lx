@@ -203,11 +203,11 @@ def test_build_year_report_contract_returns_meta_and_pages():
 
     assert contract['meta']['year'] == 2025
     assert contract['meta']['design_width'] == 390
-    # 当前移动端 contract 已串起 P01-P20，并继续接入专辑榜、曲库专题与总结收尾页。
+    # 当前移动端 contract 已串起 P01-P20，并继续接入专辑榜、P31/L01 桥页、曲库专题与总结收尾页。
     assert contract['meta']['page_order'] == [
         'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
         'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-        'P21', 'P23', 'P24', 'P25', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+        'P21', 'P23', 'P24', 'P25', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
     ]
     assert [page['page_id'] for page in contract['pages']] == contract['meta']['page_order']
 
@@ -234,6 +234,8 @@ def test_build_year_report_contract_returns_meta_and_pages():
     assert pages['P23']['template'] == 'album-hero'
     assert pages['P24']['template'] == 'album-ranking'
     assert pages['P25']['template'] == 'song-hero'
+    assert pages['P31']['template'] == 'library-coverage'
+    assert pages['L01']['template'] == 'library-overview'
     assert pages['L02']['template'] == 'library-growth'
     assert pages['L03']['template'] == 'library-structure'
     assert pages['L04A']['template'] == 'artist-library-ranking'
@@ -282,10 +284,15 @@ def test_build_year_report_contract_returns_meta_and_pages():
     assert pages['P24']['payload']['album_ranking'][0]['album_display'] == '不才作品集'
     assert pages['P24']['payload']['album_ranking'][0]['play_total'] == 21
     assert pages['P25']['payload']['song_of_year']['track_title'] == '夜航星'
+    assert pages['P31']['payload']['coverage']
+    assert pages['P31']['payload']['cover_color_summary']
+    assert pages['L01']['payload']['metrics']
+    assert pages['L01']['payload']['coverage']
     assert pages['L02']['payload']['growth_metrics']['new_track_total'] == 3
     assert isinstance(pages['L02']['payload']['monthly_growth'], list)
     assert pages['L03']['payload']['language_distribution'][0]['language_name'] == '日语'
     assert pages['L03']['payload']['weighted_genre_distribution'][0]['genre_name'] == 'J-Pop'
+    assert pages['L03']['payload']['weighted_genre_distribution'][0]['genre_name_zh'] == '日系流行'
     # 两个 L04 子页统一走 payload.ranking，旧双榜字段不再出现在 contract 中。
     assert pages['L04A']['payload']['ranking'][0]['artist_display'] == 'Aimer'
     assert pages['L04A']['payload']['ranking'][0]['track_total'] == 2
@@ -293,6 +300,7 @@ def test_build_year_report_contract_returns_meta_and_pages():
     assert pages['L04B']['payload']['ranking'][0]['new_track_total'] == 1
     assert len(pages['P32']['payload']['summary_cards']) == 4
     assert pages['P32']['payload']['summary_cards'][0]['value'] == '03:08'
+    assert pages['P32']['payload']['summary_cards'][-1]['value'] == '日系流行'
     assert 'library_artist_ranking' not in pages['L04A']['payload']
     assert 'new_artist_ranking' not in pages['L04B']['payload']
 
