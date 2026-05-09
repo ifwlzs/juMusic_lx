@@ -1,6 +1,7 @@
 """Load local music info into SQL Server."""
 
 import argparse
+import colorsys
 import hashlib
 import json
 import os
@@ -8,6 +9,7 @@ import re
 import shlex
 import time
 import uuid
+import io
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, unquote
@@ -19,6 +21,7 @@ except ImportError:  # pragma: no cover
 
 import pymssql
 from mutagen import File as MutagenFile
+from PIL import Image
 
 TABLE_NAME = 'ods_jumusic_music_info'
 ARTIST_ALIAS_TABLE_NAME = 'ods_jumusic_artist_alias'
@@ -55,8 +58,11 @@ WAREHOUSE_COLUMNS = [
     'is_readable', 'title', 'artist', 'album', 'album_artist', 'track_no', 'disc_no', 'genre', 'year',
     'duration_sec', 'bitrate', 'sample_rate', 'channels',
     'embedded_lyric', 'embedded_lyric_format', 'embedded_lyric_length',
+    'cover_art_present', 'cover_art_mime', 'cover_color', 'cover_color_source', 'cover_color_confidence',
     'genre_essentia_label', 'genre_essentia_raw_label', 'genre_essentia_path', 'genre_essentia_parent', 'genre_essentia_child', 'genre_essentia_depth',
-    'genre_essentia_confidence', 'genre_essentia_model', 'genre_essentia_source', 'genre_essentia_inferred_at',
+    'genre_essentia_confidence', 'genre_essentia_matches_json', 'genre_essentia_model', 'genre_essentia_source', 'genre_essentia_inferred_at',
+    # 语种字段统一在入库阶段直接落地，后续年报、曲库分析都直接复用 ODS 结果。
+    'language_norm', 'language_source', 'language_confidence', 'language_norm_version',
     'scan_status', 'scan_error', 'etl_created_at', 'etl_updated_at'
 ]
 COMMENT_SQLS = [
@@ -254,6 +260,13 @@ END
 ]
 
 VIRTUAL_SINGER_DIR_MARKER = '▓虚拟歌姬▓'
+LANGUAGE_NORM_VERSION = 'lyric-v1'
+LANGUAGE_LABEL_JA = '日语'
+LANGUAGE_LABEL_ZH = '中文'
+LANGUAGE_LABEL_EN = '英语'
+LANGUAGE_LABEL_KO = '韩语'
+LANGUAGE_LABEL_RU = '俄语'
+LANGUAGE_LABEL_MULTI = '多语种'
 
 
 def iter_music_files(root_path):
@@ -449,6 +462,27 @@ def empty_audio_metadata(status='SUCCESS', error=None):
         'embedded_lyric': None,
         'embedded_lyric_format': None,
         'embedded_lyric_length': None,
+        'cover_art_present': False,
+        'cover_art_mime': None,
+        'cover_color': None,
+        'cover_color_source': None,
+        'cover_color_confidence': None,
+        'language_norm': None,
+        'language_source': None,
+        'language_confidence': None,
+        'language_norm_version': LANGUAGE_NORM_VERSION,
+        # 外部 Essentia 曲风识别结果默认先留空，后续由 VM 回填链路统一补齐。
+        'genre_essentia_label': None,
+        'genre_essentia_raw_label': None,
+        'genre_essentia_path': None,
+        'genre_essentia_parent': None,
+        'genre_essentia_child': None,
+        'genre_essentia_depth': None,
+        'genre_essentia_confidence': None,
+        'genre_essentia_matches_json': None,
+        'genre_essentia_model': None,
+        'genre_essentia_source': None,
+        'genre_essentia_inferred_at': None,
         'scan_status': status,
         'scan_error': error,
     }
@@ -459,6 +493,160 @@ def _normalize_lyric_text(text):
         return None
     normalized = str(text).replace('\r\n', '\n').replace('\r', '\n').strip('\ufeff')
     return normalized.strip() or None
+
+
+def _strip_lrc_inline_tags(text):
+    """去掉时间戳与常见 LRC 头部标签，避免把元数据误当成歌词正文。"""
+    if not text:
+        return ''
+    normalized = re.sub(r'\[[0-9]{1,2}:[0-9]{2}(?:\.[0-9]{1,3})?\]', ' ', str(text))
+    normalized = re.sub(r'\[(?:ti|ar|al|by|offset):[^\]]*\]', ' ', normalized, flags=re.IGNORECASE)
+    return normalized
+
+
+def _is_language_noise_text(text):
+    """识别 `Lavf58.76.100`、`-8.13 dB` 这类假歌词噪音，避免污染语种检测。"""
+    normalized = re.sub(r'\s+', '', str(text or '')).lower()
+    if not normalized:
+        return True
+    if re.fullmatch(r'lavf\d+(?:\.\d+)*', normalized):
+        return True
+    if re.fullmatch(r'-?\d+(?:\.\d+)?db', normalized):
+        return True
+    if re.fullmatch(r'-?\d+(?:\.\d+)?', normalized):
+        return True
+    return False
+
+
+def _is_language_metadata_line(line):
+    """过滤作词作曲、翻译说明、来源站点等不会代表歌曲语种的行。"""
+    normalized = str(line or '').strip().lower()
+    if not normalized:
+        return True
+    metadata_patterns = (
+        r'^(?:作词|作曲|编曲|演唱|音乐|混音|调声|词|曲)\s*[:：]',
+        r'^(?:lyrics?|music|written|composed|arranged|produced|vocal|artist|album|title)\s*(?:by)?\s*[:：]',
+        r'^(?:以下歌词翻译由|歌词翻译|翻译：|译：)',
+        r'^(?:www\.|https?://|qq音乐|网易云|酷狗|酷我|lrc歌词网)',
+    )
+    return any(re.search(pattern, normalized, flags=re.IGNORECASE) for pattern in metadata_patterns)
+
+
+def _clean_language_probe_text(text):
+    """把歌词/标题清洗成适合做语种判断的文本，尽量保留正文、剔除翻译和噪音。"""
+    normalized = _normalize_lyric_text(text)
+    if not normalized:
+        return None
+
+    cleaned_lines = []
+    for raw_line in normalized.split('\n'):
+        line = _strip_lrc_inline_tags(raw_line).strip()
+        # 优先去掉括号里的翻译或附注，减少中外双语对语种判断的干扰。
+        line = re.sub(r'（[^）]{0,120}）', ' ', line)
+        line = re.sub(r'\([^)]{0,120}\)', ' ', line)
+        line = re.sub(r'\s+', ' ', line).strip(' -–—_/\\|:;,.')
+        if not line or _is_language_noise_text(line) or _is_language_metadata_line(line):
+            continue
+        cleaned_lines.append(line)
+
+    if not cleaned_lines:
+        return None
+
+    cleaned_text = '\n'.join(cleaned_lines).strip()
+    if _is_language_noise_text(cleaned_text):
+        return None
+    return cleaned_text or None
+
+
+def _build_language_script_counts(text):
+    """统计不同文字脚本的字符数，为后续语种归类提供证据。"""
+    counts = {
+        'han': 0,
+        'hiragana': 0,
+        'katakana': 0,
+        'hangul': 0,
+        'latin': 0,
+        'cyrillic': 0,
+    }
+    for char in str(text or ''):
+        if '\u4e00' <= char <= '\u9fff':
+            counts['han'] += 1
+        elif '\u3040' <= char <= '\u309f':
+            counts['hiragana'] += 1
+        elif '\u30a0' <= char <= '\u30ff':
+            counts['katakana'] += 1
+        elif '\uac00' <= char <= '\ud7af':
+            counts['hangul'] += 1
+        elif ('a' <= char.lower() <= 'z'):
+            counts['latin'] += 1
+        elif '\u0400' <= char <= '\u04ff':
+            counts['cyrillic'] += 1
+    return counts
+
+
+def _detect_language_from_text(text):
+    """按脚本分布推断语种；优先识别日/韩/俄等强特征脚本，再处理中英混合。"""
+    cleaned_text = _clean_language_probe_text(text)
+    if not cleaned_text:
+        return None
+
+    counts = _build_language_script_counts(cleaned_text)
+    japanese_count = counts['hiragana'] + counts['katakana']
+    chinese_count = counts['han']
+    korean_count = counts['hangul']
+    english_count = counts['latin']
+    russian_count = counts['cyrillic']
+    total_count = japanese_count + chinese_count + korean_count + english_count + russian_count
+    if total_count <= 0:
+        return None
+
+    # 日文/韩文/俄文具有强脚本特征，出现到一定数量时优先直接命中。
+    if japanese_count >= 2:
+        return {'language_norm': LANGUAGE_LABEL_JA, 'language_confidence': 1.0}
+    if korean_count >= 2:
+        return {'language_norm': LANGUAGE_LABEL_KO, 'language_confidence': 1.0}
+    if russian_count >= 2:
+        return {'language_norm': LANGUAGE_LABEL_RU, 'language_confidence': 1.0}
+
+    # 处理中英混排：如果两边都不少，则记为多语种；否则取优势脚本。
+    if chinese_count >= 2 and english_count >= 3:
+        dominant_count = max(chinese_count, english_count)
+        runner_up_count = min(chinese_count, english_count)
+        if runner_up_count / dominant_count >= 0.45:
+            return {'language_norm': LANGUAGE_LABEL_MULTI, 'language_confidence': round(dominant_count / total_count, 6)}
+        if chinese_count > english_count:
+            return {'language_norm': LANGUAGE_LABEL_ZH, 'language_confidence': round(chinese_count / total_count, 6)}
+        return {'language_norm': LANGUAGE_LABEL_EN, 'language_confidence': round(english_count / total_count, 6)}
+
+    if chinese_count >= 2:
+        return {'language_norm': LANGUAGE_LABEL_ZH, 'language_confidence': 1.0}
+    if english_count >= 3:
+        return {'language_norm': LANGUAGE_LABEL_EN, 'language_confidence': 1.0}
+    return None
+
+
+def detect_language_metadata(embedded_lyric=None, title=None, artist=None):
+    """按“歌词优先，标题兜底，歌手名最后兜底”生成稳定语种字段。"""
+    for source_name, source_value in (
+        ('lyric', embedded_lyric),
+        ('title', title),
+        ('artist', artist),
+    ):
+        detected = _detect_language_from_text(source_value)
+        if not detected:
+            continue
+        return {
+            'language_norm': detected['language_norm'],
+            'language_source': source_name,
+            'language_confidence': detected['language_confidence'],
+            'language_norm_version': LANGUAGE_NORM_VERSION,
+        }
+    return {
+        'language_norm': None,
+        'language_source': None,
+        'language_confidence': None,
+        'language_norm_version': LANGUAGE_NORM_VERSION,
+    }
 
 
 def _detect_lyric_format(text):
@@ -513,6 +701,182 @@ def _extract_lyric_from_raw_tags(raw_audio):
     return None
 
 
+def _extract_cover_art_from_raw_tags(raw_audio):
+    """兼容 FLAC pictures、MP3 APIC、MP4 covr 等常见封面帧，返回图片字节和 mime。"""
+    if raw_audio is None:
+        return None
+
+    pictures = getattr(raw_audio, 'pictures', None)
+    if pictures:
+        for picture in pictures:
+            data = getattr(picture, 'data', None)
+            if data:
+                return {
+                    'data': bytes(data),
+                    'mime': getattr(picture, 'mime', None) or 'image/unknown',
+                }
+
+    tags = getattr(raw_audio, 'tags', None)
+    if not tags:
+        return None
+
+    if isinstance(tags, dict):
+        for key, value in tags.items():
+            key_lower = str(key).lower()
+            if 'apic' in key_lower:
+                data = getattr(value, 'data', None)
+                if data:
+                    return {
+                        'data': bytes(data),
+                        'mime': getattr(value, 'mime', None) or 'image/unknown',
+                    }
+                if isinstance(value, (list, tuple)):
+                    for item in value:
+                        data = getattr(item, 'data', None)
+                        if data:
+                            return {
+                                'data': bytes(data),
+                                'mime': getattr(item, 'mime', None) or 'image/unknown',
+                            }
+            if 'covr' in key_lower:
+                if isinstance(value, (list, tuple)):
+                    for item in value:
+                        if isinstance(item, (bytes, bytearray)):
+                            return {'data': bytes(item), 'mime': 'image/unknown'}
+                if isinstance(value, (bytes, bytearray)):
+                    return {'data': bytes(value), 'mime': 'image/unknown'}
+
+    values = getattr(tags, 'values', None)
+    if callable(values):
+        for frame in values():
+            data = getattr(frame, 'data', None)
+            if data:
+                return {
+                    'data': bytes(data),
+                    'mime': getattr(frame, 'mime', None) or 'image/unknown',
+                }
+    return None
+
+
+def _crop_cover_focus_area(rgb_image):
+    """优先取封面中间主体区域，降低白边、黑边和大面积留白对主题色判断的干扰。"""
+    width, height = rgb_image.size
+    if width < 8 or height < 8:
+        return rgb_image
+
+    margin_x = int(width * 0.12)
+    margin_y = int(height * 0.12)
+    right = max(margin_x + 1, width - margin_x)
+    bottom = max(margin_y + 1, height - margin_y)
+    return rgb_image.crop((margin_x, margin_y, right, bottom))
+
+
+def _score_cover_color_candidate(red, green, blue, pixel_ratio):
+    """给候选颜色打分：保留像素占比，同时优先更像封面主题色的高饱和中心色。"""
+    normalized_red = max(0.0, min(red / 255.0, 1.0))
+    normalized_green = max(0.0, min(green / 255.0, 1.0))
+    normalized_blue = max(0.0, min(blue / 255.0, 1.0))
+    _hue, saturation, value = colorsys.rgb_to_hsv(normalized_red, normalized_green, normalized_blue)
+    luminance = 0.2126 * normalized_red + 0.7152 * normalized_green + 0.0722 * normalized_blue
+
+    is_near_white = luminance >= 0.92 and saturation <= 0.16
+    is_near_black = luminance <= 0.14 and value <= 0.24 and saturation <= 0.22
+    is_near_gray = saturation <= 0.10 and not is_near_white and not is_near_black
+
+    if is_near_white:
+        neutral_penalty = 0.22
+    elif is_near_black:
+        neutral_penalty = 0.34
+    elif is_near_gray:
+        neutral_penalty = 0.48
+    elif saturation < 0.22:
+        neutral_penalty = 0.72
+    else:
+        neutral_penalty = 1.0
+
+    saturation_boost = 1.0 + saturation * 1.6
+    luminance_balance_boost = 1.0 + max(0.0, 0.34 - abs(luminance - 0.56))
+    score = pixel_ratio * saturation_boost * luminance_balance_boost * neutral_penalty
+    return {
+        'score': score,
+        'saturation': saturation,
+        'luminance': luminance,
+        'is_neutral': is_near_white or is_near_black or is_near_gray,
+    }
+
+
+def _extract_cover_color_metadata(cover_art):
+    """从嵌入封面图提取主色和置信度，用于 ODS 与年报封面颜色统计。"""
+    if not cover_art or not cover_art.get('data'):
+        return {
+            'cover_art_present': False,
+            'cover_art_mime': None,
+            'cover_color': None,
+            'cover_color_source': None,
+            'cover_color_confidence': None,
+        }
+
+    try:
+        image = Image.open(io.BytesIO(cover_art['data']))
+        rgb_image = image.convert('RGB')
+        focus_image = _crop_cover_focus_area(rgb_image)
+        sample_image = focus_image.resize((48, 48), Image.LANCZOS)
+        quantized = sample_image.quantize(colors=8, method=Image.Quantize.MEDIANCUT)
+        palette = quantized.getpalette() or []
+        colors = quantized.getcolors() or []
+        if not colors:
+            raise ValueError('no colors extracted from cover art')
+        total_pixels = sample_image.size[0] * sample_image.size[1]
+        scored_candidates = []
+        for color_count, color_index in colors:
+            palette_offset = color_index * 3
+            if palette_offset + 2 >= len(palette):
+                continue
+            red, green, blue = palette[palette_offset:palette_offset + 3]
+            pixel_ratio = (color_count / total_pixels) if total_pixels else 0.0
+            candidate = {
+                'count': color_count,
+                'red': red,
+                'green': green,
+                'blue': blue,
+                'pixel_ratio': pixel_ratio,
+            }
+            candidate.update(_score_cover_color_candidate(red, green, blue, pixel_ratio))
+            scored_candidates.append(candidate)
+
+        if not scored_candidates:
+            raise ValueError('no scored candidates extracted from cover art')
+
+        scored_candidates.sort(
+            key=lambda item: (
+                -item['score'],
+                item['is_neutral'],
+                -item['pixel_ratio'],
+                -item['saturation'],
+            )
+        )
+        dominant_candidate = scored_candidates[0]
+        red = dominant_candidate['red']
+        green = dominant_candidate['green']
+        blue = dominant_candidate['blue']
+        confidence = round(dominant_candidate['pixel_ratio'], 6) if total_pixels else None
+        return {
+            'cover_art_present': True,
+            'cover_art_mime': cover_art.get('mime'),
+            'cover_color': f'#{red:02X}{green:02X}{blue:02X}',
+            'cover_color_source': 'embedded-art',
+            'cover_color_confidence': confidence,
+        }
+    except Exception:
+        return {
+            'cover_art_present': True,
+            'cover_art_mime': cover_art.get('mime'),
+            'cover_color': None,
+            'cover_color_source': 'embedded-art',
+            'cover_color_confidence': None,
+        }
+
+
 def extract_audio_metadata(file_path):
     try:
         audio = MutagenFile(file_path, easy=True)
@@ -529,8 +893,18 @@ def extract_audio_metadata(file_path):
         except Exception:
             raw_audio = None
         lyric_text = _extract_lyric_from_raw_tags(raw_audio)
+    else:
+        raw_audio = None
+
+    if raw_audio is None:
+        try:
+            raw_audio = MutagenFile(file_path, easy=False)
+        except Exception:
+            raw_audio = None
 
     lyric_format = _detect_lyric_format(lyric_text)
+    cover_art = _extract_cover_art_from_raw_tags(raw_audio)
+    cover_color_metadata = _extract_cover_color_metadata(cover_art)
     result.update({
         'title': _first_value(tags, 'title'),
         'artist': _first_value(tags, 'artist'),
@@ -548,6 +922,12 @@ def extract_audio_metadata(file_path):
         'embedded_lyric_format': lyric_format,
         'embedded_lyric_length': len(lyric_text) if lyric_text else None,
     })
+    result.update(cover_color_metadata)
+    result.update(detect_language_metadata(
+        embedded_lyric=lyric_text,
+        title=result.get('title'),
+        artist=result.get('artist'),
+    ))
     return result
 
 
@@ -683,6 +1063,15 @@ BEGIN
         embedded_lyric nvarchar(max) null,
         embedded_lyric_format varchar(20) null,
         embedded_lyric_length int null,
+        cover_art_present bit not null default 0,
+        cover_art_mime varchar(100) null,
+        cover_color varchar(7) null,
+        cover_color_source varchar(30) null,
+        cover_color_confidence decimal(18,6) null,
+        language_norm nvarchar(100) null,
+        language_source varchar(20) null,
+        language_confidence decimal(18,6) null,
+        language_norm_version varchar(40) null,
         genre_essentia_label nvarchar(255) null,
         genre_essentia_raw_label nvarchar(255) null,
         genre_essentia_path nvarchar(255) null,
@@ -729,6 +1118,66 @@ END
 IF COL_LENGTH('dbo.{TABLE_NAME}', 'embedded_lyric_length') IS NULL
 BEGIN
     ALTER TABLE dbo.{TABLE_NAME} ADD embedded_lyric_length int null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'cover_art_present') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD cover_art_present bit not null CONSTRAINT df_{TABLE_NAME}_cover_art_present DEFAULT 0
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'cover_art_mime') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD cover_art_mime varchar(100) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'cover_color') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD cover_color varchar(7) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'cover_color_source') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD cover_color_source varchar(30) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'cover_color_confidence') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD cover_color_confidence decimal(18,6) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'language_norm') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD language_norm nvarchar(100) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'language_source') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD language_source varchar(20) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'language_confidence') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD language_confidence decimal(18,6) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'language_norm_version') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD language_norm_version varchar(40) null
+END
+""")
+    cursor.execute(f"""
+IF COL_LENGTH('dbo.{TABLE_NAME}', 'genre_essentia_matches_json') IS NULL
+BEGIN
+    ALTER TABLE dbo.{TABLE_NAME} ADD genre_essentia_matches_json nvarchar(max) null
 END
 """)
     cursor.execute(f"""
@@ -1212,6 +1661,179 @@ WHERE file_path = %s
     conn.commit()
     cursor.close()
     return {'updated': updated}
+
+
+def fetch_language_detection_candidates(conn, limit=None, only_missing=False):
+    """读取需要补语种的歌曲行；可只挑缺失语种字段的记录做增量回填。"""
+    cursor = conn.cursor(as_dict=True)
+    sql = f"""
+SELECT
+    file_path,
+    title,
+    artist,
+    embedded_lyric,
+    language_norm,
+    language_source,
+    language_confidence,
+    language_norm_version
+FROM dbo.{TABLE_NAME}
+WHERE scan_status = 'SUCCESS'
+"""
+    params = []
+    if only_missing:
+        sql += """
+  AND (
+        language_norm IS NULL
+        OR LTRIM(RTRIM(language_norm)) = ''
+        OR language_norm_version IS NULL
+        OR LTRIM(RTRIM(language_norm_version)) <> %s
+      )
+"""
+        params.append(LANGUAGE_NORM_VERSION)
+    sql += '\nORDER BY file_path ASC'
+    if limit is not None:
+        sql = f"SET ROWCOUNT {int(limit)};\n{sql}\nSET ROWCOUNT 0;"
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    cursor.close()
+    return rows
+
+
+def apply_language_detection_results(conn, rows, now=None):
+    """把按歌词/标题识别出的语种结果直接回写进 ODS。"""
+    cursor = conn.cursor()
+    updated = 0
+    current = now or datetime.now()
+    sql = f"""
+UPDATE dbo.{TABLE_NAME}
+SET
+    language_norm = %s,
+    language_source = %s,
+    language_confidence = %s,
+    language_norm_version = %s,
+    etl_updated_at = %s
+WHERE file_path = %s
+"""
+    for row in rows:
+        cursor.execute(sql, [
+            row.get('language_norm'),
+            row.get('language_source'),
+            row.get('language_confidence'),
+            row.get('language_norm_version') or LANGUAGE_NORM_VERSION,
+            current,
+            row['file_path'],
+        ])
+        if cursor.rowcount:
+            updated += 1
+    conn.commit()
+    cursor.close()
+    return {'updated': updated}
+
+
+def fetch_cover_metadata_candidates(conn, limit=None, only_missing=False):
+    """读取需要补封面元数据的歌曲行；可只挑缺失封面颜色的记录做增量回填。"""
+    cursor = conn.cursor(as_dict=True)
+    sql = f"""
+SELECT
+    file_path,
+    cover_art_present,
+    cover_art_mime,
+    cover_color,
+    cover_color_source,
+    cover_color_confidence
+FROM dbo.{TABLE_NAME}
+WHERE scan_status = 'SUCCESS'
+"""
+    if only_missing:
+        sql += """
+  AND (
+        cover_color IS NULL
+        OR LTRIM(RTRIM(cover_color)) = ''
+        OR cover_art_present = 0
+      )
+"""
+    sql += '\nORDER BY file_path ASC'
+    if limit is not None:
+        sql = f"SET ROWCOUNT {int(limit)};\n{sql}\nSET ROWCOUNT 0;"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    cursor.close()
+    return rows
+
+
+def apply_cover_metadata_results(conn, rows, now=None):
+    """把封面存在性、主色和来源信息直接回写进 ODS。"""
+    cursor = conn.cursor()
+    updated = 0
+    current = now or datetime.now()
+    sql = f"""
+UPDATE dbo.{TABLE_NAME}
+SET
+    cover_art_present = %s,
+    cover_art_mime = %s,
+    cover_color = %s,
+    cover_color_source = %s,
+    cover_color_confidence = %s,
+    etl_updated_at = %s
+WHERE file_path = %s
+"""
+    for row in rows:
+        cursor.execute(sql, [
+            row.get('cover_art_present'),
+            row.get('cover_art_mime'),
+            row.get('cover_color'),
+            row.get('cover_color_source'),
+            row.get('cover_color_confidence'),
+            current,
+            row['file_path'],
+        ])
+        if cursor.rowcount:
+            updated += 1
+    conn.commit()
+    cursor.close()
+    return {'updated': updated}
+
+
+def backfill_cover_metadata(conn, limit=None, only_missing=False, now=None):
+    """对现有 ODS 记录批量补写封面存在性与主色字段。"""
+    candidate_rows = fetch_cover_metadata_candidates(conn, limit=limit, only_missing=only_missing)
+    update_rows = []
+    for row in candidate_rows:
+        metadata = extract_audio_metadata(row['file_path'])
+        update_rows.append({
+            'file_path': row['file_path'],
+            'cover_art_present': metadata.get('cover_art_present', False),
+            'cover_art_mime': metadata.get('cover_art_mime'),
+            'cover_color': metadata.get('cover_color'),
+            'cover_color_source': metadata.get('cover_color_source'),
+            'cover_color_confidence': metadata.get('cover_color_confidence'),
+        })
+    update_stats = apply_cover_metadata_results(conn, update_rows, now=now)
+    return {
+        'selected': len(candidate_rows),
+        'updated': update_stats['updated'],
+    }
+
+
+def backfill_language_detection(conn, limit=None, only_missing=False, now=None):
+    """对现有 ODS 记录批量补写语种字段，适合修复历史老数据。"""
+    candidate_rows = fetch_language_detection_candidates(conn, limit=limit, only_missing=only_missing)
+    detection_rows = []
+    for row in candidate_rows:
+        detected = detect_language_metadata(
+            embedded_lyric=row.get('embedded_lyric'),
+            title=row.get('title'),
+            artist=row.get('artist'),
+        )
+        detection_rows.append({
+            'file_path': row['file_path'],
+            **detected,
+        })
+    update_stats = apply_language_detection_results(conn, detection_rows, now=now)
+    return {
+        'selected': len(candidate_rows),
+        'updated': update_stats['updated'],
+    }
 
 
 def mark_genre_inference_skipped(conn, file_paths, reason, now=None):
