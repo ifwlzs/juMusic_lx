@@ -1,5 +1,8 @@
 from pathlib import Path
 import importlib.util
+import io
+
+from PIL import Image
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / 'scripts' / 'music_etl' / 'load_music_info.py'
 
@@ -117,6 +120,15 @@ def test_extract_audio_metadata_maps_common_fields(monkeypatch, tmp_path):
         'embedded_lyric': '[00:01.00]line1\n[00:02.00]line2',
         'embedded_lyric_format': 'lrc',
         'embedded_lyric_length': 31,
+        'cover_art_present': False,
+        'cover_art_mime': None,
+        'cover_color': None,
+        'cover_color_source': None,
+        'cover_color_confidence': None,
+        'language_norm': '英语',
+        'language_source': 'lyric',
+        'language_confidence': 1.0,
+        'language_norm_version': 'lyric-v1',
         'genre_essentia_label': None,
         'genre_essentia_confidence': None,
         'genre_essentia_matches_json': None,
@@ -233,6 +245,12 @@ def test_ensure_table_creates_target_table_and_indexes():
     assert 'CREATE UNIQUE INDEX' in sql_text
     assert 'file_path' in sql_text
     assert 'embedded_lyric' in sql_text
+    assert 'language_norm' in sql_text
+    assert 'language_source' in sql_text
+    assert 'language_confidence' in sql_text
+    assert 'cover_art_present' in sql_text
+    assert 'cover_art_mime' in sql_text
+    assert 'cover_color' in sql_text
     assert 'genre_essentia_label' in sql_text
     assert 'genre_essentia_matches_json' in sql_text
     assert conn.commit_count == 1
@@ -292,6 +310,111 @@ def test_extract_audio_metadata_reads_embedded_lyric_from_raw_tags(monkeypatch, 
     assert info['embedded_lyric'] == 'hello from uslt'
     assert info['embedded_lyric_format'] == 'plain'
     assert info['embedded_lyric_length'] == 15
+    assert info['language_norm'] == '英语'
+    assert info['language_source'] == 'lyric'
+
+
+def test_extract_audio_metadata_reads_cover_color_from_raw_tags(monkeypatch, tmp_path):
+    module = load_module()
+    music_file = tmp_path / 'cover-raw.flac'
+    music_file.write_bytes(b'x')
+
+    class FakeAudio(dict):
+        info = None
+
+    class FakePicture:
+        def __init__(self, data, mime='image/png'):
+            self.data = data
+            self.mime = mime
+
+    class FakeRawAudio:
+        info = None
+        pictures = [FakePicture(
+            b'\x89PNG\r\n\x1a\n'
+            b'\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde'
+            b'\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x03\x01\x01\x00\xc9\xfe\x92\xef'
+            b'\x00\x00\x00\x00IEND\xaeB`\x82'
+        )]
+
+    calls = []
+
+    def fake_mutagen(path, easy=True):
+        calls.append(easy)
+        if easy:
+            return FakeAudio({'title': ['Song']})
+        return FakeRawAudio()
+
+    monkeypatch.setattr(module, 'MutagenFile', fake_mutagen)
+
+    info = module.extract_audio_metadata(music_file)
+
+    assert calls == [True, False]
+    assert info['cover_art_present'] is True
+    assert info['cover_art_mime'] == 'image/png'
+    assert info['cover_color'] == '#FF0000'
+    assert info['cover_color_source'] == 'embedded-art'
+
+
+def test_extract_audio_metadata_prefers_saturated_center_cover_color_over_large_white_background(monkeypatch, tmp_path):
+    module = load_module()
+    music_file = tmp_path / 'cover-center-theme.flac'
+    music_file.write_bytes(b'x')
+
+    class FakeAudio(dict):
+        info = None
+
+    class FakePicture:
+        def __init__(self, data, mime='image/png'):
+            self.data = data
+            self.mime = mime
+
+    image = Image.new('RGB', (40, 40), '#FFFFFF')
+    for x in range(10, 30):
+        for y in range(10, 30):
+            image.putpixel((x, y), (255, 0, 0))
+    image_bytes = io.BytesIO()
+    image.save(image_bytes, format='PNG')
+
+    class FakeRawAudio:
+        info = None
+        pictures = [FakePicture(image_bytes.getvalue())]
+
+    def fake_mutagen(_path, easy=True):
+        if easy:
+            return FakeAudio({'title': ['Song']})
+        return FakeRawAudio()
+
+    monkeypatch.setattr(module, 'MutagenFile', fake_mutagen)
+
+    info = module.extract_audio_metadata(music_file)
+
+    # 即使白底面积更大，也应优先拿到位于中心且更有主题感的高饱和颜色。
+    assert info['cover_color'] == '#FF0000'
+    assert info['cover_color_confidence'] is not None
+
+
+def test_extract_audio_metadata_falls_back_to_title_language_when_lyric_is_noise(monkeypatch, tmp_path):
+    module = load_module()
+    music_file = tmp_path / 'noise-lyric.mp3'
+    music_file.write_bytes(b'x')
+
+    class FakeAudio(dict):
+        info = None
+
+    fake_audio = FakeAudio({
+        'title': ['ラストリゾート'],
+        'artist': ['Ayase'],
+        'lyrics': ['Lavf58.76.100'],
+    })
+
+    monkeypatch.setattr(module, 'MutagenFile', lambda *_args, **_kwargs: fake_audio)
+
+    info = module.extract_audio_metadata(music_file)
+
+    assert info['embedded_lyric'] == 'Lavf58.76.100'
+    assert info['language_norm'] == '日语'
+    assert info['language_source'] == 'title'
+    assert info['language_confidence'] == 1.0
 
 class FakeUpsertCursor(FakeCursor):
     def __init__(self, rowcounts):
@@ -407,6 +530,15 @@ def test_build_row_combines_file_and_metadata_fields():
         'bitrate': 320000,
         'sample_rate': 44100,
         'channels': 2,
+        'cover_art_present': True,
+        'cover_art_mime': 'image/jpeg',
+        'cover_color': '#112233',
+        'cover_color_source': 'embedded-art',
+        'cover_color_confidence': 0.91,
+        'language_norm': '中文',
+        'language_source': 'title',
+        'language_confidence': 1.0,
+        'language_norm_version': 'lyric-v1',
         'scan_status': 'SUCCESS',
         'scan_error': None,
     }
@@ -416,6 +548,8 @@ def test_build_row_combines_file_and_metadata_fields():
     assert row['batch_id'] == 'batch-1'
     assert row['file_path'] == 'Z:/Music/a.mp3'
     assert row['title'] == 'Song'
+    assert row['cover_color'] == '#112233'
+    assert row['language_norm'] == '中文'
     assert row['etl_created_at'] == now
     assert row['etl_updated_at'] == now
 

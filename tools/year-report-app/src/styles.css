@@ -820,6 +820,15 @@ select {
   align-content: start;
 }
 
+.metric-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summary-card-grid {
+  display: grid;
+  gap: 12px;
+}
+
 .keyword-cloud-card,
 .cover-color-grid,
 .weekday-list,

@@ -26,11 +26,15 @@
       "P20",
       "P21",
       "P23",
+      "P24",
       "P25",
+      "L02",
+      "L03",
       "L04A",
-      "L04B"
+      "L04B",
+      "P32"
     ],
-    "page_total": 25,
+    "page_total": 29,
     "theme_name": "netease-young-editorial"
   },
   "pages": [
@@ -254,32 +258,53 @@
       "section": "曲风章节",
       "title": "年度曲风 Top5",
       "year": 2025,
-      "summary_text": "已识别部分里，古风 是今年最突出的主角。",
+      "summary_text": "冠军曲风放大，其余四种口味用紧凑的榜单接住。",
       "payload": {
         "genre_ranking": [
           {
-            "genre_name": "古风",
-            "weighted_track_count": 21.0,
-            "track_count": 1,
-            "play_total": 21
+            "genre_name": "Pop---J-pop",
+            "genre_name_zh": "日系流行",
+            "weighted_track_count": 52.4,
+            "weighted_play_total": 52.4,
+            "primary_play_total": 61,
+            "confidence_score": 0.81,
+            "track_count": 61
           },
           {
-            "genre_name": "国语流行",
-            "weighted_track_count": 21.0,
-            "track_count": 2,
-            "play_total": 21
+            "genre_name": "Folk",
+            "genre_name_zh": "民谣",
+            "weighted_track_count": 31.8,
+            "weighted_play_total": 31.8,
+            "primary_play_total": 34,
+            "confidence_score": 0.72,
+            "track_count": 34
           },
           {
-            "genre_name": "J-Pop",
-            "weighted_track_count": 12.0,
-            "track_count": 2,
-            "play_total": 12
+            "genre_name": "Mandopop",
+            "genre_name_zh": "华语流行",
+            "weighted_track_count": 29.6,
+            "weighted_play_total": 29.6,
+            "primary_play_total": 28,
+            "confidence_score": 0.69,
+            "track_count": 28
           },
           {
             "genre_name": "Anime",
-            "weighted_track_count": 8.0,
-            "track_count": 1,
-            "play_total": 8
+            "genre_name_zh": "动漫",
+            "weighted_track_count": 21.1,
+            "weighted_play_total": 21.1,
+            "primary_play_total": 23,
+            "confidence_score": 0.64,
+            "track_count": 23
+          },
+          {
+            "genre_name": "Vocaloid",
+            "genre_name_zh": "Vocaloid",
+            "weighted_track_count": 17.9,
+            "weighted_play_total": 17.9,
+            "primary_play_total": 16,
+            "confidence_score": 0.61,
+            "track_count": 16
           }
         ]
       }
@@ -290,84 +315,70 @@
       "section": "曲风章节",
       "title": "曲风进化历",
       "year": 2025,
-      "summary_text": "从 国语流行 到 Anime，这一年的曲风重心一直在慢慢漂移。",
+      "summary_text": "每个月只抓一个最醒目的曲风，拼成一条节奏明显的变化线。",
       "payload": {
         "monthly_genre_timeline": [
           {
             "month": 1,
-            "top_genre": "国语流行",
-            "top_weighted_track_count": 12.0,
+            "top_genre": "Mandopop",
+            "top_genre_zh": "华语流行",
+            "top_primary_genre": "Mandopop",
+            "top_primary_genre_zh": "华语流行",
+            "top_weighted_play_total": 8.2,
+            "top_weighted_track_count": 8.2,
             "genre_weights": [
               {
-                "genre_name": "国语流行",
-                "weighted_track_count": 12.0,
-                "track_count": 1,
-                "play_total": 12
+                "genre_name": "Mandopop",
+                "genre_name_zh": "华语流行",
+                "weighted_play_total": 8.2
+              }
+            ]
+          },
+          {
+            "month": 2,
+            "top_genre": "Pop---J-pop",
+            "top_genre_zh": "日系流行",
+            "top_primary_genre": "Pop---J-pop",
+            "top_primary_genre_zh": "日系流行",
+            "top_weighted_play_total": 9.1,
+            "top_weighted_track_count": 9.1,
+            "genre_weights": [
+              {
+                "genre_name": "Pop---J-pop",
+                "genre_name_zh": "日系流行",
+                "weighted_play_total": 9.1
               }
             ]
           },
           {
             "month": 3,
-            "top_genre": "古风",
-            "top_weighted_track_count": 21.0,
+            "top_genre": "Folk",
+            "top_genre_zh": "民谣",
+            "top_primary_genre": "Folk",
+            "top_primary_genre_zh": "民谣",
+            "top_weighted_play_total": 12.3,
+            "top_weighted_track_count": 12.3,
             "genre_weights": [
               {
-                "genre_name": "古风",
-                "weighted_track_count": 21.0,
-                "track_count": 1,
-                "play_total": 21
+                "genre_name": "Folk",
+                "genre_name_zh": "民谣",
+                "weighted_play_total": 12.3
               }
             ]
           },
           {
             "month": 4,
-            "top_genre": "J-Pop",
-            "top_weighted_track_count": 7.0,
+            "top_genre": "Pop---J-pop",
+            "top_genre_zh": "日系流行",
+            "top_primary_genre": "Pop---J-pop",
+            "top_primary_genre_zh": "日系流行",
+            "top_weighted_play_total": 6.8,
+            "top_weighted_track_count": 6.8,
             "genre_weights": [
               {
-                "genre_name": "J-Pop",
-                "weighted_track_count": 7.0,
-                "track_count": 1,
-                "play_total": 7
-              }
-            ]
-          },
-          {
-            "month": 6,
-            "top_genre": "J-Pop",
-            "top_weighted_track_count": 5.0,
-            "genre_weights": [
-              {
-                "genre_name": "J-Pop",
-                "weighted_track_count": 5.0,
-                "track_count": 1,
-                "play_total": 5
-              }
-            ]
-          },
-          {
-            "month": 9,
-            "top_genre": "国语流行",
-            "top_weighted_track_count": 9.0,
-            "genre_weights": [
-              {
-                "genre_name": "国语流行",
-                "weighted_track_count": 9.0,
-                "track_count": 1,
-                "play_total": 9
-              }
-            ]
-          },
-          {
-            "month": 11,
-            "top_genre": "Anime",
-            "top_weighted_track_count": 8.0,
-            "genre_weights": [
-              {
-                "genre_name": "Anime",
-                "weighted_track_count": 8.0,
-                "track_count": 1,
-                "play_total": 8
+                "genre_name": "Pop---J-pop",
+                "genre_name_zh": "日系流行",
+                "weighted_play_total": 6.8
               }
             ]
           }
@@ -396,53 +407,45 @@
       "section": "封面颜色",
       "title": "年度封面主色",
       "year": 2025,
-      "summary_text": "当前最常出现的封面主色是 #E6C6B6。",
+      "summary_text": "把你这一年最常看到的封面颜色，收成一块块更直观的色彩版图。",
       "payload": {
         "cover_color_summary": {
-          "counted_track_total": 7,
+          "counted_track_total": 100,
           "excluded_track_total": 0,
+          "treemap_total": 100,
           "top_colors": [
             {
-              "color_hex": "#E6C6B6",
-              "track_count": 2,
-              "representative_track_title": "旧日来信",
-              "representative_artist_display": "Aimer",
-              "representative_cover_path": "covers/legacy-1.jpg"
+              "color_hex": "#111111",
+              "track_count": 30,
+              "representative_track_title": "Song A",
+              "representative_artist_display": "歌手A",
+              "share_ratio": 0.3,
+              "tone_label": "深灰"
             },
             {
-              "color_hex": "#394B8A",
-              "track_count": 1,
-              "representative_track_title": "夜航星",
-              "representative_artist_display": "不才",
-              "representative_cover_path": "covers/t2.jpg"
+              "color_hex": "#222222",
+              "track_count": 25,
+              "representative_track_title": "Song B",
+              "representative_artist_display": "歌手B",
+              "share_ratio": 0.25,
+              "tone_label": "炭灰"
             },
             {
-              "color_hex": "#6A8FE8",
-              "track_count": 1,
-              "representative_track_title": "群青",
-              "representative_artist_display": "YOASOBI",
-              "representative_cover_path": "covers/lib-2.jpg"
+              "color_hex": "#333333",
+              "track_count": 20,
+              "representative_track_title": "Song C",
+              "representative_artist_display": "歌手C",
+              "share_ratio": 0.2,
+              "tone_label": "雾灰"
             },
             {
-              "color_hex": "#6FA8CF",
-              "track_count": 1,
-              "representative_track_title": "海底",
-              "representative_artist_display": "一支榴莲",
-              "representative_cover_path": "covers/lib-3.jpg"
-            },
-            {
-              "color_hex": "#D88D5F",
-              "track_count": 1,
-              "representative_track_title": "残響散歌",
-              "representative_artist_display": "Aimer",
-              "representative_cover_path": "covers/lib-4.jpg"
-            },
-            {
-              "color_hex": "#F0D7A2",
-              "track_count": 1,
-              "representative_track_title": "若月亮没来",
-              "representative_artist_display": "王宇宙Leto",
-              "representative_cover_path": "covers/t1.jpg"
+              "color_hex": "#CFCFD6",
+              "track_count": 25,
+              "representative_track_title": "其余颜色分布",
+              "representative_artist_display": "",
+              "share_ratio": 0.25,
+              "tone_label": "其他颜色",
+              "is_other_bucket": true
             }
           ]
         }
@@ -905,6 +908,32 @@
       }
     },
     {
+      "page_id": "P24",
+      "template": "album-ranking",
+      "section": "专辑章节",
+      "title": "年度最爱专辑榜",
+      "year": 2025,
+      "summary_text": "把这一年最常循环的专辑完整展开，看看哪些专辑真正陪你反复回放。",
+      "payload": {
+        "album_ranking": [
+          {
+            "rank": 1,
+            "album_display": "不才作品集",
+            "artist_display": "不才",
+            "track_total": 6,
+            "play_total": 15
+          },
+          {
+            "rank": 2,
+            "album_display": "Sleepless Night",
+            "artist_display": "Aimer",
+            "track_total": 5,
+            "play_total": 12
+          }
+        ]
+      }
+    },
+    {
       "page_id": "P25",
       "template": "song-hero",
       "section": "年度歌曲",
@@ -923,6 +952,76 @@
           "peak_month": 3,
           "score": 16.196
         }
+      }
+    },
+    {
+      "page_id": "L02",
+      "template": "library-growth",
+      "section": "曲库专题",
+      "title": "年度新增分析",
+      "year": 2025,
+      "summary_text": "这一年新增了多少歌、多少歌手、多少专辑，都在这里一口气看完。",
+      "payload": {
+        "growth_metrics": {
+          "new_track_total": 118,
+          "new_artist_total": 42,
+          "new_album_total": 31
+        },
+        "monthly_growth": [
+          {
+            "month": 3,
+            "new_track_total": 16,
+            "new_artist_total": 5,
+            "new_album_total": 4
+          },
+          {
+            "month": 7,
+            "new_track_total": 21,
+            "new_artist_total": 7,
+            "new_album_total": 5
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "L03",
+      "template": "library-structure",
+      "section": "曲库专题",
+      "title": "歌曲库结构分析",
+      "year": 2025,
+      "summary_text": "从语种到曲风，把你的歌曲库结构拆成几个最容易看懂的切面。",
+      "payload": {
+        "language_distribution": [
+          {
+            "language_name": "华语",
+            "track_count": 186
+          },
+          {
+            "language_name": "日语",
+            "track_count": 94
+          }
+        ],
+        "primary_genre_distribution": [
+          {
+            "genre_name": "Mandopop",
+            "genre_name_zh": "华语流行",
+            "primary_play_total": 82
+          }
+        ],
+        "weighted_genre_distribution": [
+          {
+            "genre_name": "Pop---J-pop",
+            "genre_name_zh": "日系流行",
+            "primary_play_total": 61,
+            "weighted_track_count": 52.4
+          },
+          {
+            "genre_name": "Folk",
+            "genre_name_zh": "民谣",
+            "primary_play_total": 34,
+            "weighted_track_count": 31.8
+          }
+        ]
       }
     },
     {
@@ -1085,6 +1184,42 @@
             "new_track_total": 1,
             "new_album_total": 1,
             "highlight_tag": "第一次加入曲库"
+          }
+        ]
+      }
+    },
+    {
+      "page_id": "P32",
+      "template": "year-summary",
+      "section": "总结收尾",
+      "title": "年度总结四格",
+      "year": 2025,
+      "summary_text": "把深夜、专辑、扩坑和曲库结构收束成四张短卡，给这一年一个结尾。",
+      "payload": {
+        "summary_cards": [
+          {
+            "card_id": "night",
+            "headline": "深夜时刻",
+            "value": "02:35",
+            "support_text": "夜深了还在听"
+          },
+          {
+            "card_id": "album",
+            "headline": "年度专辑",
+            "value": "不才作品集",
+            "support_text": "这是你回访最多的专辑"
+          },
+          {
+            "card_id": "artist",
+            "headline": "新增歌手",
+            "value": "42 位",
+            "support_text": "扩坑速度比去年更快"
+          },
+          {
+            "card_id": "genre",
+            "headline": "曲风偏好",
+            "value": "日系流行",
+            "support_text": "依旧是今年最稳的主线"
           }
         ]
       }

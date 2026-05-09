@@ -23,11 +23,13 @@ def test_build_year_report_includes_confirmed_pages_in_order():
 
     report = module.build_year_report({'year': 2025})
     page_ids = [page['page_id'] for page in report['pages']]
-    expected_sequence = ['P20', 'P21', 'P23', 'P24', 'P31', 'L01', 'L04', 'L02', 'L03', 'P32']
+    # L04 已拆成连续两页，最终输出中不应再出现旧页号。
+    expected_sequence = ['P20', 'P21', 'P23', 'P24', 'P31', 'L01', 'L04A', 'L04B', 'L02', 'L03', 'P32']
 
     indices = [page_ids.index(page_id) for page_id in expected_sequence]
 
     assert indices == sorted(indices)
+    assert 'L04' not in page_ids
 
 
 
@@ -46,9 +48,12 @@ def test_build_year_report_exposes_minimum_contract_for_priority_pages():
     assert isinstance(pages['P31']['cover_color_summary'], dict)
     assert isinstance(pages['P31']['cover_color_summary']['top_colors'], list)
 
-    assert pages['L04']['title']
-    assert isinstance(pages['L04']['library_artist_ranking'], list)
-    assert isinstance(pages['L04']['new_artist_ranking'], list)
+    # L04A/L04B 统一使用 ranking 字段，便于 contract builder 直接映射 payload.ranking。
+    assert pages['L04A']['title'] == '歌曲库歌手榜'
+    assert isinstance(pages['L04A']['ranking'], list)
+    assert pages['L04B']['title'] == '年度新增歌手榜'
+    assert isinstance(pages['L04B']['ranking'], list)
+    assert 'L04' not in pages
 
 
 
@@ -169,7 +174,7 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
                 'album_display': 'Open α Door',
                 'duration_sec': 245,
                 'lyric_text': 'hello',
-                'cover_path': 'covers/a.jpg',
+                'cover_art_present': True,
                 'cover_color': '#112233',
                 'primary_genre': 'J-Pop',
                 'composer': '梶浦由记',
@@ -180,7 +185,7 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
                 'album_display': 'Open α Door',
                 'duration_sec': 255,
                 'lyric_text': None,
-                'cover_path': 'covers/b.jpg',
+                'cover_art_present': True,
                 'cover_color': '#112233',
                 'primary_genre': None,
                 'composer': None,
@@ -191,7 +196,7 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
                 'album_display': None,
                 'duration_sec': None,
                 'lyric_text': 'world',
-                'cover_path': None,
+                'cover_art_present': False,
                 'cover_color': None,
                 'primary_genre': 'J-Pop',
                 'composer': 'Ayase',
@@ -202,7 +207,7 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
                 'album_display': '散曲集',
                 'duration_sec': 199,
                 'lyric_text': None,
-                'cover_path': 'covers/d.jpg',
+                'cover_art_present': True,
                 'cover_color': '#445566',
                 'primary_genre': 'Anime',
                 'composer': None,
@@ -291,8 +296,19 @@ def test_build_year_report_aggregates_p23_top_album_and_p24_album_ranking():
     assert p24['album_ranking'][1]['rank'] == 2
 
 
-def test_build_year_report_aggregates_l04_artist_rankings():
+def test_build_year_report_aggregates_l04a_and_l04b_rankings_and_limits_top10():
     module = load_module()
+
+    # 构造超过 10 位歌手的数据，验证双榜都会自动截断为 Top10。
+    extra_library_tracks = []
+    for index in range(1, 11):
+        extra_library_tracks.append({
+            'track_id': f'extra-{index}',
+            'artist_display': f'Artist {index:02d}',
+            'album_display': f'Album {index:02d}',
+            'track_title': f'Song {index:02d}',
+            'first_added_year': 2025,
+        })
 
     report = module.build_year_report({
         'year': 2025,
@@ -339,18 +355,35 @@ def test_build_year_report_aggregates_l04_artist_rankings():
                 'track_title': 'Unknown Song',
                 'first_added_year': 2025,
             },
-        ],
+        ] + extra_library_tracks,
     })
     pages = {page['page_id']: page for page in report['pages']}
-    l04 = pages['L04']
+    l04a = pages['L04A']
+    l04b = pages['L04B']
 
-    assert [item['artist_display'] for item in l04['library_artist_ranking']] == ['Aimer', 'YOASOBI', 'ZUTOMAYO']
-    assert l04['library_artist_ranking'][0]['track_total'] == 3
-    assert l04['library_artist_ranking'][0]['album_total'] == 2
-    assert l04['library_artist_ranking'][0]['top_track_title'] == 'Song A1'
-    assert [item['artist_display'] for item in l04['new_artist_ranking']] == ['Aimer', 'YOASOBI']
-    assert l04['new_artist_ranking'][0]['new_track_total'] == 2
-    assert l04['new_artist_ranking'][1]['new_album_total'] == 1
+    # L04A 应输出全曲库歌手榜 Top10，且榜首字段满足契约要求。
+    assert len(l04a['ranking']) == 10
+    assert l04a['ranking'][0] == {
+        'rank': 1,
+        'artist_display': 'Aimer',
+        'track_total': 3,
+        'album_total': 2,
+        'top_track_title': 'Song A1',
+    }
+    assert l04a['ranking'][1]['artist_display'] == 'Artist 01'
+    assert l04a['ranking'][-1]['artist_display'] == 'Artist 09'
+
+    # L04B 应输出年度新增歌手榜 Top10，且统一通过 ranking 暴露新增字段。
+    assert len(l04b['ranking']) == 10
+    assert l04b['ranking'][0] == {
+        'rank': 1,
+        'artist_display': 'Aimer',
+        'new_track_total': 2,
+        'new_album_total': 2,
+        'highlight_tag': '年度重点新增',
+    }
+    assert l04b['ranking'][1]['artist_display'] == 'Artist 01'
+    assert l04b['ranking'][-1]['artist_display'] == 'Artist 09'
 
 
 def test_build_year_report_supports_primary_and_weighted_genre_views():
@@ -418,6 +451,31 @@ def test_build_year_report_supports_primary_and_weighted_genre_views():
         {'genre_name': 'Vocaloid', 'weighted_track_count': 1.0},
         {'genre_name': 'Pop', 'weighted_track_count': 0.82},
         {'genre_name': 'Rock', 'weighted_track_count': 0.11},
+    ]
+
+
+def test_build_year_report_aggregates_language_distribution_from_language_norm():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2025,
+        'library_tracks': [
+            {'track_id': 't1', 'track_title': 'Song T1', 'language_norm': '日语'},
+            {'track_id': 't2', 'track_title': 'Song T2', 'language_norm': '中文'},
+            {'track_id': 't3', 'track_title': 'Song T3', 'language_norm': '中文'},
+            {'track_id': 't4', 'track_title': 'Song T4', 'language_norm': '英语'},
+            {'track_id': 't5', 'track_title': 'Song T5', 'language_norm': '日语'},
+            {'track_id': 't6', 'track_title': 'Song T6', 'language_norm': '多语种'},
+            {'track_id': 't7', 'track_title': 'Song T7', 'language_norm': None},
+        ],
+    })
+    l03 = {page['page_id']: page for page in report['pages']}['L03']
+
+    assert l03['language_distribution'] == [
+        {'language_name': '中文', 'track_count': 2},
+        {'language_name': '日语', 'track_count': 2},
+        {'language_name': '多语种', 'track_count': 1},
+        {'language_name': '英语', 'track_count': 1},
     ]
 
 

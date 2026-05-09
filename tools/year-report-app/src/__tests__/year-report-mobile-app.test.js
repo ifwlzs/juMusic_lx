@@ -3,6 +3,8 @@ import { mount } from '@vue/test-utils'
 import App from '../App.vue'
 import { useReportData } from '../composables/useReportData.js'
 import P01HeroCoverPage from '../pages/P01HeroCoverPage.vue'
+import P08GenreRankingPage from '../pages/P08GenreRankingPage.vue'
+import P09GenreTimelinePage from '../pages/P09GenreTimelinePage.vue'
 import P10GenreScorePage from '../pages/P10GenreScorePage.vue'
 import P11CoverColorPage from '../pages/P11CoverColorPage.vue'
 import P16ArtistHeroPage from '../pages/P16ArtistHeroPage.vue'
@@ -10,9 +12,13 @@ import P18CalendarHeatmapPage from '../pages/P18CalendarHeatmapPage.vue'
 import P19TimePreferencePage from '../pages/P19TimePreferencePage.vue'
 import P21TimelineNightPage from '../pages/P21TimelineNightPage.vue'
 import P23AlbumHeroPage from '../pages/P23AlbumHeroPage.vue'
+import P24AlbumRankingPage from '../pages/P24AlbumRankingPage.vue'
 import P25SongHeroPage from '../pages/P25SongHeroPage.vue'
+import L02LibraryGrowthPage from '../pages/L02LibraryGrowthPage.vue'
+import L03LibraryStructurePage from '../pages/L03LibraryStructurePage.vue'
 import L04LibraryArtistRankingPage from '../pages/L04LibraryArtistRankingPage.vue'
 import L04NewArtistRankingPage from '../pages/L04NewArtistRankingPage.vue'
+import P32YearSummaryPage from '../pages/P32YearSummaryPage.vue'
 import ExportPdfPage from '../pages/ExportPdfPage.vue'
 
 vi.mock('echarts', () => {
@@ -63,7 +69,7 @@ const sampleContract = {
     page_order: [
       'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
       'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-      'P21', 'P23', 'P25', 'L04A', 'L04B',
+      'P21', 'P23', 'P24', 'P25', 'L02', 'L03', 'L04A', 'L04B', 'P32',
     ],
   },
   pages: [
@@ -438,6 +444,18 @@ const sampleContract = {
       },
     },
     {
+      page_id: 'P24',
+      template: 'album-ranking',
+      title: '年度最爱专辑榜',
+      summary_text: 'summary',
+      payload: {
+        album_ranking: [
+          { rank: 1, album_display: '不才作品集', artist_display: '不才', track_total: 6, play_total: 15 },
+          { rank: 2, album_display: 'Sleepless Night', artist_display: 'Aimer', track_total: 5, play_total: 12 },
+        ],
+      },
+    },
+    {
       page_id: 'P25',
       template: 'song-hero',
       title: '年度歌曲',
@@ -447,6 +465,42 @@ const sampleContract = {
           track_title: '夜航星',
           artist_display: '不才',
         },
+      },
+    },
+    {
+      page_id: 'L02',
+      template: 'library-growth',
+      title: '年度新增分析',
+      summary_text: 'summary',
+      payload: {
+        growth_metrics: {
+          new_track_total: 118,
+          new_artist_total: 42,
+          new_album_total: 31,
+        },
+        monthly_growth: [
+          { month: 3, new_track_total: 16, new_artist_total: 5, new_album_total: 4 },
+          { month: 7, new_track_total: 21, new_artist_total: 7, new_album_total: 5 },
+        ],
+      },
+    },
+    {
+      page_id: 'L03',
+      template: 'library-structure',
+      title: '歌曲库结构分析',
+      summary_text: 'summary',
+      payload: {
+        language_distribution: [
+          { language_name: '华语', track_count: 186 },
+          { language_name: '日语', track_count: 94 },
+        ],
+        primary_genre_distribution: [
+          { genre_name: 'Mandopop', genre_name_zh: '华语流行', primary_play_total: 82 },
+        ],
+        weighted_genre_distribution: [
+          { genre_name: 'Pop---J-pop', genre_name_zh: '日系流行', primary_play_total: 61, weighted_track_count: 52.4 },
+          { genre_name: 'Folk', genre_name_zh: '民谣', primary_play_total: 34, weighted_track_count: 31.8 },
+        ],
       },
     },
     {
@@ -467,6 +521,20 @@ const sampleContract = {
         ranking: createArtistRanking('新增歌手 ', 'new_track_total', '首新增'),
       },
     },
+    {
+      page_id: 'P32',
+      template: 'year-summary',
+      title: '年度总结四格',
+      summary_text: 'summary',
+      payload: {
+        summary_cards: [
+          { card_id: 'night', headline: '深夜时刻', value: '02:35', support_text: '夜深了还在听' },
+          { card_id: 'album', headline: '年度专辑', value: '不才作品集', support_text: '这是你回访最多的专辑' },
+          { card_id: 'artist', headline: '新增歌手', value: '42 位', support_text: '扩坑速度比去年更快' },
+          { card_id: 'genre', headline: '曲风偏好', value: '日系流行', support_text: '依旧是今年最稳的主线' },
+        ],
+      },
+    },
   ],
 }
 
@@ -480,7 +548,7 @@ describe('useReportData', () => {
 })
 
 describe('App', () => {
-  it('渲染 390 设计基准的窄栏视口与 26 个整屏分页，并在最后追加导出页', () => {
+  it('渲染 390 设计基准的窄栏视口与全部正式分页，并在最后追加导出页', () => {
     const wrapper = mount(App, {
       props: {
         reportContract: sampleContract,
@@ -488,14 +556,19 @@ describe('App', () => {
     })
 
     expect(wrapper.find('[data-testid="report-viewport"]').exists()).toBe(true)
-    expect(wrapper.findAll('[data-testid="report-page"]')).toHaveLength(26)
+    expect(wrapper.findAll('[data-testid="report-page"]')).toHaveLength(sampleContract.meta.page_order.length + 1)
     expect(wrapper.text()).toContain('第一次相遇')
     expect(wrapper.text()).toContain('年度总览')
     expect(wrapper.text()).toContain('年度关键词')
     expect(wrapper.text()).toContain('年度听歌日历')
     expect(wrapper.text()).toContain('歌曲库歌手榜')
     expect(wrapper.text()).toContain('年度新增歌手榜')
+    expect(wrapper.text()).toContain('年度最爱专辑榜')
+    expect(wrapper.text()).toContain('年度新增分析')
+    expect(wrapper.text()).toContain('歌曲库结构分析')
+    expect(wrapper.text()).toContain('年度总结四格')
     expect(wrapper.text()).toContain('导出 PDF')
+    expect(wrapper.text()).toContain(`共 ${sampleContract.meta.page_order.length} 页`)
     expect(wrapper.text()).not.toContain('未注册页面')
   })
 
@@ -530,8 +603,8 @@ describe('App', () => {
     expect(pageElements[0].attributes('style')).toContain('--page-background-end:')
     expect(pageElements[1].attributes('style')).toContain('--page-accent:')
     expect(pageElements[0].attributes('style')).not.toEqual(pageElements[1].attributes('style'))
-    expect(pageElements[23].attributes('style')).toContain('--page-background-start: #F6EFFF;')
-    expect(pageElements[24].attributes('style')).toContain('--page-background-start: #EEFAF5;')
+    expect(wrapper.get('[data-page-id="L04A"]').attributes('style')).toContain('--page-background-start: #F6EFFF;')
+    expect(wrapper.get('[data-page-id="L04B"]').attributes('style')).toContain('--page-background-start: #EEFAF5;')
   })
 
   it('首屏页面切到淡色看板背景，并增大内容安全边距 token', () => {
@@ -792,9 +865,121 @@ describe('Sparse page layouts', () => {
 
     expect(wrapper.find('.timeline-layout--centered').exists()).toBe(true)
   })
+
+  it('新增页面接入后，App 不再出现未注册页面占位', () => {
+    const wrapper = mount(App, {
+      props: {
+        reportContract: {
+          meta: {
+            ...sampleContract.meta,
+            design_height: 844,
+            page_order: ['P24', 'L02', 'L03', 'P32'],
+          },
+          pages: [
+            {
+              page_id: 'P24',
+              template: 'album-ranking',
+              title: '年度最爱专辑榜',
+              section: '专辑章节',
+              summary_text: 'summary',
+              payload: { album_ranking: [{ rank: 1, album_display: 'Album A', artist_display: '歌手A', track_total: 3, play_total: 8 }] },
+            },
+            {
+              page_id: 'L02',
+              template: 'library-growth',
+              title: '年度新增分析',
+              section: '曲库专题',
+              summary_text: 'summary',
+              payload: {
+                growth_metrics: { new_track_total: 12, new_artist_total: 4, new_album_total: 3 },
+                monthly_growth: [{ month: 5, new_track_total: 12, new_artist_total: 4, new_album_total: 3 }],
+              },
+            },
+            {
+              page_id: 'L03',
+              template: 'library-structure',
+              title: '歌曲库结构分析',
+              section: '曲库专题',
+              summary_text: 'summary',
+              payload: {
+                language_distribution: [{ language_name: '华语', track_count: 8 }],
+                primary_genre_distribution: [{ genre_name: 'Mandopop', genre_name_zh: '华语流行', primary_play_total: 8 }],
+                weighted_genre_distribution: [{ genre_name: 'Pop---J-pop', genre_name_zh: '日系流行', primary_play_total: 6, weighted_track_count: 5.5 }],
+              },
+            },
+            {
+              page_id: 'P32',
+              template: 'year-summary',
+              title: '年度总结四格',
+              section: '总结收尾',
+              summary_text: 'summary',
+              payload: {
+                summary_cards: [{ card_id: 'night', headline: '深夜时刻', value: '02:35', support_text: '夜深了还在听' }],
+              },
+            },
+          ],
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-page-id="P24"]').exists()).toBe(true)
+    expect(wrapper.get('[data-page-id="L02"]').exists()).toBe(true)
+    expect(wrapper.get('[data-page-id="L03"]').exists()).toBe(true)
+    expect(wrapper.get('[data-page-id="P32"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('年度最爱专辑榜')
+    expect(wrapper.text()).toContain('年度新增分析')
+    expect(wrapper.text()).toContain('歌曲库结构分析')
+    expect(wrapper.text()).toContain('年度总结四格')
+    expect(wrapper.text()).toContain('共 4 页')
+    expect(wrapper.text()).not.toContain('未注册页面')
+  })
 })
 
 describe('Enhanced detail pages', () => {
+  it('P08 优先展示中文曲风标签，而不是英文内部路径', () => {
+    const wrapper = mount(P08GenreRankingPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P08'),
+      },
+    })
+
+    expect(wrapper.text()).toContain('日系流行')
+    expect(wrapper.text()).toContain('民谣')
+    expect(wrapper.text()).not.toContain('Pop---J-pop')
+    expect(wrapper.text()).not.toContain('Mandopop')
+  })
+
+  it('P09 月度时间线优先展示中文曲风标签', () => {
+    const wrapper = mount(P09GenreTimelinePage, {
+      props: {
+        page: {
+          page_id: 'P09',
+          section: '曲风章节',
+          title: '曲风进化历',
+          summary_text: 'summary',
+          payload: {
+            monthly_genre_timeline: [
+              {
+                month: 4,
+                top_genre: 'Pop---J-pop',
+                top_genre_zh: '日系流行',
+                top_primary_genre: 'Pop---J-pop',
+                top_primary_genre_zh: '日系流行',
+                top_weighted_play_total: 12.6,
+                genre_weights: [
+                  { genre_name: 'Pop---J-pop', genre_name_zh: '日系流行', weighted_play_total: 12.6 },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('日系流行')
+    expect(wrapper.text()).not.toContain('Pop---J-pop')
+  })
+
   it('P11 改成矩形树图式封面颜色卡组，展示占比与色调标签', () => {
     const wrapper = mount(P11CoverColorPage, {
       props: {
@@ -838,6 +1023,36 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.find('.cover-color-treemap-chart--bounded').exists()).toBe(true)
     expect(wrapper.findAll('.cover-color-treemap-node')).toHaveLength(0)
     expect(wrapper.text()).not.toContain('Singularity')
+  })
+
+  it('P11 会给其他颜色聚合项显示解释文案，避免用户误以为占比口径出错', () => {
+    const wrapper = mount(P11CoverColorPage, {
+      props: {
+        page: {
+          page_id: 'P11',
+          section: '封面颜色',
+          title: '年度封面主色',
+          summary_text: 'summary',
+          payload: {
+            cover_color_summary: {
+              counted_track_total: 100,
+              excluded_track_total: 0,
+              treemap_total: 100,
+              top_colors: [
+                { color_hex: '#111111', track_count: 30, representative_track_title: 'Song A', representative_artist_display: '歌手A', share_ratio: 0.3, tone_label: '深灰' },
+                { color_hex: '#222222', track_count: 25, representative_track_title: 'Song B', representative_artist_display: '歌手B', share_ratio: 0.25, tone_label: '炭灰' },
+                { color_hex: '#333333', track_count: 20, representative_track_title: 'Song C', representative_artist_display: '歌手C', share_ratio: 0.2, tone_label: '雾灰' },
+                { color_hex: '#CFCFD6', track_count: 25, representative_track_title: '其余颜色分布', representative_artist_display: '', share_ratio: 0.25, tone_label: '其他颜色', is_other_bucket: true },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('其他颜色')
+    expect(wrapper.text()).toContain('25.0%')
+    expect(wrapper.text()).toContain('未进入主展示色块的其余颜色')
   })
 
   it('P18 改成 GitHub 风格热力图，带月份与周几坐标', () => {
@@ -943,5 +1158,58 @@ describe('Enhanced detail pages', () => {
       wrapper.findAll('.time-bucket-card strong').map((node) => node.text()),
     ).toEqual(['午夜', '凌晨', '早晨', '上午', '午间', '下午', '傍晚', '夜间'])
     expect(wrapper.text()).toContain('03:00-05:59')
+  })
+
+  it('P24 年度最爱专辑榜页会渲染专辑列表与播放次数', () => {
+    const wrapper = mount(P24AlbumRankingPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P24'),
+      },
+    })
+
+    expect(wrapper.find('.ranking-panel').exists()).toBe(true)
+    expect(wrapper.findAll('.ranking-item')).toHaveLength(2)
+    expect(wrapper.text()).toContain('不才作品集')
+    expect(wrapper.text()).toContain('15 次')
+  })
+
+  it('L02 年度新增分析页会渲染三项新增指标与月度趋势', () => {
+    const wrapper = mount(L02LibraryGrowthPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'L02'),
+      },
+    })
+
+    expect(wrapper.find('.metric-grid--three').exists()).toBe(true)
+    expect(wrapper.findAll('.metric-card')).toHaveLength(3)
+    expect(wrapper.findAll('.ranking-item')).toHaveLength(2)
+    expect(wrapper.text()).toContain('新增歌曲')
+    expect(wrapper.text()).toContain('3 月')
+  })
+
+  it('L03 歌曲库结构分析页会渲染语种分布与中文曲风榜', () => {
+    const wrapper = mount(L03LibraryStructurePage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'L03'),
+      },
+    })
+
+    expect(wrapper.findAll('.ranking-panel')).toHaveLength(2)
+    expect(wrapper.text()).toContain('华语')
+    expect(wrapper.text()).toContain('日系流行')
+    expect(wrapper.text()).not.toContain('Pop---J-pop')
+  })
+
+  it('P32 年度总结四格页会渲染总结卡片网格', () => {
+    const wrapper = mount(P32YearSummaryPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P32'),
+      },
+    })
+
+    expect(wrapper.find('.summary-card-grid').exists()).toBe(true)
+    expect(wrapper.findAll('.story-card')).toHaveLength(4)
+    expect(wrapper.text()).toContain('深夜时刻')
+    expect(wrapper.text()).toContain('02:35')
   })
 })

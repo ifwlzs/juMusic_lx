@@ -14,7 +14,9 @@ CONFIRMED_PAGE_SEQUENCE = [
     'P24',
     'P31',
     'L01',
-    'L04',
+    # L04 已拆成连续两页，确认页顺序里不再保留旧页号。
+    'L04A',
+    'L04B',
     'L02',
     'L03',
     'P32',
@@ -29,7 +31,8 @@ PAGE_TITLES = {
     'P24': '年度最爱专辑榜',
     'P31': '元数据完成度与封面颜色',
     'L01': '歌曲库总览',
-    'L04': '歌曲库歌手榜',
+    'L04A': '歌曲库歌手榜',
+    'L04B': '年度新增歌手榜',
     'L02': '年度新增分析',
     'L03': '歌曲库结构分析',
     'P32': '年度总结四格',
@@ -117,7 +120,8 @@ def _build_page(page_id: str, context: dict[str, Any]) -> dict[str, Any]:
         'P24': _build_p24,
         'P31': _build_p31,
         'L01': _build_l01,
-        'L04': _build_l04,
+        'L04A': _build_l04a,
+        'L04B': _build_l04b,
         'L02': _build_l02,
         'L03': _build_l03,
         'P32': _build_p32,
@@ -221,17 +225,28 @@ def _build_l01(context: dict[str, Any]) -> dict[str, Any]:
 
 
 
-def _build_l04(context: dict[str, Any]) -> dict[str, Any]:
-    """L04 固化为双榜页：左侧全曲库歌手榜，右侧年度新增歌手榜。"""
-    library_ranking = _build_library_artist_ranking(context['library_tracks'])
-    new_ranking = _build_new_artist_ranking(context['library_tracks'], context['year'])
-    summary_text = '对照展示全曲库歌手排名与本年度新增歌曲歌手排名。'
-    if library_ranking:
-        summary_text = f"全曲库收藏最多的歌手目前是 {library_ranking[0]['artist_display']}，今年新增也可单独看扩坑方向。"
+def _build_l04a(context: dict[str, Any]) -> dict[str, Any]:
+    """L04A 输出全曲库歌手榜，并统一收敛到 ranking 字段。"""
+    ranking = _build_library_artist_ranking(context['library_tracks'])
+    summary_text = '展示全曲库歌手收藏 Top10。'
+    if ranking:
+        summary_text = f"全曲库收藏最多的歌手目前是 {ranking[0]['artist_display']}。"
 
-    page = _base_page('L04', context['year'], summary_text)
-    page['library_artist_ranking'] = library_ranking
-    page['new_artist_ranking'] = new_ranking
+    page = _base_page('L04A', context['year'], summary_text)
+    page['ranking'] = ranking
+    return page
+
+
+
+def _build_l04b(context: dict[str, Any]) -> dict[str, Any]:
+    """L04B 输出年度新增歌手榜，同样统一到 ranking 字段。"""
+    ranking = _build_new_artist_ranking(context['library_tracks'], context['year'])
+    summary_text = '展示本年度新增歌手 Top10。'
+    if ranking:
+        summary_text = f"今年扩坑最多的歌手是 {ranking[0]['artist_display']}。"
+
+    page = _base_page('L04B', context['year'], summary_text)
+    page['ranking'] = ranking
     return page
 
 
@@ -255,8 +270,9 @@ def _build_l02(context: dict[str, Any]) -> dict[str, Any]:
 def _build_l03(context: dict[str, Any]) -> dict[str, Any]:
     """L03 输出曲库结构分布，并新增主曲风/加权曲风双口径。"""
     genre_views = _build_genre_views(context['library_tracks'], context['genre_matches'])
+    language_distribution = _build_language_distribution(context['library_tracks'])
     page = _base_page('L03', context['year'], '展示曲库语种、时长与曲风结构分布。')
-    page['language_distribution'] = []
+    page['language_distribution'] = language_distribution
     page['duration_distribution'] = []
     # 旧字段继续保留，默认直接复用新的加权曲风口径，避免后续前端接线时找不到入口。
     page['genre_distribution'] = genre_views['weighted_genre_distribution']
@@ -454,7 +470,11 @@ def _calculate_library_coverage(
     resolved_primary_genres = _resolve_primary_genre_map(library_tracks, genre_matches)
     coverage_counts = {
         'lyrics_ratio': sum(1 for row in library_tracks if _has_value(row.get('lyric_text'))),
-        'cover_ratio': sum(1 for row in library_tracks if _has_value(row.get('cover_path'))),
+        'cover_ratio': sum(
+            1
+            for row in library_tracks
+            if bool(row.get('cover_art_present')) or _has_value(row.get('cover_path'))
+        ),
         'genre_ratio': sum(
             1
             for row in library_tracks
@@ -577,7 +597,8 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
     cards = []
     p20 = page_map.get('P20') or {}
     p23 = page_map.get('P23') or {}
-    l04 = page_map.get('L04') or {}
+    # 拆页后年度新增榜独立成 L04B，总结卡从该页读取扩坑冠军。
+    l04b = page_map.get('L04B') or {}
     l03 = page_map.get('L03') or {}
 
     latest_night_record = p20.get('latest_night_record')
@@ -598,7 +619,7 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
             'support_text': f"累计播放 {top_album.get('play_total') or 0} 次",
         })
 
-    new_artist_ranking = l04.get('new_artist_ranking') or []
+    new_artist_ranking = l04b.get('ranking') or []
     if new_artist_ranking:
         top_new_artist = new_artist_ranking[0]
         cards.append({
@@ -623,41 +644,69 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
 
 
 def _build_library_artist_ranking(library_tracks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """按全曲库维度统计歌手收藏数量与专辑覆盖，用于 L04 左榜。"""
+    """按全曲库维度统计歌手收藏数量与专辑覆盖，用于 L04A Top10。"""
     grouped_rows = _group_tracks_by_artist(library_tracks)
     ranking = []
     for artist_display, rows in grouped_rows.items():
         ranking.append({
+            'rank': 0,
             'artist_display': artist_display,
             'track_total': len(rows),
             'album_total': len({str(row.get('album_display')).strip() for row in rows if _has_value(row.get('album_display'))}),
             'top_track_title': next((row.get('track_title') for row in rows if _has_value(row.get('track_title'))), '未知歌曲'),
         })
 
-    return sorted(
+    sorted_ranking = sorted(
         ranking,
         key=lambda item: (-item['track_total'], -item['album_total'], item['artist_display'])
     )
+    # 双榜都只保留 Top10，同时显式补 rank 便于前端直接渲染序号。
+    for index, item in enumerate(sorted_ranking, start=1):
+        item['rank'] = index
+    return sorted_ranking[:10]
 
 
 
 def _build_new_artist_ranking(library_tracks: list[dict[str, Any]], year: int) -> list[dict[str, Any]]:
-    """按本年度新增歌曲统计歌手扩坑数量，用于 L04 右榜。"""
+    """按本年度新增歌曲统计歌手扩坑数量，用于 L04B Top10。"""
     new_tracks = [row for row in library_tracks if row.get('first_added_year') == year]
     grouped_rows = _group_tracks_by_artist(new_tracks)
     ranking = []
     for artist_display, rows in grouped_rows.items():
         ranking.append({
+            'rank': 0,
             'artist_display': artist_display,
             'new_track_total': len(rows),
             'new_album_total': len({str(row.get('album_display')).strip() for row in rows if _has_value(row.get('album_display'))}),
             'highlight_tag': '年度重点新增' if len(rows) >= 2 else None,
         })
 
-    return sorted(
+    sorted_ranking = sorted(
         ranking,
         key=lambda item: (-item['new_track_total'], -item['new_album_total'], item['artist_display'])
     )
+    # 年度新增榜同样补 rank 并裁剪为 Top10，保证与 L04A 契约一致。
+    for index, item in enumerate(sorted_ranking, start=1):
+        item['rank'] = index
+    return sorted_ranking[:10]
+
+
+def _split_artist_display_values(raw_artist_display: Any) -> list[str]:
+    """按安全分隔符拆歌手展示名，避免把协作串名误当成单个歌手。"""
+    if not _has_value(raw_artist_display):
+        return []
+
+    # 当前只处理用户已明确确认的协作分隔符，先解决 `浅影阿;汐音社` 这类稳定场景。
+    normalized_value = str(raw_artist_display).replace('；', ';')
+    parts = [part.strip() for part in normalized_value.split(';')]
+    result: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        if not part or part in seen:
+            continue
+        seen.add(part)
+        result.append(part)
+    return result
 
 
 def _build_genre_views(
@@ -714,6 +763,27 @@ def _build_genre_views(
     }
 
 
+def _build_language_distribution(library_tracks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """按已落库的 `language_norm` 统计语种分布，供 L03 直接复用。"""
+    language_buckets: dict[str, int] = defaultdict(int)
+    for row in library_tracks:
+        language_name = row.get('language_norm')
+        if not _has_value(language_name):
+            continue
+        language_buckets[str(language_name).strip()] += 1
+
+    return [
+        {
+            'language_name': language_name,
+            'track_count': track_count,
+        }
+        for language_name, track_count in sorted(
+            language_buckets.items(),
+            key=lambda item: (-item[1], item[0]),
+        )
+    ]
+
+
 def _resolve_primary_genre_map(
     library_tracks: list[dict[str, Any]],
     genre_matches: list[dict[str, Any]],
@@ -760,13 +830,12 @@ def _group_genre_matches_by_track(genre_matches: list[dict[str, Any]]) -> dict[A
 
 
 def _group_tracks_by_artist(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    """按歌手分组，并自动过滤空歌手，避免未知值进入 L04 榜单。"""
+    """按歌手分组，并对安全协作分隔符做拆分聚合。"""
     grouped_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        artist_display = row.get('artist_display')
-        if not _has_value(artist_display):
-            continue
-        grouped_rows[str(artist_display).strip()].append(row)
+        artist_names = _split_artist_display_values(row.get('artist_display'))
+        for artist_name in artist_names:
+            grouped_rows[artist_name].append(row)
     return grouped_rows
 
 

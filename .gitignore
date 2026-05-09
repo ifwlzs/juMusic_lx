@@ -38,6 +38,11 @@ keystore.properties
 node_modules/
 npm-debug.log
 yarn-error.log
+# 年报 Vue 预览工具的本地依赖、构建产物与运行日志不入库。
+tools/year-report-app/dist/
+tools/year-report-app/public/report-contract.json
+tools/year-report-app/vite-dev.log
+tools/year-report-app/vite-dev.err.log
 
 # BUCK
 buck-out/
