@@ -19,6 +19,8 @@ import P21TimelineNightPage from '@/pages/P21TimelineNightPage.vue'
 import P23AlbumHeroPage from '@/pages/P23AlbumHeroPage.vue'
 import P24AlbumRankingPage from '@/pages/P24AlbumRankingPage.vue'
 import P25SongHeroPage from '@/pages/P25SongHeroPage.vue'
+import P31LibraryCoveragePage from '@/pages/P31LibraryCoveragePage.vue'
+import L01LibraryOverviewPage from '@/pages/L01LibraryOverviewPage.vue'
 import L02LibraryGrowthPage from '@/pages/L02LibraryGrowthPage.vue'
 import L03LibraryStructurePage from '@/pages/L03LibraryStructurePage.vue'
 import L04LibraryArtistRankingPage from '@/pages/L04LibraryArtistRankingPage.vue'
@@ -53,6 +55,8 @@ const PAGE_COMPONENT_MAP = {
   'P23': P23AlbumHeroPage,
   'P24': P24AlbumRankingPage,
   'P25': P25SongHeroPage,
+  'P31': P31LibraryCoveragePage,
+  'L01': L01LibraryOverviewPage,
   'L02': L02LibraryGrowthPage,
   'L03': L03LibraryStructurePage,
   // L04 拆成两个终态页面，分别承接曲库榜与年度新增榜。

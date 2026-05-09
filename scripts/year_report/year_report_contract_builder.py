@@ -16,11 +16,11 @@ import re
 from urllib.parse import unquote, urlparse
 
 
-# 移动端当前先串起 P01-P20，再衔接已经做完的试点页与曲库专题双榜。
+# 移动端当前先串起 P01-P20，再衔接专辑页、P31/L01 桥页与曲库专题双榜。
 MOBILE_PAGE_ORDER = [
     'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
     'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-    'P21', 'P23', 'P24', 'P25', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+    'P21', 'P23', 'P24', 'P25', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
 ]
 
 
@@ -50,6 +50,8 @@ PAGE_TEMPLATES = {
     'P23': 'album-hero',
     'P24': 'album-ranking',
     'P25': 'song-hero',
+    'P31': 'library-coverage',
+    'L01': 'library-overview',
     'L02': 'library-growth',
     'L03': 'library-structure',
     'L04A': 'artist-library-ranking',
@@ -84,6 +86,8 @@ PAGE_SECTIONS = {
     'P23': '专辑章节',
     'P24': '专辑章节',
     'P25': '年度歌曲',
+    'P31': '曲库专题',
+    'L01': '曲库专题',
     'L02': '曲库专题',
     'L03': '曲库专题',
     'L04A': '曲库专题',
@@ -117,6 +121,8 @@ PAGE_TITLES = {
     'P23': '年度之最专辑',
     'P24': '年度最爱专辑榜',
     'P25': '年度歌曲',
+    'P31': '元数据完成度与封面颜色',
+    'L01': '歌曲库总览',
     'L02': '年度新增分析',
     'L03': '歌曲库结构分析',
     'L04A': '歌曲库歌手榜',
@@ -194,6 +200,8 @@ def build_year_report_contract(raw_report: dict[str, Any] | None = None) -> dict
         _build_p23_page(context),
         _build_p24_page(context),
         _build_p25_page(context),
+        _build_p31_page(context),
+        _build_l01_page(context),
         _build_l02_page(context),
         _build_l03_page(context),
         _build_l04a_page(context),
@@ -879,6 +887,30 @@ def _build_p25_page(context: _BuilderContext) -> dict[str, Any]:
     if song_of_year:
         summary_text = f"《{song_of_year['track_title']}》用更长时间的陪伴，成了你的年度歌曲。"
     return _build_page_shell('P25', context['year'], summary_text, payload)
+
+
+def _build_p31_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建元数据完成度与封面颜色桥页。"""
+    p31_page = context['analytics_page_map'].get('P31') or {}
+    # 覆盖率沿用底层分析口径；封面颜色这里补齐 treemap 展示所需字段，避免前端再次兜底。
+    payload = {
+        'coverage': dict(p31_page.get('coverage') or getattr(context['base_module'], 'EMPTY_COVERAGE', {})),
+        'cover_color_summary': _build_cover_color_summary_for_page(context),
+    }
+    summary_text = p31_page.get('summary_text') or '先看曲库元数据覆盖率，再看已识别封面颜色的主色分布。'
+    return _build_page_shell('P31', context['year'], summary_text, payload)
+
+
+def _build_l01_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建歌曲库总览页。"""
+    l01_page = context['analytics_page_map'].get('L01') or {}
+    # 指标与覆盖率直接复用底层统计结果，保证移动端与分析页口径一致。
+    payload = {
+        'metrics': dict(l01_page.get('metrics') or getattr(context['base_module'], 'EMPTY_LIBRARY_METRICS', {})),
+        'coverage': dict(l01_page.get('coverage') or getattr(context['base_module'], 'EMPTY_COVERAGE', {})),
+    }
+    summary_text = l01_page.get('summary_text') or '展示当前歌曲库规模、本年度新增规模与基础覆盖率。'
+    return _build_page_shell('L01', context['year'], summary_text, payload)
 
 
 def _build_l02_page(context: _BuilderContext) -> dict[str, Any]:
