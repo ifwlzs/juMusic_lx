@@ -1201,8 +1201,14 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
 CONFIRMED_PAGE_SEQUENCE = [
     'P20',
     'P21',
+    'P22',
     'P23',
     'P24',
+    'P26',
+    'P27',
+    'P28',
+    'P29',
+    'P30',
     'P31',
     'L01',
     # L04 已拆成连续两页，确认页顺序里不再保留旧页号。
@@ -1218,8 +1224,14 @@ CONFIRMED_PAGE_SEQUENCE = [
 PAGE_TITLES = {
     'P20': '深夜听歌',
     'P21': '历年最晚记录',
+    'P22': '反复聆听',
     'P23': '年度之最专辑',
     'P24': '年度最爱专辑榜',
+    'P26': '年度歌曲榜单',
+    'P27': '年度歌手页',
+    'P28': '与年度歌手的轨迹',
+    'P29': '年度最爱歌手榜单',
+    'P30': '历年歌手榜',
     'P31': '元数据完成度与封面颜色',
     'L01': '歌曲库总览',
     'L04A': '歌曲库歌手榜',
@@ -1307,8 +1319,14 @@ def _build_page(page_id: str, context: dict[str, Any]) -> dict[str, Any]:
     builders = {
         'P20': _build_p20,
         'P21': _build_p21,
+        'P22': _build_p22,
         'P23': _build_p23,
         'P24': _build_p24,
+        'P26': _build_p26,
+        'P27': _build_p27,
+        'P28': _build_p28,
+        'P29': _build_p29,
+        'P30': _build_p30,
         'P31': _build_p31,
         'L01': _build_l01,
         'L04A': _build_l04a,
@@ -1367,6 +1385,19 @@ def _build_p21(context: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _build_p22(context: dict[str, Any]) -> dict[str, Any]:
+    """P22 输出循环强度最高的歌曲榜单，强调单日重复聆听指数。"""
+    repeat_ranking = _build_repeat_ranking(context['play_history'], context['year'])
+    summary_text = '展示那些在真正点开它的日子里，你会一天反复听很多次的歌曲。'
+    if repeat_ranking:
+        summary_text = f"《{repeat_ranking[0]['track_title']}》是今年循环强度最高的歌，平均每个活跃日会回放 {repeat_ranking[0]['repeat_index']:.2f} 次。"
+
+    page = _base_page('P22', context['year'], summary_text)
+    page['repeat_ranking'] = repeat_ranking
+    return page
+
+
+
 def _build_p23(context: dict[str, Any]) -> dict[str, Any]:
     """P23 输出本年度播放表现最强的专辑。"""
     album_ranking = _aggregate_album_ranking(context['play_history'], context['year'])
@@ -1385,6 +1416,76 @@ def _build_p24(context: dict[str, Any]) -> dict[str, Any]:
     album_ranking = _aggregate_album_ranking(context['play_history'], context['year'])
     page = _base_page('P24', context['year'], '展示年度最爱专辑榜单。')
     page['album_ranking'] = album_ranking
+    return page
+
+
+
+def _build_p26(context: dict[str, Any]) -> dict[str, Any]:
+    """P26 输出本年度歌曲榜单，复用与年度歌曲一致的综合评分口径。"""
+    song_ranking = _build_song_ranking(context['play_history'], context['year'])
+    summary_text = '展示这一年最常回放、也最稳定陪伴你的歌曲榜单。'
+    if song_ranking:
+        summary_text = f"今年的歌曲冠军是《{song_ranking[0]['track_title']}》，它一共陪你播放了 {song_ranking[0]['play_count']} 次。"
+
+    page = _base_page('P26', context['year'], summary_text)
+    page['song_ranking'] = song_ranking
+    return page
+
+
+
+def _build_p27(context: dict[str, Any]) -> dict[str, Any]:
+    """P27 输出年度歌手页所需的歌手冠军榜数据。"""
+    artist_ranking = _build_artist_ranking(context['play_history'], context['year'])
+    summary_text = '展示今年最常陪着你的歌手，以及紧随其后的年度歌手榜。'
+    if artist_ranking:
+        summary_text = f"今年陪你最久的歌手是 {artist_ranking[0]['artist_display']}，总共出现了 {artist_ranking[0]['play_total']} 次。"
+
+    page = _base_page('P27', context['year'], summary_text)
+    page['artist_ranking'] = artist_ranking
+    return page
+
+
+
+def _build_p28(context: dict[str, Any]) -> dict[str, Any]:
+    """P28 输出你与年度歌手的首次相遇、高峰日与陪伴跨度。"""
+    artist_ranking = _build_artist_ranking(context['play_history'], context['year'])
+    top_artist_name = artist_ranking[0]['artist_display'] if artist_ranking else None
+    artist_journey = _build_artist_journey(context['play_history'], context['year'], top_artist_name)
+    summary_text = '把你和年度歌手之间的首次相遇与高峰时刻，收束成一段轨迹。'
+    if artist_journey.get('artist_display'):
+        summary_text = f"你和 {artist_journey['artist_display']} 的故事，最早可以追溯到 {artist_journey.get('first_played_at') or '更早的某一天'}。"
+
+    page = _base_page('P28', context['year'], summary_text)
+    page['artist_journey'] = artist_journey
+    return page
+
+
+
+def _build_p29(context: dict[str, Any]) -> dict[str, Any]:
+    """P29 展开年度最爱歌手榜单明细。"""
+    artist_ranking = _build_artist_ranking(context['play_history'], context['year'])
+    summary_text = '展示这一年你最常回到的歌手榜单明细。'
+    if artist_ranking:
+        summary_text = f"年度最爱歌手榜一共有 {len(artist_ranking)} 位主要歌手进入统计，榜首仍然是 {artist_ranking[0]['artist_display']}。"
+
+    page = _base_page('P29', context['year'], summary_text)
+    page['artist_ranking'] = artist_ranking
+    return page
+
+
+
+def _build_p30(context: dict[str, Any]) -> dict[str, Any]:
+    """P30 按年份输出历年歌手冠军榜。"""
+    yearly_artist_ranking = _build_yearly_artist_ranking(context['play_history'])
+    summary_text = '按年份回看历年的歌手冠军与陪伴轨迹。'
+    if yearly_artist_ranking:
+        latest_year_group = yearly_artist_ranking[-1]
+        latest_winner = latest_year_group['ranking'][0] if latest_year_group.get('ranking') else None
+        if latest_winner:
+            summary_text = f"{latest_year_group['year']} 年的歌手冠军是 {latest_winner['artist_display']}。"
+
+    page = _base_page('P30', context['year'], summary_text)
+    page['yearly_artist_ranking'] = yearly_artist_ranking
     return page
 
 
@@ -1484,6 +1585,311 @@ def _build_p32(context: dict[str, Any]) -> dict[str, Any]:
     page = _base_page('P32', context['year'], summary_text)
     page['summary_cards'] = summary_cards
     return page
+
+
+
+def _history_track_key(row: dict[str, Any]) -> str | None:
+    """统一解析播放记录里的歌曲主键，优先 track_id，其次回退歌名。"""
+    for raw_value in (row.get('track_id'), row.get('track_title')):
+        if isinstance(raw_value, str) and raw_value.strip():
+            return raw_value.strip()
+    return None
+
+
+
+def _history_artist_value(row: dict[str, Any]) -> str | None:
+    """统一解析播放记录里的歌手展示名。"""
+    artist_display = row.get('artist_display')
+    if isinstance(artist_display, str) and artist_display.strip():
+        return artist_display.strip()
+    return None
+
+
+
+def _history_play_total(row: dict[str, Any]) -> int:
+    """统一解析播放记录里的播放次数，缺失时按 1 次兜底。"""
+    return int(row.get('play_count') or row.get('play_total') or 1)
+
+
+
+def _history_listened_sec(row: dict[str, Any]) -> int:
+    """统一解析播放记录里的收听秒数。"""
+    return int(row.get('listened_sec') or 0)
+
+
+
+def _parse_played_at(raw_value: Any) -> datetime | None:
+    """尽量把 played_at 解析成 datetime，失败时安全返回 None。"""
+    if not isinstance(raw_value, str) or not raw_value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(raw_value.strip())
+    except ValueError:
+        return None
+
+
+
+def _resolve_play_date_key(row: dict[str, Any]) -> str | None:
+    """从播放时间里提取 YYYY-MM-DD 日期键，供高峰日与活跃日统计复用。"""
+    parsed_dt = _parse_played_at(row.get('played_at'))
+    if parsed_dt is None:
+        return None
+    return parsed_dt.date().isoformat()
+
+
+
+def _build_song_ranking(play_history: list[dict[str, Any]], year: int) -> list[dict[str, Any]]:
+    """按年度歌曲综合分构建歌曲榜单。"""
+    year_rows = _filter_year_rows(play_history, year)
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in year_rows:
+        track_key = _history_track_key(row)
+        if not track_key:
+            continue
+        bucket = buckets.setdefault(track_key, {
+            'track_title': row.get('track_title') or '未知歌曲',
+            'artist_display': _history_artist_value(row) or '未知歌手',
+            'album_display': row.get('album_display') or '未知专辑',
+            'play_count': 0,
+            'active_days': 0,
+            'listened_sec': 0,
+            'cover_path': row.get('cover_path'),
+        })
+        bucket['play_count'] += _history_play_total(row)
+        bucket['active_days'] += int(row.get('active_days') or 0)
+        bucket['listened_sec'] += _history_listened_sec(row)
+        if not bucket['cover_path'] and row.get('cover_path'):
+            bucket['cover_path'] = row.get('cover_path')
+
+    ranking = []
+    for item in buckets.values():
+        listened_hours = item['listened_sec'] / 3600
+        score = round(item['play_count'] * 0.55 + item['active_days'] * 0.30 + listened_hours * 0.15, 3)
+        ranking.append({
+            'rank': 0,
+            'track_title': item['track_title'],
+            'artist_display': item['artist_display'],
+            'album_display': item['album_display'],
+            'play_count': item['play_count'],
+            'active_days': item['active_days'],
+            'listened_sec': item['listened_sec'],
+            'score': score,
+            'cover_path': item['cover_path'],
+        })
+
+    sorted_ranking = sorted(
+        ranking,
+        key=lambda item: (
+            -item['score'],
+            -item['play_count'],
+            -item['active_days'],
+            -item['listened_sec'],
+            item['track_title'],
+        ),
+    )
+    for index, item in enumerate(sorted_ranking, start=1):
+        item['rank'] = index
+    return sorted_ranking[:10]
+
+
+
+def _build_repeat_ranking(play_history: list[dict[str, Any]], year: int) -> list[dict[str, Any]]:
+    """按重复聆听指数构建歌曲榜单，供 P22 复用。"""
+    year_rows = _filter_year_rows(play_history, year)
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in year_rows:
+        track_key = _history_track_key(row)
+        if not track_key:
+            continue
+        bucket = buckets.setdefault(track_key, {
+            'track_title': row.get('track_title') or '未知歌曲',
+            'artist_display': _history_artist_value(row) or '未知歌手',
+            'album_display': row.get('album_display') or '未知专辑',
+            'play_count': 0,
+            'active_days': 0,
+            'listened_sec': 0,
+            'cover_path': row.get('cover_path'),
+        })
+        bucket['play_count'] += _history_play_total(row)
+        bucket['active_days'] += int(row.get('active_days') or 0)
+        bucket['listened_sec'] += _history_listened_sec(row)
+        if not bucket['cover_path'] and row.get('cover_path'):
+            bucket['cover_path'] = row.get('cover_path')
+
+    ranking = []
+    for item in buckets.values():
+        repeat_index = round(item['play_count'] / max(item['active_days'], 1), 4)
+        ranking.append({
+            'rank': 0,
+            'track_title': item['track_title'],
+            'artist_display': item['artist_display'],
+            'album_display': item['album_display'],
+            'play_count': item['play_count'],
+            'active_days': item['active_days'],
+            'listened_sec': item['listened_sec'],
+            'repeat_index': repeat_index,
+            'cover_path': item['cover_path'],
+        })
+
+    sorted_ranking = sorted(
+        ranking,
+        key=lambda item: (
+            -item['repeat_index'],
+            -item['play_count'],
+            -item['active_days'],
+            item['track_title'],
+        ),
+    )
+    for index, item in enumerate(sorted_ranking, start=1):
+        item['rank'] = index
+    return sorted_ranking[:10]
+
+
+
+def _artist_names_from_history(row: dict[str, Any]) -> list[str]:
+    """播放记录中的歌手名同样复用安全分隔逻辑，避免协作串名不拆开。"""
+    artist_names = _split_artist_display_values(row.get('artist_display'))
+    if artist_names:
+        return artist_names
+    fallback_name = _history_artist_value(row)
+    return [fallback_name] if fallback_name else []
+
+
+
+def _build_artist_ranking(play_history: list[dict[str, Any]], year: int) -> list[dict[str, Any]]:
+    """按年度播放聚合歌手榜，供 P27/P29/P30 共用。"""
+    year_rows = _filter_year_rows(play_history, year)
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in year_rows:
+        track_key = _history_track_key(row)
+        play_total = _history_play_total(row)
+        listened_sec = _history_listened_sec(row)
+        for artist_name in _artist_names_from_history(row):
+            bucket = buckets.setdefault(artist_name, {
+                'artist_display': artist_name,
+                'play_total': 0,
+                'listened_sec': 0,
+                'track_keys': set(),
+                'top_track_title': row.get('track_title') or '未知歌曲',
+                'top_track_play_total': -1,
+            })
+            bucket['play_total'] += play_total
+            bucket['listened_sec'] += listened_sec
+            if track_key:
+                bucket['track_keys'].add(track_key)
+            if play_total > bucket['top_track_play_total']:
+                bucket['top_track_play_total'] = play_total
+                bucket['top_track_title'] = row.get('track_title') or '未知歌曲'
+
+    ranking = []
+    for item in buckets.values():
+        ranking.append({
+            'rank': 0,
+            'artist_display': item['artist_display'],
+            'play_total': item['play_total'],
+            'listened_sec': item['listened_sec'],
+            'track_total': len(item['track_keys']),
+            'top_track_title': item['top_track_title'],
+        })
+
+    sorted_ranking = sorted(
+        ranking,
+        key=lambda item: (-item['play_total'], -item['listened_sec'], -item['track_total'], item['artist_display']),
+    )
+    for index, item in enumerate(sorted_ranking, start=1):
+        item['rank'] = index
+    return sorted_ranking[:10]
+
+
+
+def _build_artist_journey(
+    play_history: list[dict[str, Any]],
+    year: int,
+    artist_display: str | None,
+) -> dict[str, Any]:
+    """围绕年度歌手输出首次相遇、高峰日与陪伴天数。"""
+    if not artist_display:
+        return {}
+
+    artist_rows = [
+        row for row in play_history
+        if artist_display in _artist_names_from_history(row)
+    ]
+    if not artist_rows:
+        return {}
+
+    dated_rows = []
+    for row in artist_rows:
+        parsed_dt = _parse_played_at(row.get('played_at'))
+        if parsed_dt is None:
+            continue
+        dated_rows.append((parsed_dt, row))
+
+    first_played_at = None
+    first_track = None
+    days_since_first_play = 0
+    if dated_rows:
+        first_dt, first_row = min(dated_rows, key=lambda item: item[0])
+        first_played_at = first_dt.strftime('%Y-%m-%d %H:%M:%S')
+        if year > 0:
+            report_end = datetime(year, 12, 31).date()
+            days_since_first_play = max(0, (report_end - first_dt.date()).days + 1)
+        first_track = {
+            'track_title': first_row.get('track_title') or '未知歌曲',
+            'artist_display': artist_display,
+            'album_display': first_row.get('album_display') or '未知专辑',
+            'cover_path': first_row.get('cover_path'),
+        }
+
+    day_buckets: dict[str, dict[str, Any]] = {}
+    for row in artist_rows:
+        date_key = _resolve_play_date_key(row)
+        if not date_key:
+            continue
+        bucket = day_buckets.setdefault(date_key, {
+            'date': date_key,
+            'play_total': 0,
+            'track_title': row.get('track_title') or '未知歌曲',
+            'top_track_play_total': -1,
+        })
+        play_total = _history_play_total(row)
+        bucket['play_total'] += play_total
+        if play_total > bucket['top_track_play_total']:
+            bucket['top_track_play_total'] = play_total
+            bucket['track_title'] = row.get('track_title') or '未知歌曲'
+
+    peak_day = None
+    if day_buckets:
+        peak_item = max(day_buckets.values(), key=lambda item: (item['play_total'], item['date']))
+        peak_day = {
+            'date': peak_item['date'],
+            'play_total': peak_item['play_total'],
+            'track_title': peak_item['track_title'],
+        }
+
+    return {
+        'artist_display': artist_display,
+        'first_played_at': first_played_at,
+        'days_since_first_play': days_since_first_play,
+        'first_track': first_track,
+        'peak_day': peak_day,
+    }
+
+
+
+def _build_yearly_artist_ranking(play_history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """按年份回放歌手榜，供 P30 以年份分组展示。"""
+    years = sorted({row.get('year') for row in play_history if isinstance(row.get('year'), int)})
+    result = []
+    for year in years:
+        ranking = _build_artist_ranking(play_history, year)
+        if not ranking:
+            continue
+        result.append({
+            'year': year,
+            'ranking': ranking[:3],
+        })
+    return result
 
 
 

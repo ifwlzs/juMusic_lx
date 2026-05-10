@@ -20,7 +20,7 @@ from urllib.parse import unquote, urlparse
 MOBILE_PAGE_ORDER = [
     'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
     'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-    'P21', 'P23', 'P24', 'P25', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+    'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
 ]
 
 
@@ -47,9 +47,15 @@ PAGE_TEMPLATES = {
     'P19': 'time-preference',
     'P20': 'late-night-hero',
     'P21': 'timeline-night',
+    'P22': 'repeat-ranking',
     'P23': 'album-hero',
     'P24': 'album-ranking',
     'P25': 'song-hero',
+    'P26': 'song-ranking',
+    'P27': 'artist-ranking',
+    'P28': 'artist-journey',
+    'P29': 'artist-ranking-detail',
+    'P30': 'artist-yearly-ranking',
     'P31': 'library-coverage',
     'L01': 'library-overview',
     'L02': 'library-growth',
@@ -83,9 +89,15 @@ PAGE_SECTIONS = {
     'P19': '时间偏好',
     'P20': '深夜偏好',
     'P21': '深夜轨迹',
+    'P22': '年度歌曲',
     'P23': '专辑章节',
     'P24': '专辑章节',
     'P25': '年度歌曲',
+    'P26': '年度歌曲',
+    'P27': '歌手章节',
+    'P28': '歌手章节',
+    'P29': '歌手章节',
+    'P30': '歌手章节',
     'P31': '曲库专题',
     'L01': '曲库专题',
     'L02': '曲库专题',
@@ -118,9 +130,15 @@ PAGE_TITLES = {
     'P19': '最爱时段',
     'P20': '深夜听歌',
     'P21': '历年最晚记录',
+    'P22': '反复聆听',
     'P23': '年度之最专辑',
     'P24': '年度最爱专辑榜',
     'P25': '年度歌曲',
+    'P26': '年度歌曲榜单',
+    'P27': '年度歌手页',
+    'P28': '与年度歌手的轨迹',
+    'P29': '年度最爱歌手榜单',
+    'P30': '历年歌手榜',
     'P31': '元数据完成度与封面颜色',
     'L01': '歌曲库总览',
     'L02': '年度新增分析',
@@ -197,9 +215,15 @@ def build_year_report_contract(raw_report: dict[str, Any] | None = None) -> dict
         _build_p19_page(context),
         _build_p20_page(context),
         _build_p21_page(context),
+        _build_p22_page(context),
         _build_p23_page(context),
         _build_p24_page(context),
         _build_p25_page(context),
+        _build_p26_page(context),
+        _build_p27_page(context),
+        _build_p28_page(context),
+        _build_p29_page(context),
+        _build_p30_page(context),
         _build_p31_page(context),
         _build_l01_page(context),
         _build_l02_page(context),
@@ -857,6 +881,16 @@ def _build_p21_page(context: _BuilderContext) -> dict[str, Any]:
     return _build_page_shell('P21', context['year'], summary_text, payload)
 
 
+def _build_p22_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建反复聆听页，直接复用底层循环强度榜单。"""
+    p22_page = context['analytics_page_map'].get('P22') or {}
+    payload = {
+        'repeat_ranking': list(p22_page.get('repeat_ranking', []) or []),
+    }
+    summary_text = p22_page.get('summary_text') or '展示那些在真正点开它的日子里，你会一天反复听很多次的歌曲。'
+    return _build_page_shell('P22', context['year'], summary_text, payload)
+
+
 def _build_p23_page(context: _BuilderContext) -> dict[str, Any]:
     """构建年度之最专辑页，直接复用底层专辑冠军聚合结果。"""
     p23_page = context['analytics_page_map'].get('P23') or {}
@@ -887,6 +921,56 @@ def _build_p25_page(context: _BuilderContext) -> dict[str, Any]:
     if song_of_year:
         summary_text = f"《{song_of_year['track_title']}》用更长时间的陪伴，成了你的年度歌曲。"
     return _build_page_shell('P25', context['year'], summary_text, payload)
+
+
+def _build_p26_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建年度歌曲榜单页，直接复用底层歌曲榜。"""
+    p26_page = context['analytics_page_map'].get('P26') or {}
+    payload = {
+        'song_ranking': list(p26_page.get('song_ranking', []) or []),
+    }
+    summary_text = p26_page.get('summary_text') or '把这一年最常回放、也最稳定陪伴你的歌曲完整展开。'
+    return _build_page_shell('P26', context['year'], summary_text, payload)
+
+
+def _build_p27_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建年度歌手页，复用底层歌手冠军榜。"""
+    p27_page = context['analytics_page_map'].get('P27') or {}
+    payload = {
+        'artist_ranking': list(p27_page.get('artist_ranking', []) or []),
+    }
+    summary_text = p27_page.get('summary_text') or '展示今年最常陪着你的歌手，以及紧随其后的年度歌手榜。'
+    return _build_page_shell('P27', context['year'], summary_text, payload)
+
+
+def _build_p28_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建与年度歌手的轨迹页，复用底层歌手轨迹故事。"""
+    p28_page = context['analytics_page_map'].get('P28') or {}
+    payload = {
+        'artist_journey': dict(p28_page.get('artist_journey') or {}),
+    }
+    summary_text = p28_page.get('summary_text') or '把你和年度歌手之间的首次相遇与高峰时刻，收束成一段轨迹。'
+    return _build_page_shell('P28', context['year'], summary_text, payload)
+
+
+def _build_p29_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建年度最爱歌手榜单页，复用底层完整榜单。"""
+    p29_page = context['analytics_page_map'].get('P29') or {}
+    payload = {
+        'artist_ranking': list(p29_page.get('artist_ranking', []) or []),
+    }
+    summary_text = p29_page.get('summary_text') or '把这一年最常回到的歌手榜单明细完整展开。'
+    return _build_page_shell('P29', context['year'], summary_text, payload)
+
+
+def _build_p30_page(context: _BuilderContext) -> dict[str, Any]:
+    """构建历年歌手榜页，按年份展示歌手冠军与前列榜单。"""
+    p30_page = context['analytics_page_map'].get('P30') or {}
+    payload = {
+        'yearly_artist_ranking': list(p30_page.get('yearly_artist_ranking', []) or []),
+    }
+    summary_text = p30_page.get('summary_text') or '按年份回看历年的歌手冠军与陪伴轨迹。'
+    return _build_page_shell('P30', context['year'], summary_text, payload)
 
 
 def _build_p31_page(context: _BuilderContext) -> dict[str, Any]:

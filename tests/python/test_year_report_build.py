@@ -24,7 +24,7 @@ def test_build_year_report_includes_confirmed_pages_in_order():
     report = module.build_year_report({'year': 2025})
     page_ids = [page['page_id'] for page in report['pages']]
     # L04 已拆成连续两页，最终输出中不应再出现旧页号。
-    expected_sequence = ['P20', 'P21', 'P23', 'P24', 'P31', 'L01', 'L04A', 'L04B', 'L02', 'L03', 'P32']
+    expected_sequence = ['P20', 'P21', 'P22', 'P23', 'P24', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L04A', 'L04B', 'L02', 'L03', 'P32']
 
     indices = [page_ids.index(page_id) for page_id in expected_sequence]
 
@@ -42,6 +42,8 @@ def test_build_year_report_exposes_minimum_contract_for_priority_pages():
     assert pages['P21']['title']
     assert isinstance(pages['P21']['latest_night_history'], list)
     assert 'summary_text' in pages['P21']
+    assert pages['P22']['title'] == '反复聆听'
+    assert isinstance(pages['P22']['repeat_ranking'], list)
 
     assert pages['P31']['title']
     assert isinstance(pages['P31']['coverage'], dict)
@@ -53,6 +55,16 @@ def test_build_year_report_exposes_minimum_contract_for_priority_pages():
     assert isinstance(pages['L04A']['ranking'], list)
     assert pages['L04B']['title'] == '年度新增歌手榜'
     assert isinstance(pages['L04B']['ranking'], list)
+    assert pages['P26']['title'] == '年度歌曲榜单'
+    assert isinstance(pages['P26']['song_ranking'], list)
+    assert pages['P27']['title'] == '年度歌手页'
+    assert isinstance(pages['P27']['artist_ranking'], list)
+    assert pages['P28']['title'] == '与年度歌手的轨迹'
+    assert isinstance(pages['P28']['artist_journey'], dict)
+    assert pages['P29']['title'] == '年度最爱歌手榜单'
+    assert isinstance(pages['P29']['artist_ranking'], list)
+    assert pages['P30']['title'] == '历年歌手榜'
+    assert isinstance(pages['P30']['yearly_artist_ranking'], list)
     assert 'L04' not in pages
 
 
@@ -294,6 +306,160 @@ def test_build_year_report_aggregates_p23_top_album_and_p24_album_ranking():
     assert [item['album_display'] for item in p24['album_ranking']] == ['Album A', 'Album B']
     assert p24['album_ranking'][0]['rank'] == 1
     assert p24['album_ranking'][1]['rank'] == 2
+
+
+def test_build_year_report_aggregates_p22_repeat_ranking_by_repeat_index():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2025,
+        'play_history': [
+            {
+                'year': 2025,
+                'track_id': 't1',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 12,
+                'active_days': 3,
+                'listened_sec': 2400,
+                'cover_path': 'covers/t1.jpg',
+            },
+            {
+                'year': 2025,
+                'track_id': 't2',
+                'track_title': '群青',
+                'artist_display': 'YOASOBI',
+                'album_display': 'THE BOOK',
+                'play_count': 10,
+                'active_days': 5,
+                'listened_sec': 1800,
+                'cover_path': 'covers/t2.jpg',
+            },
+            {
+                'year': 2025,
+                'track_id': 't3',
+                'track_title': '若月亮没来',
+                'artist_display': '王宇宙Leto',
+                'album_display': '若月亮没来',
+                'play_count': 8,
+                'active_days': 2,
+                'listened_sec': 1600,
+                'cover_path': 'covers/t3.jpg',
+            },
+        ],
+    })
+    p22 = {page['page_id']: page for page in report['pages']}['P22']
+
+    assert [item['track_title'] for item in p22['repeat_ranking']] == ['夜航星', '若月亮没来', '群青']
+    assert p22['repeat_ranking'][0]['repeat_index'] == 4.0
+    assert p22['repeat_ranking'][1]['repeat_index'] == 4.0
+    assert p22['repeat_ranking'][0]['rank'] == 1
+    assert p22['repeat_ranking'][1]['rank'] == 2
+
+
+def test_build_year_report_aggregates_p26_to_p30_song_and_artist_pages():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2025,
+        'play_history': [
+            {
+                'year': 2024,
+                'played_at': '2024-02-14 20:00:00',
+                'track_id': 't1',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 2,
+                'active_days': 2,
+                'listened_sec': 360,
+                'cover_path': 'covers/t1.jpg',
+            },
+            {
+                'year': 2024,
+                'played_at': '2024-06-01 08:30:00',
+                'track_id': 't4',
+                'track_title': 'Polaris',
+                'artist_display': 'Aimer',
+                'album_display': 'Sun Dance',
+                'play_count': 4,
+                'active_days': 3,
+                'listened_sec': 600,
+                'cover_path': 'covers/t4.jpg',
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-03-08 21:10:00',
+                'track_id': 't1',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 15,
+                'active_days': 12,
+                'listened_sec': 2600,
+                'cover_path': 'covers/t1.jpg',
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-08-01 20:00:00',
+                'track_id': 't3',
+                'track_title': '山止川行',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 6,
+                'active_days': 5,
+                'listened_sec': 900,
+                'cover_path': 'covers/t3.jpg',
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-06-18 20:30:00',
+                'track_id': 't2',
+                'track_title': '群青',
+                'artist_display': 'YOASOBI',
+                'album_display': 'THE BOOK',
+                'play_count': 11,
+                'active_days': 7,
+                'listened_sec': 1800,
+                'cover_path': 'covers/t2.jpg',
+            },
+        ],
+    })
+    pages = {page['page_id']: page for page in report['pages']}
+    p26 = pages['P26']
+    p27 = pages['P27']
+    p28 = pages['P28']
+    p29 = pages['P29']
+    p30 = pages['P30']
+
+    # P26 应输出年度歌曲榜，且榜首仍然是综合分最高的歌曲。
+    assert [item['track_title'] for item in p26['song_ranking']] == ['夜航星', '群青', '山止川行']
+    assert p26['song_ranking'][0]['rank'] == 1
+    assert p26['song_ranking'][0]['artist_display'] == '不才'
+    assert p26['song_ranking'][0]['score'] > p26['song_ranking'][1]['score']
+
+    # P27 应输出年度歌手页使用的歌手冠军与榜单数据。
+    assert p27['artist_ranking'][0]['rank'] == 1
+    assert p27['artist_ranking'][0]['artist_display'] == '不才'
+    assert p27['artist_ranking'][0]['play_total'] == 21
+    assert p27['artist_ranking'][0]['top_track_title'] == '夜航星'
+
+    # P28 应围绕年度歌手给出首次相遇与最高峰值日期。
+    assert p28['artist_journey']['artist_display'] == '不才'
+    assert p28['artist_journey']['first_played_at'] == '2024-02-14 20:00:00'
+    assert p28['artist_journey']['first_track']['track_title'] == '夜航星'
+    assert p28['artist_journey']['peak_day']['date'] == '2025-03-08'
+    assert p28['artist_journey']['peak_day']['play_total'] == 15
+
+    # P29 应展开年度最爱歌手榜单明细。
+    assert [item['artist_display'] for item in p29['artist_ranking']] == ['不才', 'YOASOBI']
+    assert p29['artist_ranking'][1]['rank'] == 2
+
+    # P30 应按年份分组展示各年的歌手冠军榜。
+    assert [item['year'] for item in p30['yearly_artist_ranking']] == [2024, 2025]
+    assert p30['yearly_artist_ranking'][0]['ranking'][0]['artist_display'] == 'Aimer'
+    assert p30['yearly_artist_ranking'][1]['ranking'][0]['artist_display'] == '不才'
 
 
 def test_build_year_report_aggregates_l04a_and_l04b_rankings_and_limits_top10():
