@@ -203,11 +203,11 @@ def test_build_year_report_contract_returns_meta_and_pages():
 
     assert contract['meta']['year'] == 2025
     assert contract['meta']['design_width'] == 390
-    # 当前移动端 contract 已串起 P01-P20，并继续接入专辑榜、P31/L01 桥页、曲库专题与总结收尾页。
+    # 当前移动端 contract 已串起 P01-P20，并把 P32 前移到 P31 后，再衔接曲库专题页。
     assert contract['meta']['page_order'] == [
         'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
         'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-        'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+        'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32', 'L01', 'L02', 'L03', 'L04A', 'L04B',
     ]
     assert [page['page_id'] for page in contract['pages']] == contract['meta']['page_order']
 
@@ -302,7 +302,7 @@ def test_build_year_report_contract_returns_meta_and_pages():
     assert pages['P29']['payload']['artist_ranking'][0]['rank'] == 1
     assert pages['P29']['payload']['artist_ranking'][0]['artist_display'] == '不才'
     assert pages['P30']['payload']['yearly_artist_ranking'][0]['year'] == 2024
-    assert pages['P30']['payload']['yearly_artist_ranking'][-1]['ranking'][0]['artist_display'] == '不才'
+    assert pages['P30']['payload']['yearly_artist_ranking'][-1]['artist_display'] == '不才'
     assert pages['P31']['payload']['coverage']
     assert pages['P31']['payload']['cover_color_summary']
     assert pages['P31']['payload']['source_distribution']['system_distribution'][0]['bucket_label'] == 'juMusic'
@@ -797,3 +797,95 @@ def test_l04b_splits_semicolon_separated_artist_display():
     assert '浅影阿;汐音社' not in names
     assert '浅影阿' in names
     assert '汐音社' in names
+
+
+def test_build_year_report_contract_moves_p32_directly_after_p31():
+    module = load_module()
+
+    contract = module.build_year_report_contract({'year': 2026, 'play_history': [], 'library_tracks': []})
+    page_order = contract['meta']['page_order']
+
+    assert page_order[page_order.index('P31') + 1] == 'P32'
+    assert page_order.index('P32') < page_order.index('L01')
+
+
+def test_build_year_report_contract_uses_play_count_for_season_favorite():
+    module = load_module()
+
+    contract = module.build_year_report_contract({
+        'year': 2026,
+        'play_history': [
+            {
+                'year': 2026,
+                'played_at': '2026-03-05 20:00:00',
+                'track_id': 'spring-a',
+                'track_title': '春日时长王',
+                'artist_display': '歌手A',
+                'album_display': '春专A',
+                'play_count': 3,
+                'active_days': 2,
+                'listened_sec': 3600,
+            },
+            {
+                'year': 2026,
+                'played_at': '2026-03-08 20:00:00',
+                'track_id': 'spring-b',
+                'track_title': '春日次数王',
+                'artist_display': '歌手B',
+                'album_display': '春专B',
+                'play_count': 8,
+                'active_days': 3,
+                'listened_sec': 1200,
+            },
+        ],
+        'library_tracks': [],
+    })
+    p12 = next(page for page in contract['pages'] if page['page_id'] == 'P12')
+
+    assert p12['payload']['favorite_track']['track_title'] == '春日次数王'
+    assert p12['payload']['favorite_track']['play_count'] == 8
+
+
+def test_build_year_report_contract_limits_p30_to_recent_ten_year_winners():
+    module = load_module()
+
+    play_history = []
+    for year in range(2014, 2026):
+        play_history.extend([
+            {
+                'year': year,
+                'played_at': f'{year}-01-01 09:00:00',
+                'track_id': f'winner-{year}',
+                'track_title': f'冠军曲 {year}',
+                'artist_display': f'冠军歌手 {year}',
+                'album_display': f'冠军专辑 {year}',
+                'play_count': 10,
+                'active_days': 4,
+                'listened_sec': 1200,
+            },
+            {
+                'year': year,
+                'played_at': f'{year}-01-02 09:00:00',
+                'track_id': f'runner-{year}',
+                'track_title': f'亚军曲 {year}',
+                'artist_display': f'亚军歌手 {year}',
+                'album_display': f'亚军专辑 {year}',
+                'play_count': 6,
+                'active_days': 3,
+                'listened_sec': 900,
+            },
+        ])
+
+    contract = module.build_year_report_contract({
+        'year': 2026,
+        'play_history': play_history,
+        'library_tracks': [],
+    })
+    p30 = next(page for page in contract['pages'] if page['page_id'] == 'P30')
+    ranking = p30['payload']['yearly_artist_ranking']
+
+    assert len(ranking) == 10
+    assert [item['year'] for item in ranking] == list(range(2016, 2026))
+    assert ranking[0]['artist_display'] == '冠军歌手 2016'
+    assert ranking[-1]['artist_display'] == '冠军歌手 2025'
+    assert all('ranking' not in item for item in ranking)

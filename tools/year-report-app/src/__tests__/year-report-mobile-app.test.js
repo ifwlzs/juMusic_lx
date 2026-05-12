@@ -88,6 +88,13 @@ function createYearArtistRanking() {
   ]
 }
 
+function createYearlyArtistWinners() {
+  return [
+    { year: 2024, rank: 1, artist_display: 'Aimer', play_total: 18, top_track_title: 'Polaris' },
+    { year: 2025, rank: 1, artist_display: '不才', play_total: 21, top_track_title: '夜航星' },
+  ]
+}
+
 const sampleContract = {
   meta: {
     year: 2025,
@@ -95,7 +102,7 @@ const sampleContract = {
     page_order: [
       'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
       'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-      'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+      'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32', 'L01', 'L02', 'L03', 'L04A', 'L04B',
     ],
   },
   pages: [
@@ -562,22 +569,7 @@ const sampleContract = {
       title: '历年歌手榜',
       summary_text: 'summary',
       payload: {
-        yearly_artist_ranking: [
-          {
-            year: 2024,
-            ranking: [
-              { rank: 1, artist_display: 'Aimer', play_total: 18, top_track_title: 'Polaris' },
-              { rank: 2, artist_display: 'YOASOBI', play_total: 12, top_track_title: '群青' },
-            ],
-          },
-          {
-            year: 2025,
-            ranking: [
-              { rank: 1, artist_display: '不才', play_total: 21, top_track_title: '夜航星' },
-              { rank: 2, artist_display: 'YOASOBI', play_total: 11, top_track_title: '群青' },
-            ],
-          },
-        ],
+        yearly_artist_ranking: createYearlyArtistWinners(),
       },
     },
     {
@@ -811,6 +803,7 @@ describe('App', () => {
     expect(pageElements[0].attributes('style')).not.toEqual(pageElements[1].attributes('style'))
     expect(wrapper.get('[data-page-id="L04A"]').attributes('style')).toContain('--page-background-start: #F6EFFF;')
     expect(wrapper.get('[data-page-id="L04B"]').attributes('style')).toContain('--page-background-start: #EEFAF5;')
+    expect(wrapper.get('[data-page-id="P21"]').attributes('style')).toContain('--page-background-start: #121B34;')
   })
 
   it('首屏页面切到淡色看板背景，并增大内容安全边距 token', () => {
@@ -1433,7 +1426,9 @@ describe('Enhanced detail pages', () => {
     })
 
     expect(wrapper.find('.ranking-panel').exists()).toBe(true)
+    expect(wrapper.find('.library-mini-table--ranked').exists()).toBe(true)
     expect(wrapper.findAll('.ranking-item')).toHaveLength(2)
+    expect(wrapper.text()).toContain('#1')
     expect(wrapper.text()).toContain('不才作品集')
     expect(wrapper.text()).toContain('15 次')
   })
@@ -1449,12 +1444,13 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
     expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
     expect(wrapper.findAll('.ranking-item')).toHaveLength(3)
+    expect(wrapper.text()).toContain('#1')
     expect(wrapper.text()).toContain('夜航星')
     expect(wrapper.text()).toContain('4.00')
     expect(wrapper.text()).toContain('12 次 / 3 天')
   })
 
-  it('P26 年度歌曲榜单页会渲染歌曲列表与综合分', () => {
+  it('P26 年度歌曲榜单页会渲染歌曲列表、序号与播放次数', () => {
     const wrapper = mount(P26SongRankingPage, {
       props: {
         page: sampleContract.pages.find((page) => page.page_id === 'P26'),
@@ -1466,7 +1462,8 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
     expect(wrapper.findAll('.ranking-item')).toHaveLength(3)
     expect(wrapper.text()).toContain('夜航星')
-    expect(wrapper.text()).toContain('11.958')
+    expect(wrapper.text()).toContain('#1')
+    expect(wrapper.text()).toContain('15 次')
   })
 
   it('P27 年度歌手页会渲染冠军歌手与榜单摘要', () => {
@@ -1508,9 +1505,10 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(3)
     expect(wrapper.text()).toContain('不才')
     expect(wrapper.text()).toContain('YOASOBI')
+    expect(wrapper.find('.artist-ranking-item-copy--wrap').exists()).toBe(true)
   })
 
-  it('P30 历年歌手榜页会按年份分组渲染历年冠军', () => {
+  it('P30 历年歌手榜页会按近十年年度冠军扁平渲染', () => {
     const wrapper = mount(P30ArtistYearlyRankingPage, {
       props: {
         page: sampleContract.pages.find((page) => page.page_id === 'P30'),
@@ -1520,10 +1518,11 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.find('.yearly-artist-ranking-page').exists()).toBe(true)
     expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
     expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
-    expect(wrapper.findAll('.yearly-ranking-group')).toHaveLength(2)
+    expect(wrapper.findAll('.ranking-item')).toHaveLength(2)
     expect(wrapper.text()).toContain('2024')
     expect(wrapper.text()).toContain('Aimer')
     expect(wrapper.text()).toContain('不才')
+    expect(wrapper.text()).not.toContain('2 位歌手')
   })
 
   it('P31 元数据完成度与封面颜色页会渲染覆盖率指标与颜色摘要', () => {
@@ -1540,6 +1539,9 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('播放来源')
     expect(wrapper.text()).toContain('juMusic')
     expect(wrapper.text()).toContain('mobile')
+    expect(wrapper.findAll('.library-mini-table')).toHaveLength(2)
+    expect(wrapper.findAll('.library-mini-table__row')).toHaveLength(4)
+    expect(wrapper.findAll('.coverage-compact-chip--color')).toHaveLength(3)
   })
 
   it('L01 歌曲库总览页会渲染曲库规模与覆盖率摘要', () => {
@@ -1554,9 +1556,13 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('新增歌曲')
     expect(wrapper.text()).toContain('118')
     expect(wrapper.text()).toContain('封面覆盖')
-    expect(wrapper.text()).toContain('播放来源摘要')
+    expect(wrapper.text()).toContain('覆盖率与播放足迹')
     expect(wrapper.text()).toContain('Emby Web')
     expect(wrapper.text()).toContain('Edge Windows')
+    expect(wrapper.find('.coverage-compact-grid').exists()).toBe(true)
+    expect(wrapper.findAll('.coverage-compact-grid--overview .coverage-compact-chip')).toHaveLength(4)
+    expect(wrapper.findAll('.library-mini-table')).toHaveLength(1)
+    expect(wrapper.findAll('.library-mini-table__row')).toHaveLength(5)
   })
 
   it('L02 年度新增分析页会渲染三项新增指标与月度趋势', () => {
@@ -1568,7 +1574,7 @@ describe('Enhanced detail pages', () => {
 
     expect(wrapper.find('.metric-grid--three').exists()).toBe(true)
     expect(wrapper.findAll('.metric-card')).toHaveLength(3)
-    expect(wrapper.findAll('.ranking-item')).toHaveLength(2)
+    expect(wrapper.findAll('.library-mini-table__row')).toHaveLength(2)
     expect(wrapper.text()).toContain('新增歌曲')
     expect(wrapper.text()).toContain('3 月')
   })
@@ -1580,10 +1586,36 @@ describe('Enhanced detail pages', () => {
       },
     })
 
+    expect(wrapper.find('.library-panel-grid').exists()).toBe(true)
     expect(wrapper.findAll('.ranking-panel')).toHaveLength(2)
     expect(wrapper.text()).toContain('华语')
     expect(wrapper.text()).toContain('日系流行')
     expect(wrapper.text()).not.toContain('Pop---J-pop')
+    expect(wrapper.findAll('.library-mini-table')).toHaveLength(2)
+  })
+
+  it('L03 会对旧 contract 里的英文曲风路径做前端中文兜底', () => {
+    const wrapper = mount(L03LibraryStructurePage, {
+      props: {
+        page: {
+          page_id: 'L03',
+          title: '歌曲库结构分析',
+          section: '曲库专题',
+          summary_text: 'summary',
+          payload: {
+            language_distribution: [
+              { language_name: '中文', track_count: 12 },
+            ],
+            weighted_genre_distribution: [
+              { genre_name: 'Electronic---Synth-pop', genre_name_zh: 'Electronic---Synth-pop', weighted_track_count: 8.4 },
+            ],
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('电子 / 合成器流行')
+    expect(wrapper.text()).not.toContain('Electronic---Synth-pop')
   })
 
   it('P32 年度总结四格页会渲染总结卡片网格', () => {
@@ -1593,7 +1625,7 @@ describe('Enhanced detail pages', () => {
       },
     })
 
-    expect(wrapper.find('.summary-card-grid').exists()).toBe(true)
+    expect(wrapper.find('.summary-card-grid--two').exists()).toBe(true)
     expect(wrapper.findAll('.story-card')).toHaveLength(4)
     expect(wrapper.text()).toContain('深夜时刻')
     expect(wrapper.text()).toContain('02:35')

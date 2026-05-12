@@ -22,7 +22,7 @@
               <span class="artist-ranking-list-rank">#{{ item.rank || index + 1 }}</span>
               <div class="artist-ranking-item-copy">
                 <strong>{{ item.artist_display || '未知歌手' }}</strong>
-                <small>代表作 {{ item.top_track_title || '未知歌曲' }} · 歌曲 {{ item.track_total || 0 }} 首</small>
+                <small class="artist-ranking-item-copy--wrap">代表作 {{ item.top_track_title || '未知歌曲' }} · 歌曲 {{ item.track_total || 0 }} 首</small>
               </div>
             </div>
             <span>{{ item.play_total || 0 }} 次</span>

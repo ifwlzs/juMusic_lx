@@ -1252,13 +1252,14 @@ CONFIRMED_PAGE_SEQUENCE = [
     'P29',
     'P30',
     'P31',
+    # P32 需要紧跟在 P31 后，避免它继续掉到曲库专题尾部。
+    'P32',
     'L01',
     # L04 已拆成连续两页，确认页顺序里不再保留旧页号。
     'L04A',
     'L04B',
     'L02',
     'L03',
-    'P32',
 ]
 
 
@@ -1526,14 +1527,12 @@ def _build_p29(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _build_p30(context: dict[str, Any]) -> dict[str, Any]:
-    """P30 按年份输出历年歌手冠军榜。"""
+    """P30 按年份输出近十年的年度歌手冠军榜。"""
     yearly_artist_ranking = _build_yearly_artist_ranking(context['play_history'])
-    summary_text = '按年份回看历年的歌手冠军与陪伴轨迹。'
+    summary_text = '按年份回看近十年里每一年的歌手冠军。'
     if yearly_artist_ranking:
-        latest_year_group = yearly_artist_ranking[-1]
-        latest_winner = latest_year_group['ranking'][0] if latest_year_group.get('ranking') else None
-        if latest_winner:
-            summary_text = f"{latest_year_group['year']} 年的歌手冠军是 {latest_winner['artist_display']}。"
+        latest_winner = yearly_artist_ranking[-1]
+        summary_text = f"{latest_winner['year']} 年的歌手冠军是 {latest_winner['artist_display']}。"
 
     page = _base_page('P30', context['year'], summary_text)
     page['yearly_artist_ranking'] = yearly_artist_ranking
@@ -1630,9 +1629,8 @@ def _build_l03(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _build_p32(context: dict[str, Any]) -> dict[str, Any]:
-    """P32 作为收尾页，优先复用前序页面结果拼装四格总结。"""
-    page_map = context.get('page_map', {})
-    summary_cards = _build_summary_cards(page_map)
+    """P32 作为收尾页，直接根据原始数据聚合总结卡，避免受页面顺序影响。"""
+    summary_cards = _build_summary_cards(context)
     summary_text = '使用年度歌曲、歌手、专辑与关键时刻收束整份报告。'
     if summary_cards:
         summary_text = f"这一年里，你的深夜时刻、专辑偏好、扩坑方向和曲库结构都能在这几张总结卡里看到。"
@@ -1933,16 +1931,25 @@ def _build_artist_journey(
 
 
 def _build_yearly_artist_ranking(play_history: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """按年份回放歌手榜，供 P30 以年份分组展示。"""
+    """按年份回放歌手冠军，只保留近十年每年的第一名。"""
     years = sorted({row.get('year') for row in play_history if isinstance(row.get('year'), int)})
+    if len(years) > 10:
+        years = years[-10:]
+
     result = []
     for year in years:
         ranking = _build_artist_ranking(play_history, year)
         if not ranking:
             continue
+        winner = dict(ranking[0])
         result.append({
             'year': year,
-            'ranking': ranking[:3],
+            'rank': winner.get('rank') or 1,
+            'artist_display': winner.get('artist_display') or '未知歌手',
+            'play_total': winner.get('play_total') or 0,
+            'listened_sec': winner.get('listened_sec') or 0,
+            'track_total': winner.get('track_total') or 0,
+            'top_track_title': winner.get('top_track_title') or '未知歌曲',
         })
     return result
 
@@ -2329,16 +2336,17 @@ def _build_monthly_growth(new_tracks: list[dict[str, Any]]) -> list[dict[str, in
     ]
 
 
-def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, str]]:
-    """从前序页面提取最有代表性的年度结论，拼装成 P32 总结四格。"""
+def _build_summary_cards(context: dict[str, Any]) -> list[dict[str, str]]:
+    """直接基于原始输入聚合四张总结卡，保证 P32 可以自由调整顺序。"""
     cards = []
-    p20 = page_map.get('P20') or {}
-    p23 = page_map.get('P23') or {}
-    # 拆页后年度新增榜独立成 L04B，总结卡从该页读取扩坑冠军。
-    l04b = page_map.get('L04B') or {}
-    l03 = page_map.get('L03') or {}
+    year = context['year']
+    play_history = context.get('play_history', []) or []
+    library_tracks = context.get('library_tracks', []) or []
+    genre_matches = context.get('genre_matches', []) or []
 
-    latest_night_record = p20.get('latest_night_record')
+    year_rows = _filter_year_rows(play_history, year)
+    night_rows = [row for row in year_rows if isinstance(row.get('night_sort_minute'), int)]
+    latest_night_record = _build_latest_night_record(night_rows)
     if latest_night_record:
         cards.append({
             'card_id': 'latest-night',
@@ -2347,7 +2355,8 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
             'support_text': f"你在听《{latest_night_record.get('track_title') or '未知歌曲'}》",
         })
 
-    top_album = p23.get('top_album')
+    album_ranking = _aggregate_album_ranking(play_history, year)
+    top_album = album_ranking[0] if album_ranking else None
     if top_album:
         cards.append({
             'card_id': 'top-album',
@@ -2356,7 +2365,7 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
             'support_text': f"累计播放 {top_album.get('play_total') or 0} 次",
         })
 
-    new_artist_ranking = l04b.get('ranking') or []
+    new_artist_ranking = _build_new_artist_ranking(library_tracks, year)
     if new_artist_ranking:
         top_new_artist = new_artist_ranking[0]
         cards.append({
@@ -2366,7 +2375,8 @@ def _build_summary_cards(page_map: dict[str, dict[str, Any]]) -> list[dict[str, 
             'support_text': f"新增歌曲 {top_new_artist.get('new_track_total') or 0} 首",
         })
 
-    weighted_genre_distribution = l03.get('weighted_genre_distribution') or []
+    genre_views = _build_genre_views(library_tracks, genre_matches)
+    weighted_genre_distribution = genre_views.get('weighted_genre_distribution') or []
     if weighted_genre_distribution:
         top_genre = weighted_genre_distribution[0]
         cards.append({

@@ -13,6 +13,7 @@
       <div v-if="page.payload.layout_mode === 'single-year'" class="story-card story-card--focus">
         <strong>{{ page.payload.latest_night_history?.[0]?.latest_time || '--:--' }}</strong>
         <p>{{ page.payload.latest_night_history?.[0]?.track_title || '暂无记录' }}</p>
+        <p class="timeline-single-year-caption">{{ page.payload.latest_night_history?.[0]?.artist_display || '未知歌手' }}</p>
       </div>
 
       <ol v-else class="timeline-list">
