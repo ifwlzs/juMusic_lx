@@ -42,6 +42,46 @@
           </li>
         </ol>
       </section>
+
+      <section class="ranking-panel">
+        <header class="panel-header">
+          <h3>播放来源</h3>
+          <span>{{ systemDistribution.length }} 个来源</span>
+        </header>
+        <ol class="ranking-list">
+          <li
+            v-for="item in systemDistribution"
+            :key="`system-${item.bucket_key}`"
+            class="ranking-item"
+          >
+            <div class="artist-ranking-item-copy">
+              <strong>{{ item.bucket_label }}</strong>
+              <small>{{ item.play_count }} 次播放</small>
+            </div>
+            <span>{{ formatPercent(item.ratio) }}</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="ranking-panel">
+        <header class="panel-header">
+          <h3>播放设备</h3>
+          <span>{{ deviceDistribution.length }} 个设备</span>
+        </header>
+        <ol class="ranking-list">
+          <li
+            v-for="item in deviceDistribution"
+            :key="`device-${item.bucket_key}`"
+            class="ranking-item"
+          >
+            <div class="artist-ranking-item-copy">
+              <strong>{{ item.bucket_label }}</strong>
+              <small>{{ item.play_count }} 次播放</small>
+            </div>
+            <span>{{ formatPercent(item.ratio) }}</span>
+          </li>
+        </ol>
+      </section>
     </div>
   </ReportPageShell>
 </template>
@@ -59,6 +99,7 @@ const props = defineProps({
 
 const coverage = computed(() => props.page?.payload?.coverage || {})
 const colorSummary = computed(() => props.page?.payload?.cover_color_summary || {})
+const sourceDistribution = computed(() => props.page?.payload?.source_distribution || {})
 
 // 指标只保留页面最关心的四项，确保一屏内能稳定读完。
 const coverageCards = computed(() => [
@@ -98,6 +139,8 @@ const treemapTotal = computed(() => {
   return countedTrackTotal.value
 })
 const topColors = computed(() => (Array.isArray(colorSummary.value.top_colors) ? colorSummary.value.top_colors : []).slice(0, 3))
+const systemDistribution = computed(() => (Array.isArray(sourceDistribution.value.system_distribution) ? sourceDistribution.value.system_distribution : []).slice(0, 3))
+const deviceDistribution = computed(() => (Array.isArray(sourceDistribution.value.device_distribution) ? sourceDistribution.value.device_distribution : []).slice(0, 3))
 
 function formatPercent(value) {
   return `${(Number(value || 0) * 100).toFixed(1)}%`

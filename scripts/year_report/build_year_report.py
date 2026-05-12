@@ -802,6 +802,44 @@ def _build_p31_summary(rows, overview=None):
     }
 
 
+def _build_source_distribution(rows):
+    """把来源分布数据集按 row_type 分组，统一供 P31/L01 复用。"""
+    if not rows:
+        return dict(EMPTY_SOURCE_DISTRIBUTION)
+
+    row_type_to_key = {
+        'system': 'system_distribution',
+        'client': 'client_distribution',
+        'device': 'device_distribution',
+        'playback_method': 'playback_method_distribution',
+    }
+    grouped = {
+        key: []
+        for key in row_type_to_key.values()
+    }
+    for row in rows:
+        target_key = row_type_to_key.get(row.get('row_type'))
+        if not target_key:
+            continue
+        grouped[target_key].append({
+            'bucket_key': row.get('bucket_key'),
+            'bucket_label': row.get('bucket_label'),
+            'play_count': _safe_number(row.get('play_count'), 0),
+            'listened_sec': _safe_number(row.get('listened_sec'), 0),
+            'ratio': _safe_number(row.get('ratio'), 0.0),
+        })
+
+    for target_key, items in grouped.items():
+        items.sort(
+            key=lambda item: (
+                -_safe_number(item.get('play_count'), 0),
+                -_safe_number(item.get('listened_sec'), 0),
+                str(item.get('bucket_label') or ''),
+            )
+        )
+    return grouped
+
+
 def collect_dataset_payloads(cursor, year):
     plan = build_query_plan(year)
     payloads = {}
@@ -842,6 +880,7 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
     p29_rows = dataset_payloads.get('data_p29_artist_rank_detail') or []
     p30_rows = dataset_payloads.get('data_p30_yearly_artist_rank') or []
     p31_rows = dataset_payloads.get('data_p31_credits') or []
+    p31_source_rows = dataset_payloads.get('data_p31_source_distribution') or []
     l02_rows = dataset_payloads.get('data_l02_library_growth') or []
 
     p05 = _build_p05(p05_rows)
@@ -853,6 +892,7 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
     l01 = _build_l01_library_summary(year, p04)
     l02 = _build_l02_library_growth(year, l02_rows)
     l03 = _build_l03_library_profile(p07)
+    source_distribution = _build_source_distribution(p31_source_rows)
 
     active_dates = [row['date'] for row in p18_rows if row.get('is_active')]
     p18 = {
@@ -1137,6 +1177,8 @@ def build_report_from_dataset_payloads(year, dataset_payloads, generated_at=None
         key=lambda row: (row.get('credit_type') or '', -(row.get('play_count') or 0), -(row.get('listened_sec') or 0))
     ))
     p31 = _build_p31_summary(p31_items, p04)
+    p31['source_distribution'] = source_distribution
+    l01['source_distribution'] = source_distribution
 
     pages = {
         'P01': p01,
@@ -1271,6 +1313,15 @@ EMPTY_COLOR_SUMMARY = {
     'counted_track_total': 0,
     'excluded_track_total': 0,
     'top_colors': [],
+}
+
+
+# 播放来源分布需要同时供分析页与移动端 contract 复用，先固定空结构，避免前端逐页兜底。
+EMPTY_SOURCE_DISTRIBUTION = {
+    'system_distribution': [],
+    'client_distribution': [],
+    'device_distribution': [],
+    'playback_method_distribution': [],
 }
 
 
@@ -1494,6 +1545,7 @@ def _build_p31(context: dict[str, Any]) -> dict[str, Any]:
     """P31 作为桥页，统一承载元数据完成度与封面颜色模块。"""
     coverage = _calculate_library_coverage(context['library_tracks'], context['genre_matches'])
     color_summary = _calculate_cover_color_summary(context['library_tracks'])
+    source_distribution = _calculate_source_distribution(context['play_history'], context['year'])
     summary_text = '先展示曲库元数据完成度，再展示已识别封面颜色的年度主色摘要。'
     if color_summary['counted_track_total']:
         top_color = color_summary['top_colors'][0]
@@ -1502,6 +1554,7 @@ def _build_p31(context: dict[str, Any]) -> dict[str, Any]:
     page = _base_page('P31', context['year'], summary_text)
     page['coverage'] = coverage
     page['cover_color_summary'] = color_summary
+    page['source_distribution'] = source_distribution
     return page
 
 
@@ -1510,9 +1563,11 @@ def _build_l01(context: dict[str, Any]) -> dict[str, Any]:
     """L01 作为歌曲库章节首页，复用当前可得曲库统计结果。"""
     metrics = _calculate_library_metrics(context['library_tracks'], context['year'])
     coverage = _calculate_library_coverage(context['library_tracks'], context['genre_matches'])
+    source_distribution = _calculate_source_distribution(context['play_history'], context['year'])
     page = _base_page('L01', context['year'], '展示当前歌曲库规模、本年度新增规模与基础覆盖率。')
     page['metrics'] = metrics
     page['coverage'] = coverage
+    page['source_distribution'] = source_distribution
     return page
 
 
@@ -2121,6 +2176,91 @@ def _calculate_cover_color_summary(library_tracks: list[dict[str, Any]]) -> dict
         'excluded_track_total': excluded_track_total,
         'top_colors': top_colors,
     }
+
+
+def _calculate_source_distribution(play_history: list[dict[str, Any]], year: int) -> dict[str, Any]:
+    """按年度播放记录统计来源系统、客户端、设备与播放方式分布。"""
+    year_rows = _filter_year_rows(play_history, year)
+    if not year_rows:
+        return dict(EMPTY_SOURCE_DISTRIBUTION)
+
+    def _normalize_bucket(row: dict[str, Any], row_type: str) -> tuple[str, str] | None:
+        normalized_system = str(row.get('source_system') or 'jumusic').strip().lower() or 'jumusic'
+        if row_type == 'system':
+            raw_value = str(row.get('source_system') or 'jumusic').strip()
+            if normalized_system == 'emby':
+                return 'emby', 'Emby'
+            if normalized_system == 'jumusic':
+                return 'jumusic', 'juMusic'
+            return normalized_system, raw_value or '未知来源'
+        if row_type == 'client':
+            raw_value = str(
+                row.get('source_client_name')
+                or ('juMusic' if normalized_system == 'jumusic' else '')
+                or '未知客户端'
+            ).strip()
+            return raw_value.lower().replace(' ', '-'), raw_value
+        if row_type == 'device':
+            raw_value = str(
+                row.get('source_device_name')
+                or ('mobile' if normalized_system == 'jumusic' else '')
+                or '未知设备'
+            ).strip()
+            return raw_value.lower().replace(' ', '-'), raw_value
+        if row_type == 'playback_method':
+            raw_value = str(row.get('source_playback_method') or '').strip()
+            if not raw_value:
+                return None
+            return raw_value.lower().replace(' ', '-'), raw_value
+        return None
+
+    grouped = {
+        'system_distribution': [],
+        'client_distribution': [],
+        'device_distribution': [],
+        'playback_method_distribution': [],
+    }
+    row_type_to_key = {
+        'system': 'system_distribution',
+        'client': 'client_distribution',
+        'device': 'device_distribution',
+        'playback_method': 'playback_method_distribution',
+    }
+
+    for row_type, target_key in row_type_to_key.items():
+        buckets: dict[str, dict[str, Any]] = {}
+        total_play_count = 0
+        for row in year_rows:
+            normalized_bucket = _normalize_bucket(row, row_type)
+            if normalized_bucket is None:
+                continue
+            bucket_key, bucket_label = normalized_bucket
+            play_count = int(row.get('play_count') or row.get('play_total') or 1)
+            listened_sec = int(row.get('listened_sec') or 0)
+            total_play_count += play_count
+            bucket = buckets.setdefault(bucket_key, {
+                'bucket_key': bucket_key,
+                'bucket_label': bucket_label,
+                'play_count': 0,
+                'listened_sec': 0,
+                'ratio': 0.0,
+            })
+            bucket['play_count'] += play_count
+            bucket['listened_sec'] += listened_sec
+
+        distribution = list(buckets.values())
+        for item in distribution:
+            item['ratio'] = round(item['play_count'] / total_play_count, 4) if total_play_count else 0.0
+        distribution.sort(
+            key=lambda item: (
+                -item['play_count'],
+                -item['listened_sec'],
+                item['bucket_label'],
+            )
+        )
+        grouped[target_key] = distribution[:10]
+
+    return grouped
 
 
 

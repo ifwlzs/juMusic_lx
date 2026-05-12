@@ -64,6 +64,7 @@ SUPPORTED_DATASETS = (
     'data_p29_artist_rank_detail',
     'data_p30_yearly_artist_rank',
     'data_p31_credits',
+    'data_p31_source_distribution',
 )
 
 DATASET_SHAPES = {
@@ -97,6 +98,7 @@ DATASET_SHAPES = {
     'data_p29_artist_rank_detail': 'many',
     'data_p30_yearly_artist_rank': 'many',
     'data_p31_credits': 'many',
+    'data_p31_source_distribution': 'many',
 }
 
 COMMON_BASE_CTE = """
@@ -169,6 +171,10 @@ raw_base AS (
     p.start_hour AS play_hour,
     p.start_weekday AS play_weekday,
     p.entry_source,
+    p.source_system AS source_system,
+    p.source_client_name AS source_client_name,
+    p.source_device_name AS source_device_name,
+    p.source_playback_method AS source_playback_method,
     p.night_owning_date_key,
     p.night_sort_minute,
     p.song_file_name AS file_name,
@@ -1654,6 +1660,84 @@ SELECT
 FROM credit_stats
 WHERE rn <= 3
 ORDER BY credit_type ASC, play_count DESC, listened_sec DESC, credit_name ASC;
+""".strip(),
+    'data_p31_source_distribution': f"""
+DECLARE @year int = %s;
+{COMMON_BASE_CTE},
+system_rows AS (
+  SELECT
+    N'system' AS row_type,
+    LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) AS bucket_key,
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) = 'emby' THEN N'Emby'
+      WHEN LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) = 'jumusic' THEN N'juMusic'
+      ELSE COALESCE(NULLIF(source_system, ''), N'未知来源')
+    END AS bucket_label,
+    listened_sec
+  FROM base
+),
+client_rows AS (
+  SELECT
+    N'client' AS row_type,
+    LOWER(REPLACE(COALESCE(NULLIF(source_client_name, ''), CASE WHEN LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) = 'jumusic' THEN 'juMusic' END, N'未知客户端'), ' ', '-')) AS bucket_key,
+    COALESCE(NULLIF(source_client_name, ''), CASE WHEN LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) = 'jumusic' THEN N'juMusic' END, N'未知客户端') AS bucket_label,
+    listened_sec
+  FROM base
+),
+device_rows AS (
+  SELECT
+    N'device' AS row_type,
+    LOWER(REPLACE(COALESCE(NULLIF(source_device_name, ''), CASE WHEN LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) = 'jumusic' THEN 'mobile' END, N'未知设备'), ' ', '-')) AS bucket_key,
+    COALESCE(NULLIF(source_device_name, ''), CASE WHEN LOWER(COALESCE(NULLIF(source_system, ''), 'jumusic')) = 'jumusic' THEN N'mobile' END, N'未知设备') AS bucket_label,
+    listened_sec
+  FROM base
+),
+playback_method_rows AS (
+  SELECT
+    N'playback_method' AS row_type,
+    LOWER(REPLACE(source_playback_method, ' ', '-')) AS bucket_key,
+    source_playback_method AS bucket_label,
+    listened_sec
+  FROM base
+  WHERE NULLIF(source_playback_method, '') IS NOT NULL
+),
+distribution_rows AS (
+  SELECT * FROM system_rows
+  UNION ALL
+  SELECT * FROM client_rows
+  UNION ALL
+  SELECT * FROM device_rows
+  UNION ALL
+  SELECT * FROM playback_method_rows
+),
+distribution_stats AS (
+  SELECT
+    row_type,
+    bucket_key,
+    bucket_label,
+    COUNT(*) AS play_count,
+    SUM(listened_sec) AS listened_sec,
+    CAST(
+      COUNT(*) * 1.0 / NULLIF(SUM(COUNT(*)) OVER (PARTITION BY row_type), 0)
+      AS decimal(10,4)
+    ) AS ratio,
+    ROW_NUMBER() OVER (
+      PARTITION BY row_type
+      ORDER BY COUNT(*) DESC, SUM(listened_sec) DESC, bucket_label ASC
+    ) AS rn
+  FROM distribution_rows
+  GROUP BY row_type, bucket_key, bucket_label
+)
+SELECT
+  row_type,
+  bucket_key,
+  bucket_label,
+  play_count,
+  listened_sec,
+  ratio
+FROM distribution_stats
+WHERE rn <= 10
+ORDER BY row_type ASC, play_count DESC, listened_sec DESC, bucket_label ASC;
 """.strip(),
 }
 

@@ -1,7 +1,7 @@
 <template>
   <ReportPageShell :page="page">
-    <div class="yearly-artist-ranking-page stats-layout">
-      <div class="hero-copy">
+    <div class="yearly-artist-ranking-page stats-layout stats-layout--compact">
+      <div class="hero-copy hero-copy--compact">
         <p class="hero-tag">Artist yearly ranking</p>
         <h2 class="hero-title">{{ page.title }}</h2>
         <p class="hero-subtitle">按年份回看历年的歌手冠军与前列榜单，看看主线是怎么形成的。</p>
@@ -10,7 +10,7 @@
       <section
         v-for="group in yearlyArtistRanking"
         :key="group.year"
-        class="yearly-ranking-group ranking-panel"
+        class="yearly-ranking-group ranking-panel ranking-panel--compact"
       >
         <header class="panel-header">
           <h3>{{ group.year }} 年</h3>

@@ -1,13 +1,13 @@
 <template>
   <ReportPageShell :page="page">
-    <div class="artist-ranking-page hero-layout">
-      <div class="hero-copy hero-copy--editorial">
+    <div class="artist-ranking-page artist-ranking-page--compact hero-layout hero-layout--compact">
+      <div class="hero-copy hero-copy--editorial hero-copy--compact">
         <span class="hero-tag hero-tag-pill">New artist ranking</span>
         <h2 class="hero-title">{{ page.title }}</h2>
         <p class="hero-subtitle">今年扩坑最多的 10 位歌手</p>
       </div>
 
-      <section v-if="topTenRanking.length" class="artist-ranking-list-card ranking-panel">
+      <section v-if="topTenRanking.length" class="artist-ranking-list-card artist-ranking-list-card--compact ranking-panel ranking-panel--compact">
         <header class="panel-header">
           <h3>Top 1 - Top 10</h3>
           <span>{{ topTenRanking.length }} 位歌手</span>

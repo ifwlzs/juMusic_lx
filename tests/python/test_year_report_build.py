@@ -49,6 +49,9 @@ def test_build_year_report_exposes_minimum_contract_for_priority_pages():
     assert isinstance(pages['P31']['coverage'], dict)
     assert isinstance(pages['P31']['cover_color_summary'], dict)
     assert isinstance(pages['P31']['cover_color_summary']['top_colors'], list)
+    assert isinstance(pages['P31']['source_distribution'], dict)
+    assert isinstance(pages['P31']['source_distribution']['system_distribution'], list)
+    assert isinstance(pages['P31']['source_distribution']['device_distribution'], list)
 
     # L04A/L04B 统一使用 ranking 字段，便于 contract builder 直接映射 payload.ranking。
     assert pages['L04A']['title'] == '歌曲库歌手榜'
@@ -179,6 +182,28 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
 
     report = module.build_year_report({
         'year': 2025,
+        'play_history': [
+            {
+                'year': 2025,
+                'track_id': 't1',
+                'play_count': 20,
+                'listened_sec': 3600,
+                'source_system': 'jumusic',
+                'source_client_name': 'juMusic',
+                'source_device_name': 'mobile',
+                'source_playback_method': None,
+            },
+            {
+                'year': 2025,
+                'track_id': 't2',
+                'play_count': 10,
+                'listened_sec': 1800,
+                'source_system': 'emby',
+                'source_client_name': 'Emby Web',
+                'source_device_name': 'Edge Windows',
+                'source_playback_method': 'DirectPlay',
+            },
+        ],
         'library_tracks': [
             {
                 'track_id': 't1',
@@ -240,6 +265,10 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
     assert p31['cover_color_summary']['excluded_track_total'] == 1
     assert p31['cover_color_summary']['top_colors'][0]['color_hex'] == '#112233'
     assert p31['cover_color_summary']['top_colors'][0]['track_count'] == 2
+    assert p31['source_distribution']['system_distribution'][0]['bucket_label'] == 'juMusic'
+    assert p31['source_distribution']['system_distribution'][0]['play_count'] == 20
+    assert p31['source_distribution']['device_distribution'][1]['bucket_label'] == 'Edge Windows'
+    assert p31['source_distribution']['playback_method_distribution'][0]['bucket_label'] == 'DirectPlay'
 
 
 

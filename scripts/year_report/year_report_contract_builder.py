@@ -980,6 +980,7 @@ def _build_p31_page(context: _BuilderContext) -> dict[str, Any]:
     payload = {
         'coverage': dict(p31_page.get('coverage') or getattr(context['base_module'], 'EMPTY_COVERAGE', {})),
         'cover_color_summary': _build_cover_color_summary_for_page(context),
+        'source_distribution': dict(p31_page.get('source_distribution') or getattr(context['base_module'], 'EMPTY_SOURCE_DISTRIBUTION', {})),
     }
     summary_text = p31_page.get('summary_text') or '先看曲库元数据覆盖率，再看已识别封面颜色的主色分布。'
     return _build_page_shell('P31', context['year'], summary_text, payload)
@@ -992,6 +993,7 @@ def _build_l01_page(context: _BuilderContext) -> dict[str, Any]:
     payload = {
         'metrics': dict(l01_page.get('metrics') or getattr(context['base_module'], 'EMPTY_LIBRARY_METRICS', {})),
         'coverage': dict(l01_page.get('coverage') or getattr(context['base_module'], 'EMPTY_COVERAGE', {})),
+        'source_distribution': dict(l01_page.get('source_distribution') or getattr(context['base_module'], 'EMPTY_SOURCE_DISTRIBUTION', {})),
     }
     summary_text = l01_page.get('summary_text') or '展示当前歌曲库规模、本年度新增规模与基础覆盖率。'
     return _build_page_shell('L01', context['year'], summary_text, payload)
@@ -1978,6 +1980,10 @@ def _query_play_history_rows(cursor, year: int) -> list[dict[str, Any]]:
           start_hour,
           start_date_key,
           entry_source,
+          source_system,
+          source_client_name,
+          source_device_name,
+          source_playback_method,
           night_sort_minute,
           COALESCE(NULLIF(song_file_name, ''), NULLIF(aggregate_song_id, ''), NULLIF(source_item_id, ''), NULLIF(title_snapshot, '')) AS track_id,
           song_file_name,
@@ -2008,6 +2014,11 @@ def _query_play_history_rows(cursor, year: int) -> list[dict[str, Any]]:
             'active_days': 1,
             'listened_sec': int(row.get('listened_sec') or 0),
             'play_source': row.get('entry_source'),
+            # 播放来源分布需要保留系统 / 客户端 / 设备 / 播放方式四套维度。
+            'source_system': row.get('source_system'),
+            'source_client_name': row.get('source_client_name'),
+            'source_device_name': row.get('source_device_name'),
+            'source_playback_method': row.get('source_playback_method'),
             'start_weekday': row.get('start_weekday'),
             'start_hour': row.get('start_hour'),
             'start_date_key': row.get('start_date_key'),
@@ -2028,7 +2039,9 @@ def _query_library_track_rows(cursor) -> list[dict[str, Any]]:
           album,
           genre,
           embedded_lyric,
+          cover_art_present,
           cover_color,
+          duration_sec,
           language_norm,
           genre_essentia_label,
           genre_essentia_matches_json,
@@ -2048,7 +2061,10 @@ def _query_library_track_rows(cursor) -> list[dict[str, Any]]:
             'primary_genre': row.get('genre_essentia_label') or row.get('genre'),
             'language_norm': row.get('language_norm'),
             'lyric_text': row.get('embedded_lyric'),
+            # 覆盖率与桥页统计依赖封面是否存在、歌曲时长等字段。
+            'cover_art_present': row.get('cover_art_present'),
             'cover_color': row.get('cover_color'),
+            'duration_sec': row.get('duration_sec'),
             'genre_essentia_matches_json': row.get('genre_essentia_matches_json'),
             'first_added_year': int(row.get('first_added_year') or 0) or None,
             'first_added_month': int(row.get('first_added_month') or 0) or None,

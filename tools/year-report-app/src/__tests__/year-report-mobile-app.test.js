@@ -605,6 +605,23 @@ const sampleContract = {
             { color_hex: '#394B8A', track_count: 27, representative_track_title: '夜航星', share_ratio: 0.2872, tone_label: '夜航蓝' },
           ],
         },
+        source_distribution: {
+          system_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby', bucket_label: 'Emby', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          client_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby-web', bucket_label: 'Emby Web', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          device_distribution: [
+            { bucket_key: 'mobile', bucket_label: 'mobile', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'edge-windows', bucket_label: 'Edge Windows', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          playback_method_distribution: [
+            { bucket_key: 'directplay', bucket_label: 'DirectPlay', play_count: 176, listened_sec: 18820, ratio: 1 },
+          ],
+        },
       },
     },
     {
@@ -630,6 +647,23 @@ const sampleContract = {
           artist_ratio: 0.99,
           duration_ratio: 1,
           credit_ratio: 0.41,
+        },
+        source_distribution: {
+          system_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby', bucket_label: 'Emby', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          client_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby-web', bucket_label: 'Emby Web', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          device_distribution: [
+            { bucket_key: 'mobile', bucket_label: 'mobile', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'edge-windows', bucket_label: 'Edge Windows', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          playback_method_distribution: [
+            { bucket_key: 'directplay', bucket_label: 'DirectPlay', play_count: 176, listened_sec: 18820, ratio: 1 },
+          ],
         },
       },
     },
@@ -874,8 +908,10 @@ describe('L04 artist ranking pages', () => {
     })
 
     expect(wrapper.find('.artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-page--compact').exists()).toBe(true)
     expect(wrapper.find('.hero-subtitle').text()).toBe('全曲库收藏最多的 10 位歌手')
     expect(wrapper.find('.artist-ranking-list-card').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-list-card--compact').exists()).toBe(true)
     expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(10)
     expect(wrapper.text()).toContain('馆藏歌手 1')
     expect(wrapper.text()).toContain('馆藏歌手 10')
@@ -899,8 +935,10 @@ describe('L04 artist ranking pages', () => {
     })
 
     expect(wrapper.find('.artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-page--compact').exists()).toBe(true)
     expect(wrapper.find('.hero-subtitle').text()).toBe('今年扩坑最多的 10 位歌手')
     expect(wrapper.find('.artist-ranking-list-card').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-list-card--compact').exists()).toBe(true)
     expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(10)
     expect(wrapper.text()).toContain('新增歌手 1')
     expect(wrapper.text()).toContain('新增歌手 10')
@@ -1408,6 +1446,8 @@ describe('Enhanced detail pages', () => {
     })
 
     expect(wrapper.find('.repeat-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
+    expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
     expect(wrapper.findAll('.ranking-item')).toHaveLength(3)
     expect(wrapper.text()).toContain('夜航星')
     expect(wrapper.text()).toContain('4.00')
@@ -1422,6 +1462,8 @@ describe('Enhanced detail pages', () => {
     })
 
     expect(wrapper.find('.song-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
+    expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
     expect(wrapper.findAll('.ranking-item')).toHaveLength(3)
     expect(wrapper.text()).toContain('夜航星')
     expect(wrapper.text()).toContain('11.958')
@@ -1461,6 +1503,8 @@ describe('Enhanced detail pages', () => {
     })
 
     expect(wrapper.find('.artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-page--compact').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-list-card--compact').exists()).toBe(true)
     expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(3)
     expect(wrapper.text()).toContain('不才')
     expect(wrapper.text()).toContain('YOASOBI')
@@ -1474,6 +1518,8 @@ describe('Enhanced detail pages', () => {
     })
 
     expect(wrapper.find('.yearly-artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
+    expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
     expect(wrapper.findAll('.yearly-ranking-group')).toHaveLength(2)
     expect(wrapper.text()).toContain('2024')
     expect(wrapper.text()).toContain('Aimer')
@@ -1491,6 +1537,9 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('82.0%')
     expect(wrapper.text()).toContain('封面颜色')
     expect(wrapper.text()).toContain('已识别 236 首')
+    expect(wrapper.text()).toContain('播放来源')
+    expect(wrapper.text()).toContain('juMusic')
+    expect(wrapper.text()).toContain('mobile')
   })
 
   it('L01 歌曲库总览页会渲染曲库规模与覆盖率摘要', () => {
@@ -1505,6 +1554,9 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('新增歌曲')
     expect(wrapper.text()).toContain('118')
     expect(wrapper.text()).toContain('封面覆盖')
+    expect(wrapper.text()).toContain('播放来源摘要')
+    expect(wrapper.text()).toContain('Emby Web')
+    expect(wrapper.text()).toContain('Edge Windows')
   })
 
   it('L02 年度新增分析页会渲染三项新增指标与月度趋势', () => {

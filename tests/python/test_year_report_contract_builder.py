@@ -305,8 +305,11 @@ def test_build_year_report_contract_returns_meta_and_pages():
     assert pages['P30']['payload']['yearly_artist_ranking'][-1]['ranking'][0]['artist_display'] == '不才'
     assert pages['P31']['payload']['coverage']
     assert pages['P31']['payload']['cover_color_summary']
+    assert pages['P31']['payload']['source_distribution']['system_distribution'][0]['bucket_label'] == 'juMusic'
+    assert pages['P31']['payload']['source_distribution']['device_distribution'][0]['bucket_label'] == 'mobile'
     assert pages['L01']['payload']['metrics']
     assert pages['L01']['payload']['coverage']
+    assert pages['L01']['payload']['source_distribution']['client_distribution'][0]['bucket_label'] == 'juMusic'
     assert pages['L02']['payload']['growth_metrics']['new_track_total'] == 3
     assert isinstance(pages['L02']['payload']['monthly_growth'], list)
     assert pages['L03']['payload']['language_distribution'][0]['language_name'] == '日语'
@@ -322,6 +325,53 @@ def test_build_year_report_contract_returns_meta_and_pages():
     assert pages['P32']['payload']['summary_cards'][-1]['value'] == '日系流行'
     assert 'library_artist_ranking' not in pages['L04A']['payload']
     assert 'new_artist_ranking' not in pages['L04B']['payload']
+
+
+def test_build_year_report_contract_exposes_source_distribution_for_p31_and_l01():
+    module = load_module()
+
+    contract = module.build_year_report_contract({
+        'year': 2025,
+        'play_history': [
+            {
+                'year': 2025,
+                'played_at': '2025-01-03 09:00:00',
+                'track_id': 't1',
+                'track_title': '若月亮没来',
+                'artist_display': '王宇宙Leto',
+                'play_count': 12,
+                'listened_sec': 1800,
+                'source_system': 'jumusic',
+                'source_client_name': 'juMusic',
+                'source_device_name': 'mobile',
+                'source_playback_method': None,
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-03-08 21:10:00',
+                'track_id': 't2',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'play_count': 6,
+                'listened_sec': 900,
+                'source_system': 'emby',
+                'source_client_name': 'Emby Web',
+                'source_device_name': 'Edge Windows',
+                'source_playback_method': 'DirectPlay',
+            },
+        ],
+        'library_tracks': [],
+    })
+
+    pages = {page['page_id']: page for page in contract['pages']}
+    p31_source = pages['P31']['payload']['source_distribution']
+    l01_source = pages['L01']['payload']['source_distribution']
+
+    assert p31_source['system_distribution'][0]['bucket_label'] == 'juMusic'
+    assert p31_source['system_distribution'][1]['bucket_label'] == 'Emby'
+    assert p31_source['client_distribution'][1]['bucket_label'] == 'Emby Web'
+    assert p31_source['playback_method_distribution'][0]['bucket_label'] == 'DirectPlay'
+    assert l01_source == p31_source
 
 
 

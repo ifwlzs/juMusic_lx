@@ -38,6 +38,46 @@
           </li>
         </ol>
       </section>
+
+      <section class="ranking-panel ranking-panel--accent">
+        <header class="panel-header">
+          <h3>播放来源摘要</h3>
+          <span>{{ systemRows.length }} 个来源</span>
+        </header>
+        <ol class="ranking-list">
+          <li
+            v-for="item in systemRows"
+            :key="`overview-system-${item.bucket_key}`"
+            class="ranking-item"
+          >
+            <div class="artist-ranking-item-copy">
+              <strong>{{ item.bucket_label }}</strong>
+              <small>{{ item.play_count }} 次播放</small>
+            </div>
+            <span>{{ formatPercent(item.ratio) }}</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="ranking-panel">
+        <header class="panel-header">
+          <h3>客户端 / 设备</h3>
+          <span>{{ clientRows.length + deviceRows.length }} 项</span>
+        </header>
+        <ol class="ranking-list">
+          <li
+            v-for="item in combinedEndpointRows"
+            :key="`${item.group}-${item.bucket_key}`"
+            class="ranking-item"
+          >
+            <div class="artist-ranking-item-copy">
+              <strong>{{ item.bucket_label }}</strong>
+              <small>{{ item.groupLabel }} · {{ item.play_count }} 次</small>
+            </div>
+            <span>{{ formatPercent(item.ratio) }}</span>
+          </li>
+        </ol>
+      </section>
     </div>
   </ReportPageShell>
 </template>
@@ -55,6 +95,7 @@ const props = defineProps({
 
 const metrics = computed(() => props.page?.payload?.metrics || {})
 const coverage = computed(() => props.page?.payload?.coverage || {})
+const sourceDistribution = computed(() => props.page?.payload?.source_distribution || {})
 
 // 曲库首页优先展示规模与新增，避免第一页就塞太多覆盖率细项。
 const overviewCards = computed(() => [
@@ -122,6 +163,14 @@ const coverageRows = computed(() => [
     caption: '已补专辑信息的歌曲占比',
   },
 ])
+
+const systemRows = computed(() => (Array.isArray(sourceDistribution.value.system_distribution) ? sourceDistribution.value.system_distribution : []).slice(0, 3))
+const clientRows = computed(() => (Array.isArray(sourceDistribution.value.client_distribution) ? sourceDistribution.value.client_distribution : []).slice(0, 2))
+const deviceRows = computed(() => (Array.isArray(sourceDistribution.value.device_distribution) ? sourceDistribution.value.device_distribution : []).slice(0, 2))
+const combinedEndpointRows = computed(() => ([
+  ...clientRows.value.map((item) => ({ ...item, group: 'client', groupLabel: '客户端' })),
+  ...deviceRows.value.map((item) => ({ ...item, group: 'device', groupLabel: '设备' })),
+]).slice(0, 4))
 
 function formatPercent(value) {
   return `${(Number(value || 0) * 100).toFixed(1)}%`

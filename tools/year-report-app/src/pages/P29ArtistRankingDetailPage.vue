@@ -1,13 +1,13 @@
 <template>
   <ReportPageShell :page="page">
-    <div class="artist-ranking-page hero-layout">
-      <div class="hero-copy hero-copy--editorial">
+    <div class="artist-ranking-page artist-ranking-page--compact hero-layout hero-layout--compact">
+      <div class="hero-copy hero-copy--editorial hero-copy--compact">
         <span class="hero-tag hero-tag-pill">Artist ranking detail</span>
         <h2 class="hero-title">{{ page.title }}</h2>
         <p class="hero-subtitle">把这一年最常回到的歌手榜单明细完整展开。</p>
       </div>
 
-      <section class="artist-ranking-list-card ranking-panel ranking-panel--accent">
+      <section class="artist-ranking-list-card artist-ranking-list-card--compact ranking-panel ranking-panel--accent ranking-panel--compact">
         <header class="panel-header">
           <h3>Top artist ranking</h3>
           <span>{{ artistRanking.length }} 位歌手</span>

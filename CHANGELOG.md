@@ -8,6 +8,16 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
+新增
+
+- 年报预览补齐 P22 / P26 / P27 / P28 / P29 / P30 / P31 / L01 / L02 / L03 / L04A / L04B / P32 页面链路与真实数据契约，恢复移动端年报完整预览
+- 新增年报导出与预览的页面压缩样式，确保 Top10 榜单页在 844px 视口内稳定单屏展示
+- 新增基础歌曲听歌记录的 Emby Playback Reporting 补录脚本与播放来源字段，支持 juMusic / Emby 双来源
+
+修复
+
+- 修复年报导出与预览中部分榜单页高度过高、导致 P22 / P26 / P29 / L04A / L04B 无法稳定单页展示的问题，统一压缩页壳、榜单项与页脚摘要
+- 修复基础歌曲听歌记录补录链路仅依赖 juMusic 导出的问题，新增 Emby Playback Reporting 数据源并与现有记录合并
 修复
 
 - 修复播放页背景在部分设备上容易出现马赛克感和硬边压框的问题，改为更接近预览模板的多层模糊与平滑压边渲染
@@ -1640,3 +1650,4 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## [0.1.1] - 2021-05-15
 
 - v0.1.1版本发布 🎊 🎉
+

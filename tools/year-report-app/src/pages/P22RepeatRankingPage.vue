@@ -1,13 +1,13 @@
 <template>
   <ReportPageShell :page="page">
-    <div class="repeat-ranking-page stats-layout">
-      <div class="hero-copy">
+    <div class="repeat-ranking-page stats-layout stats-layout--compact">
+      <div class="hero-copy hero-copy--compact">
         <p class="hero-tag">Repeat ranking</p>
         <h2 class="hero-title">{{ page.title }}</h2>
         <p class="hero-subtitle">这些歌不是单纯听得多，而是在真正点开它的那些天里，你会一天反复听很多次。</p>
       </div>
 
-      <section class="ranking-panel ranking-panel--accent">
+      <section class="ranking-panel ranking-panel--accent ranking-panel--compact">
         <header class="panel-header">
           <h3>循环强度榜</h3>
           <span>{{ repeatRanking.length }} 首歌曲</span>

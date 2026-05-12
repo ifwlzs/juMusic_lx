@@ -1,13 +1,13 @@
 <template>
   <ReportPageShell :page="page">
-    <div class="song-ranking-page stats-layout">
-      <div class="hero-copy">
+    <div class="song-ranking-page stats-layout stats-layout--compact">
+      <div class="hero-copy hero-copy--compact">
         <p class="hero-tag">Song ranking</p>
         <h2 class="hero-title">{{ page.title }}</h2>
         <p class="hero-subtitle">把这一年最常回放、也最稳定陪伴你的歌曲完整展开。</p>
       </div>
 
-      <section class="ranking-panel ranking-panel--accent">
+      <section class="ranking-panel ranking-panel--accent ranking-panel--compact">
         <header class="panel-header">
           <h3>年度歌曲榜</h3>
           <span>{{ songRanking.length }} 首歌曲</span>
