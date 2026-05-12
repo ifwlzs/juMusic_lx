@@ -23,8 +23,8 @@ def test_build_year_report_includes_confirmed_pages_in_order():
 
     report = module.build_year_report({'year': 2025})
     page_ids = [page['page_id'] for page in report['pages']]
-    # L04 已拆成连续两页，最终输出中不应再出现旧页号。
-    expected_sequence = ['P20', 'P21', 'P22', 'P23', 'P24', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L04A', 'L04B', 'L02', 'L03', 'P32']
+    # P32 已前移到 P31 后，L04 仍拆成连续两页，最终输出中不应再出现旧页号。
+    expected_sequence = ['P20', 'P21', 'P22', 'P23', 'P24', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32', 'L01', 'L04A', 'L04B', 'L02', 'L03']
 
     indices = [page_ids.index(page_id) for page_id in expected_sequence]
 
@@ -485,10 +485,10 @@ def test_build_year_report_aggregates_p26_to_p30_song_and_artist_pages():
     assert [item['artist_display'] for item in p29['artist_ranking']] == ['不才', 'YOASOBI']
     assert p29['artist_ranking'][1]['rank'] == 2
 
-    # P30 应按年份分组展示各年的歌手冠军榜。
+    # P30 应按年份展示各年的歌手冠军，且每年只保留一位冠军歌手。
     assert [item['year'] for item in p30['yearly_artist_ranking']] == [2024, 2025]
-    assert p30['yearly_artist_ranking'][0]['ranking'][0]['artist_display'] == 'Aimer'
-    assert p30['yearly_artist_ranking'][1]['ranking'][0]['artist_display'] == '不才'
+    assert p30['yearly_artist_ranking'][0]['artist_display'] == 'Aimer'
+    assert p30['yearly_artist_ranking'][1]['artist_display'] == '不才'
 
 
 def test_build_year_report_aggregates_l04a_and_l04b_rankings_and_limits_top10():
@@ -851,6 +851,45 @@ def test_build_year_report_uses_genre_matches_for_genre_coverage_when_primary_is
 
     # 即使旧字段 primary_genre 缺失，只要曲风映射表中存在候选结果，也应视为已识别曲风。
     assert p31['coverage']['genre_ratio'] == 0.5
+
+
+def test_build_year_report_keeps_only_recent_ten_year_artist_winners():
+    module = load_module()
+
+    play_history = []
+    for year in range(2014, 2026):
+        play_history.extend([
+            {
+                'year': year,
+                'track_id': f'winner-{year}',
+                'track_title': f'冠军曲 {year}',
+                'artist_display': f'冠军歌手 {year}',
+                'album_display': f'冠军专辑 {year}',
+                'play_count': 9,
+                'active_days': 4,
+                'listened_sec': 1000,
+            },
+            {
+                'year': year,
+                'track_id': f'runner-{year}',
+                'track_title': f'亚军曲 {year}',
+                'artist_display': f'亚军歌手 {year}',
+                'album_display': f'亚军专辑 {year}',
+                'play_count': 5,
+                'active_days': 3,
+                'listened_sec': 900,
+            },
+        ])
+
+    report = module.build_year_report({
+        'year': 2026,
+        'play_history': play_history,
+    })
+    p30 = {page['page_id']: page for page in report['pages']}['P30']
+
+    assert [item['year'] for item in p30['yearly_artist_ranking']] == list(range(2016, 2026))
+    assert all(item['artist_display'].startswith('冠军歌手 ') for item in p30['yearly_artist_ranking'])
+    assert all('ranking' not in item for item in p30['yearly_artist_ranking'])
 
 
 def test_build_year_report_cli_writes_output_json(tmp_path):

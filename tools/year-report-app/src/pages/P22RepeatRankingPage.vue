@@ -14,16 +14,19 @@
         </header>
         <ol class="ranking-list">
           <li
-            v-for="item in repeatRanking"
+            v-for="(item, index) in repeatRanking"
             :key="`${item.rank || 0}-${item.track_title}`"
-            class="ranking-item"
+            class="repeat-ranking-item artist-ranking-list-item ranking-item"
           >
-            <div class="artist-ranking-item-copy">
-              <strong>{{ item.track_title || '未知歌曲' }}</strong>
-              <small>
-                {{ item.artist_display || '未知歌手' }}
-                · {{ item.play_count || 0 }} 次 / {{ item.active_days || 0 }} 天
-              </small>
+            <div class="artist-ranking-item-main">
+              <span class="artist-ranking-list-rank">#{{ item.rank || index + 1 }}</span>
+              <div class="artist-ranking-item-copy">
+                <strong>{{ item.track_title || '未知歌曲' }}</strong>
+                <small class="artist-ranking-item-copy--wrap">
+                  {{ item.artist_display || '未知歌手' }}
+                  · {{ item.play_count || 0 }} 次 / {{ item.active_days || 0 }} 天
+                </small>
+              </div>
             </div>
             <span>{{ formatRepeatIndex(item.repeat_index) }}</span>
           </li>

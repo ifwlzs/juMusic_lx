@@ -20,7 +20,7 @@ from urllib.parse import unquote, urlparse
 MOBILE_PAGE_ORDER = [
     'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
     'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-    'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+    'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'P32', 'L01', 'L02', 'L03', 'L04A', 'L04B',
 ]
 
 
@@ -228,12 +228,12 @@ def build_year_report_contract(raw_report: dict[str, Any] | None = None) -> dict
         _build_p29_page(context),
         _build_p30_page(context),
         _build_p31_page(context),
+        _build_p32_page(context),
         _build_l01_page(context),
         _build_l02_page(context),
         _build_l03_page(context),
         _build_l04a_page(context),
         _build_l04b_page(context),
-        _build_p32_page(context),
     ]
     return {
         'meta': {
@@ -634,7 +634,7 @@ def _build_season_page(context: _BuilderContext, page_id: str, season_key: str) 
     """按四季同构模板输出四页最爱歌曲。"""
     year_rows = _filter_year_rows(context['play_history'], context['year'])
     season_rows = [row for row in year_rows if _resolve_season_from_row(row) == season_key]
-    favorite_track = _build_track_spotlight(season_rows, context, sort_by='listened_sec')
+    favorite_track = _build_track_spotlight(season_rows, context, sort_by='play_count')
     season_label_map = {
         'spring': '春',
         'summer': '夏',
@@ -967,12 +967,12 @@ def _build_p29_page(context: _BuilderContext) -> dict[str, Any]:
 
 
 def _build_p30_page(context: _BuilderContext) -> dict[str, Any]:
-    """构建历年歌手榜页，按年份展示歌手冠军与前列榜单。"""
+    """构建历年歌手榜页，仅展示近十年每年的冠军歌手。"""
     p30_page = context['analytics_page_map'].get('P30') or {}
     payload = {
         'yearly_artist_ranking': list(p30_page.get('yearly_artist_ranking', []) or []),
     }
-    summary_text = p30_page.get('summary_text') or '按年份回看历年的歌手冠军与陪伴轨迹。'
+    summary_text = p30_page.get('summary_text') or '按年份回看近十年里每一年的歌手冠军。'
     return _build_page_shell('P30', context['year'], summary_text, payload)
 
 
@@ -1470,6 +1470,11 @@ def _build_track_spotlight(
 
     if sort_by == 'listened_sec':
         ranking = sorted(ranking, key=lambda item: (-item['listened_sec'], -item['play_count'], item['track_title']))
+    elif sort_by == 'play_count':
+        ranking = sorted(
+            ranking,
+            key=lambda item: (-item['play_count'], -item['active_days'], -item['listened_sec'], item['track_title']),
+        )
     else:
         ranking = sorted(
             ranking,

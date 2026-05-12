@@ -1,13 +1,13 @@
 <template>
   <ReportPageShell :page="page">
-    <div class="stats-layout">
-      <div class="hero-copy">
+    <div class="stats-layout stats-layout--dense">
+      <div class="hero-copy hero-copy--compact">
         <p class="hero-tag">Year summary</p>
         <h2 class="hero-title">{{ page.title }}</h2>
         <p class="hero-subtitle">把深夜、专辑、扩坑和曲库结构收束成四张短卡，给这一年一个结尾。</p>
       </div>
 
-      <section class="summary-card-grid">
+      <section class="summary-card-grid summary-card-grid--two">
         <article
           v-for="item in summaryCards"
           :key="item.card_id || item.headline"
