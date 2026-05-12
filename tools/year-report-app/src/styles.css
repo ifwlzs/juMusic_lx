@@ -1215,6 +1215,7 @@ select {
 ) .page-shell {
   gap: 10px;
   padding: 18px 0 0;
+  min-height: calc(var(--page-design-height, 844px) - var(--report-page-padding-top, 22px) - var(--report-page-padding-bottom, 28px));
 }
 
 .report-page:is(
@@ -1419,6 +1420,7 @@ select {
 ) .ranking-item {
   gap: 8px;
   padding: 7px 0;
+  min-height: 45px;
 }
 
 .report-page:is(
@@ -1533,6 +1535,74 @@ select {
 ) .artist-ranking-item-copy small {
   font-size: 10px;
   line-height: 1.2;
+}
+
+/* P22 文案最长，单独再紧一点，给榜单条目腾空间，避免它成为唯一爆页。 */
+.report-page[data-page-id='P22'] .page-shell {
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.report-page[data-page-id='P22'] .hero-copy {
+  gap: 4px;
+}
+
+.report-page[data-page-id='P22'] .hero-title {
+  font-size: 23px;
+}
+
+.report-page[data-page-id='P22'] .hero-subtitle {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.report-page[data-page-id='P22'] .page-summary-card {
+  padding: 7px 9px;
+}
+
+.report-page[data-page-id='P22'] .page-summary {
+  font-size: 10px;
+}
+
+.report-page[data-page-id='P22'] .ranking-panel {
+  padding: 10px 12px;
+}
+
+/* P22 之外的 10 条榜单页可以略微放松一点，但仍保持单屏。 */
+.report-page:is(
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-panel,
+.report-page:is(
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-list-card {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.report-page:is(
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .panel-header {
+  margin-bottom: 9px;
+}
+
+.report-page:is(
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-item {
+  min-height: 46px;
+  padding-top: 7.5px;
+  padding-bottom: 7.5px;
 }
 
 .time-preference-hero-card {

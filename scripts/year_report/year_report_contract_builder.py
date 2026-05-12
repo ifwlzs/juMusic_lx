@@ -159,10 +159,13 @@ STOPWORDS = {
     '我们', '你们', '他们', '一个', '没有', '可以', '如果', '还是', '已经', '只是',
     '然后', '不是', '自己', '真的', '以及', '继续', '一起', '只要', '时候', '地方',
     '歌曲', '歌手', '专辑', '试听', '播放', '年度', 'musiclx', 'jumusic',
-    'lavf', 'cover', 'ver', 'remix', '作词', '作曲', '编曲', '词', '曲',
+    'lavf', 'cover', 'ver', 'remix', 'vocaloid', 'feat', 'ft', 'vs',
+    '翻自', '翻唱', '原唱', '调教', '本家', '作词', '作曲', '编曲', '词', '曲',
 }
 CHINESE_RE = re.compile(r'[\u4e00-\u9fff]{2,8}')
 LATIN_RE = re.compile(r"[A-Za-z][A-Za-z'\-]{2,}")
+BRACKETED_SEGMENT_RE = re.compile(r'\[[^\]]*\]|【[^】]*】|\([^)]*\)|（[^）]*）')
+TITLE_PREFIX_DELIMITER_RE = re.compile(r'^\s*(?P<prefix>[^—–\-|｜]{1,80}?)\s*[-—–|｜]\s*(?P<body>.+?)\s*$')
 GENRE_LABEL_FALLBACKS = {
     'J-Pop': '日系流行',
     'Pop---J-pop': '日系流行',
@@ -1492,14 +1495,22 @@ def _extract_keywords(context: _BuilderContext) -> list[dict[str, Any]]:
     ] or [
         row for row in _filter_year_rows(context['play_history'], context['year'])
     ]
+    # 先汇总本年歌曲涉及到的歌手别名，后续统一从关键词里剔除歌手名。
+    blocked_artist_tokens = _collect_year_artist_keyword_aliases(track_rows)
 
     for row in track_rows:
+        # 标题里经常混入 “歌手 - 标题 / 【VOCALOID COVER】/（翻自 xxx）” 之类元信息，
+        # 先清洗掉这部分，再参与关键词提取。
         source_pairs = [
             ('lyric', row.get('lyric_text') or ''),
-            ('title', row.get('track_title') or ''),
+            ('title', _sanitize_title_for_keyword_source(row.get('track_title') or '', row.get('artist_display'))),
         ]
         for source_type, source_text in source_pairs:
-            tokens = set(_extract_tokens(str(source_text or ''), source_type=source_type))
+            tokens = {
+                token
+                for token in _extract_tokens(str(source_text or ''), source_type=source_type)
+                if token not in blocked_artist_tokens
+            }
             for token in tokens:
                 token_counter[token] += 1
                 if token not in representative_map:
@@ -1518,7 +1529,95 @@ def _extract_keywords(context: _BuilderContext) -> list[dict[str, Any]]:
             'source_type': representative_map[token]['source_type'],
         }
         for token, count in token_counter.most_common(12)
-    ]
+    ]        
+
+
+def _normalize_keyword_compare_text(value: Any) -> str:
+    """把标题/歌手名归一成便于比较的形式，统一忽略大小写与多余空白。"""
+    normalized = str(value or '').strip().lower()
+    normalized = re.sub(r'\s+', ' ', normalized)
+    return normalized
+
+
+def _split_artist_display_for_keywords(raw_artist_display: Any) -> list[str]:
+    """把歌手展示串拆成多个名字，供标题清洗与歌手词过滤共用。"""
+    if not isinstance(raw_artist_display, str) or not raw_artist_display.strip():
+        return []
+    normalized_value = str(raw_artist_display).replace('；', ';').replace('／', '/')
+    normalized_value = re.sub(r'(?i)\s+(?:feat\.?|ft\.?|vs\.?)\s+', ';', normalized_value)
+    normalized_value = normalized_value.replace('&', ';').replace('、', ';').replace(',', ';').replace('/', ';')
+
+    result = []
+    seen = set()
+    for part in normalized_value.split(';'):
+        normalized_part = str(part or '').strip()
+        if not normalized_part or normalized_part in seen:
+            continue
+        seen.add(normalized_part)
+        result.append(normalized_part)
+    return result
+
+
+def _build_artist_keyword_aliases(raw_artist_display: Any) -> set[str]:
+    """从歌手名生成可过滤的别名集合，兼顾完整名字与中文主体词。"""
+    aliases: set[str] = set()
+    for artist_name in _split_artist_display_for_keywords(raw_artist_display):
+        normalized_name = _normalize_keyword_compare_text(artist_name)
+        if normalized_name:
+            aliases.add(normalized_name)
+        for chinese_token in CHINESE_RE.findall(artist_name):
+            if chinese_token not in STOPWORDS:
+                aliases.add(chinese_token)
+    return aliases
+
+
+def _collect_year_artist_keyword_aliases(rows: list[dict[str, Any]]) -> set[str]:
+    """汇总本年歌曲的歌手别名，保证关键词云不再把歌手名当作主题词。"""
+    aliases: set[str] = set()
+    for row in rows:
+        aliases.update(_build_artist_keyword_aliases(row.get('artist_display')))
+    return aliases
+
+
+def _should_strip_title_segment(segment_text: str, artist_aliases: set[str]) -> bool:
+    """判断标题括号片段是否属于歌手/翻唱/版本等元信息。"""
+    normalized_segment = _normalize_keyword_compare_text(segment_text)
+    if not normalized_segment:
+        return True
+
+    metadata_markers = (
+        'cover', 'vocaloid', 'feat', 'ft', 'vs', 'ver', 'version', 'remix',
+        '翻自', '翻唱', '原唱', '调教', '本家', '作词', '作曲', '编曲',
+    )
+    if any(marker in normalized_segment for marker in metadata_markers):
+        return True
+    return any(alias and alias in normalized_segment for alias in artist_aliases)
+
+
+def _sanitize_title_for_keyword_source(track_title: Any, artist_display: Any) -> str:
+    """清洗歌名里的歌手前缀与元信息，只保留适合做关键词的标题主体。"""
+    title_text = str(track_title or '')
+    if not title_text.strip():
+        return ''
+
+    artist_aliases = _build_artist_keyword_aliases(artist_display)
+    full_artist_names = {
+        _normalize_keyword_compare_text(artist_name)
+        for artist_name in _split_artist_display_for_keywords(artist_display)
+    }
+
+    prefix_match = TITLE_PREFIX_DELIMITER_RE.match(title_text)
+    if prefix_match and _normalize_keyword_compare_text(prefix_match.group('prefix')) in full_artist_names:
+        title_text = prefix_match.group('body')
+
+    def _replace_bracketed_segment(match: re.Match[str]) -> str:
+        segment = match.group(0)[1:-1]
+        return ' ' if _should_strip_title_segment(segment, artist_aliases) else f' {segment} '
+
+    title_text = BRACKETED_SEGMENT_RE.sub(_replace_bracketed_segment, title_text)
+    title_text = re.sub(r'(?i)\b(?:vocaloid|cover|feat|ft|vs|ver|version|remix)\b', ' ', title_text)
+    title_text = re.sub(r'(?:翻自|翻唱|原唱|调教|本家|作词|作曲|编曲)', ' ', title_text)
+    return re.sub(r'\s+', ' ', title_text).strip()
 
 
 def _extract_tokens(text: str, source_type: str = 'lyric') -> list[str]:
