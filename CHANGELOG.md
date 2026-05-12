@@ -8,6 +8,10 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
+新增
+
+- 年报预览补齐 `P22` / `P26` / `P27` / `P28` / `P29` / `P30` / `P31` / `L01` / `L02` / `L03` / `L04A` / `L04B` / `P32` 页面链路与真实数据契约，恢复移动端年报完整预览
+
 修复
 
 - 修复播放页背景在部分设备上容易出现马赛克感和硬边压框的问题，改为更接近预览模板的多层模糊与平滑压边渲染
@@ -29,6 +33,8 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复同一连接下生成歌单重名时列表出现多个同名项难区分的问题，重名将自动追加序号后缀（如 `（2）`）
 - 修复播放页“歌词时间轴偏移”设置弹窗按钮文本在 Android 上触发 `Text strings must be rendered within a <Text>` 崩溃的问题
 - 修复切换应用图标后 Android 通知栏（播放通知 / 媒体库同步通知）小图标仍停留旧图标的问题，改为按当前 `common.appIcon` 动态刷新
+- 修复年报导出与预览中部分榜单页高度过高、导致 `P22` / `P26` / `P29` / `L04A` / `L04B` 无法稳定单页展示的问题，统一压缩页壳、榜单项与页脚摘要
+- 修复基础歌曲听歌记录补录链路仅依赖 juMusic 导出的问题，新增 Emby Playback Reporting 数据源并与现有记录合并
 
 新增
 
@@ -38,6 +44,8 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - `scripts/music_etl/load_music_info.py` 新增 ODS 自动补曲风链路，支持 VM 共享目录映射、Essentia 多候选曲风回写、分批超时控制与失败跳过
 - 播放页新增歌词时间轴偏移设置，支持 `-5000ms ~ +5000ms` 范围与快捷步进调整，修改后即时生效
 - 新增 `scripts/year_report/build_year_report.py` 年报 Python 骨架与字段 contract，补齐 `P20` / `P23` / `P24` / `L02` / `P32` 的最小可用聚合
+- 新增年报导出与预览的页面压缩样式，确保 Top10 榜单页在 844px 视口内稳定单屏展示
+- 新增基础歌曲听歌记录的 Emby Playback Reporting 补录脚本与播放来源字段，支持 `juMusic` / `Emby` 双来源
 
 优化
 

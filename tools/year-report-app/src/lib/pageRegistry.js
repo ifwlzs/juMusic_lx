@@ -16,9 +16,17 @@ import P18CalendarHeatmapPage from '@/pages/P18CalendarHeatmapPage.vue'
 import P19TimePreferencePage from '@/pages/P19TimePreferencePage.vue'
 import P20LateNightHeroPage from '@/pages/P20LateNightHeroPage.vue'
 import P21TimelineNightPage from '@/pages/P21TimelineNightPage.vue'
+import P22RepeatRankingPage from '@/pages/P22RepeatRankingPage.vue'
 import P23AlbumHeroPage from '@/pages/P23AlbumHeroPage.vue'
 import P24AlbumRankingPage from '@/pages/P24AlbumRankingPage.vue'
 import P25SongHeroPage from '@/pages/P25SongHeroPage.vue'
+import P26SongRankingPage from '@/pages/P26SongRankingPage.vue'
+import P27ArtistRankingPage from '@/pages/P27ArtistRankingPage.vue'
+import P28ArtistJourneyPage from '@/pages/P28ArtistJourneyPage.vue'
+import P29ArtistRankingDetailPage from '@/pages/P29ArtistRankingDetailPage.vue'
+import P30ArtistYearlyRankingPage from '@/pages/P30ArtistYearlyRankingPage.vue'
+import P31LibraryCoveragePage from '@/pages/P31LibraryCoveragePage.vue'
+import L01LibraryOverviewPage from '@/pages/L01LibraryOverviewPage.vue'
 import L02LibraryGrowthPage from '@/pages/L02LibraryGrowthPage.vue'
 import L03LibraryStructurePage from '@/pages/L03LibraryStructurePage.vue'
 import L04LibraryArtistRankingPage from '@/pages/L04LibraryArtistRankingPage.vue'
@@ -50,9 +58,17 @@ const PAGE_COMPONENT_MAP = {
   'P19': P19TimePreferencePage,
   'P20': P20LateNightHeroPage,
   'P21': P21TimelineNightPage,
+  'P22': P22RepeatRankingPage,
   'P23': P23AlbumHeroPage,
   'P24': P24AlbumRankingPage,
   'P25': P25SongHeroPage,
+  'P26': P26SongRankingPage,
+  'P27': P27ArtistRankingPage,
+  'P28': P28ArtistJourneyPage,
+  'P29': P29ArtistRankingDetailPage,
+  'P30': P30ArtistYearlyRankingPage,
+  'P31': P31LibraryCoveragePage,
+  'L01': L01LibraryOverviewPage,
   'L02': L02LibraryGrowthPage,
   'L03': L03LibraryStructurePage,
   // L04 拆成两个终态页面，分别承接曲库榜与年度新增榜。

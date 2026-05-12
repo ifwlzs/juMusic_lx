@@ -1205,6 +1205,336 @@ select {
   line-height: 1.5;
 }
 
+/* 这些 Top10 榜单页要稳定压进单屏，避免预览/导出时再次出现二屏滚动。 */
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-shell {
+  gap: 10px;
+  padding: 18px 0 0;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-header {
+  gap: 8px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-kicker,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .hero-tag {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-id {
+  padding: 5px 9px;
+  font-size: 10px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-footer {
+  padding-bottom: 0;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-summary-card {
+  padding: 8px 10px;
+  border-radius: 16px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .page-summary {
+  font-size: 11px;
+  line-height: 1.35;
+  padding-inline: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .stats-layout,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .hero-layout,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-page {
+  gap: 10px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .hero-copy,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .hero-copy--editorial {
+  gap: 5px;
+  padding-inline: 0;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .hero-title {
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .hero-subtitle {
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-panel,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-list-card {
+  padding: 10px 12px;
+  border-radius: 20px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .panel-header {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .panel-header h3 {
+  font-size: 14px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .panel-header span {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-item {
+  gap: 8px;
+  padding: 7px 0;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-item > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-item strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-item > span:last-child {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-main,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-hero-meta {
+  gap: 8px;
+  min-width: 0;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-list-item {
+  align-items: center;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-list-rank {
+  padding: 4px 7px;
+  font-size: 10px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 2px;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-copy strong,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-copy small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-copy small {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
 .time-preference-hero-card {
   padding: 16px;
   border: 1px solid rgba(122, 132, 166, 0.14);

@@ -24,7 +24,7 @@ def test_build_year_report_includes_confirmed_pages_in_order():
     report = module.build_year_report({'year': 2025})
     page_ids = [page['page_id'] for page in report['pages']]
     # L04 已拆成连续两页，最终输出中不应再出现旧页号。
-    expected_sequence = ['P20', 'P21', 'P23', 'P24', 'P31', 'L01', 'L04A', 'L04B', 'L02', 'L03', 'P32']
+    expected_sequence = ['P20', 'P21', 'P22', 'P23', 'P24', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L04A', 'L04B', 'L02', 'L03', 'P32']
 
     indices = [page_ids.index(page_id) for page_id in expected_sequence]
 
@@ -42,17 +42,32 @@ def test_build_year_report_exposes_minimum_contract_for_priority_pages():
     assert pages['P21']['title']
     assert isinstance(pages['P21']['latest_night_history'], list)
     assert 'summary_text' in pages['P21']
+    assert pages['P22']['title'] == '反复聆听'
+    assert isinstance(pages['P22']['repeat_ranking'], list)
 
     assert pages['P31']['title']
     assert isinstance(pages['P31']['coverage'], dict)
     assert isinstance(pages['P31']['cover_color_summary'], dict)
     assert isinstance(pages['P31']['cover_color_summary']['top_colors'], list)
+    assert isinstance(pages['P31']['source_distribution'], dict)
+    assert isinstance(pages['P31']['source_distribution']['system_distribution'], list)
+    assert isinstance(pages['P31']['source_distribution']['device_distribution'], list)
 
     # L04A/L04B 统一使用 ranking 字段，便于 contract builder 直接映射 payload.ranking。
     assert pages['L04A']['title'] == '歌曲库歌手榜'
     assert isinstance(pages['L04A']['ranking'], list)
     assert pages['L04B']['title'] == '年度新增歌手榜'
     assert isinstance(pages['L04B']['ranking'], list)
+    assert pages['P26']['title'] == '年度歌曲榜单'
+    assert isinstance(pages['P26']['song_ranking'], list)
+    assert pages['P27']['title'] == '年度歌手页'
+    assert isinstance(pages['P27']['artist_ranking'], list)
+    assert pages['P28']['title'] == '与年度歌手的轨迹'
+    assert isinstance(pages['P28']['artist_journey'], dict)
+    assert pages['P29']['title'] == '年度最爱歌手榜单'
+    assert isinstance(pages['P29']['artist_ranking'], list)
+    assert pages['P30']['title'] == '历年歌手榜'
+    assert isinstance(pages['P30']['yearly_artist_ranking'], list)
     assert 'L04' not in pages
 
 
@@ -167,6 +182,28 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
 
     report = module.build_year_report({
         'year': 2025,
+        'play_history': [
+            {
+                'year': 2025,
+                'track_id': 't1',
+                'play_count': 20,
+                'listened_sec': 3600,
+                'source_system': 'jumusic',
+                'source_client_name': 'juMusic',
+                'source_device_name': 'mobile',
+                'source_playback_method': None,
+            },
+            {
+                'year': 2025,
+                'track_id': 't2',
+                'play_count': 10,
+                'listened_sec': 1800,
+                'source_system': 'emby',
+                'source_client_name': 'Emby Web',
+                'source_device_name': 'Edge Windows',
+                'source_playback_method': 'DirectPlay',
+            },
+        ],
         'library_tracks': [
             {
                 'track_id': 't1',
@@ -228,6 +265,10 @@ def test_build_year_report_aggregates_p31_coverage_and_cover_colors():
     assert p31['cover_color_summary']['excluded_track_total'] == 1
     assert p31['cover_color_summary']['top_colors'][0]['color_hex'] == '#112233'
     assert p31['cover_color_summary']['top_colors'][0]['track_count'] == 2
+    assert p31['source_distribution']['system_distribution'][0]['bucket_label'] == 'juMusic'
+    assert p31['source_distribution']['system_distribution'][0]['play_count'] == 20
+    assert p31['source_distribution']['device_distribution'][1]['bucket_label'] == 'Edge Windows'
+    assert p31['source_distribution']['playback_method_distribution'][0]['bucket_label'] == 'DirectPlay'
 
 
 
@@ -294,6 +335,160 @@ def test_build_year_report_aggregates_p23_top_album_and_p24_album_ranking():
     assert [item['album_display'] for item in p24['album_ranking']] == ['Album A', 'Album B']
     assert p24['album_ranking'][0]['rank'] == 1
     assert p24['album_ranking'][1]['rank'] == 2
+
+
+def test_build_year_report_aggregates_p22_repeat_ranking_by_repeat_index():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2025,
+        'play_history': [
+            {
+                'year': 2025,
+                'track_id': 't1',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 12,
+                'active_days': 3,
+                'listened_sec': 2400,
+                'cover_path': 'covers/t1.jpg',
+            },
+            {
+                'year': 2025,
+                'track_id': 't2',
+                'track_title': '群青',
+                'artist_display': 'YOASOBI',
+                'album_display': 'THE BOOK',
+                'play_count': 10,
+                'active_days': 5,
+                'listened_sec': 1800,
+                'cover_path': 'covers/t2.jpg',
+            },
+            {
+                'year': 2025,
+                'track_id': 't3',
+                'track_title': '若月亮没来',
+                'artist_display': '王宇宙Leto',
+                'album_display': '若月亮没来',
+                'play_count': 8,
+                'active_days': 2,
+                'listened_sec': 1600,
+                'cover_path': 'covers/t3.jpg',
+            },
+        ],
+    })
+    p22 = {page['page_id']: page for page in report['pages']}['P22']
+
+    assert [item['track_title'] for item in p22['repeat_ranking']] == ['夜航星', '若月亮没来', '群青']
+    assert p22['repeat_ranking'][0]['repeat_index'] == 4.0
+    assert p22['repeat_ranking'][1]['repeat_index'] == 4.0
+    assert p22['repeat_ranking'][0]['rank'] == 1
+    assert p22['repeat_ranking'][1]['rank'] == 2
+
+
+def test_build_year_report_aggregates_p26_to_p30_song_and_artist_pages():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2025,
+        'play_history': [
+            {
+                'year': 2024,
+                'played_at': '2024-02-14 20:00:00',
+                'track_id': 't1',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 2,
+                'active_days': 2,
+                'listened_sec': 360,
+                'cover_path': 'covers/t1.jpg',
+            },
+            {
+                'year': 2024,
+                'played_at': '2024-06-01 08:30:00',
+                'track_id': 't4',
+                'track_title': 'Polaris',
+                'artist_display': 'Aimer',
+                'album_display': 'Sun Dance',
+                'play_count': 4,
+                'active_days': 3,
+                'listened_sec': 600,
+                'cover_path': 'covers/t4.jpg',
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-03-08 21:10:00',
+                'track_id': 't1',
+                'track_title': '夜航星',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 15,
+                'active_days': 12,
+                'listened_sec': 2600,
+                'cover_path': 'covers/t1.jpg',
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-08-01 20:00:00',
+                'track_id': 't3',
+                'track_title': '山止川行',
+                'artist_display': '不才',
+                'album_display': '不才作品集',
+                'play_count': 6,
+                'active_days': 5,
+                'listened_sec': 900,
+                'cover_path': 'covers/t3.jpg',
+            },
+            {
+                'year': 2025,
+                'played_at': '2025-06-18 20:30:00',
+                'track_id': 't2',
+                'track_title': '群青',
+                'artist_display': 'YOASOBI',
+                'album_display': 'THE BOOK',
+                'play_count': 11,
+                'active_days': 7,
+                'listened_sec': 1800,
+                'cover_path': 'covers/t2.jpg',
+            },
+        ],
+    })
+    pages = {page['page_id']: page for page in report['pages']}
+    p26 = pages['P26']
+    p27 = pages['P27']
+    p28 = pages['P28']
+    p29 = pages['P29']
+    p30 = pages['P30']
+
+    # P26 应输出年度歌曲榜，且榜首仍然是综合分最高的歌曲。
+    assert [item['track_title'] for item in p26['song_ranking']] == ['夜航星', '群青', '山止川行']
+    assert p26['song_ranking'][0]['rank'] == 1
+    assert p26['song_ranking'][0]['artist_display'] == '不才'
+    assert p26['song_ranking'][0]['score'] > p26['song_ranking'][1]['score']
+
+    # P27 应输出年度歌手页使用的歌手冠军与榜单数据。
+    assert p27['artist_ranking'][0]['rank'] == 1
+    assert p27['artist_ranking'][0]['artist_display'] == '不才'
+    assert p27['artist_ranking'][0]['play_total'] == 21
+    assert p27['artist_ranking'][0]['top_track_title'] == '夜航星'
+
+    # P28 应围绕年度歌手给出首次相遇与最高峰值日期。
+    assert p28['artist_journey']['artist_display'] == '不才'
+    assert p28['artist_journey']['first_played_at'] == '2024-02-14 20:00:00'
+    assert p28['artist_journey']['first_track']['track_title'] == '夜航星'
+    assert p28['artist_journey']['peak_day']['date'] == '2025-03-08'
+    assert p28['artist_journey']['peak_day']['play_total'] == 15
+
+    # P29 应展开年度最爱歌手榜单明细。
+    assert [item['artist_display'] for item in p29['artist_ranking']] == ['不才', 'YOASOBI']
+    assert p29['artist_ranking'][1]['rank'] == 2
+
+    # P30 应按年份分组展示各年的歌手冠军榜。
+    assert [item['year'] for item in p30['yearly_artist_ranking']] == [2024, 2025]
+    assert p30['yearly_artist_ranking'][0]['ranking'][0]['artist_display'] == 'Aimer'
+    assert p30['yearly_artist_ranking'][1]['ranking'][0]['artist_display'] == '不才'
 
 
 def test_build_year_report_aggregates_l04a_and_l04b_rankings_and_limits_top10():
@@ -441,17 +636,48 @@ def test_build_year_report_supports_primary_and_weighted_genre_views():
 
     # 主曲风口径应取每首歌最高置信度的曲风，并保留无映射歌曲的原始主曲风。
     assert l03['primary_genre_distribution'] == [
-        {'genre_name': 'Anime', 'track_count': 1},
-        {'genre_name': 'Pop', 'track_count': 1},
-        {'genre_name': 'Vocaloid', 'track_count': 1},
+        {'genre_name': 'Anime', 'genre_name_zh': '动漫', 'track_count': 1},
+        {'genre_name': 'Pop', 'genre_name_zh': '流行', 'track_count': 1},
+        {'genre_name': 'Vocaloid', 'genre_name_zh': 'Vocaloid', 'track_count': 1},
     ]
     # 加权口径应把同一首歌的多个候选曲风都累加进来，按置信度折算歌曲条数。
     assert l03['weighted_genre_distribution'] == [
-        {'genre_name': 'Anime', 'weighted_track_count': 1.01},
-        {'genre_name': 'Vocaloid', 'weighted_track_count': 1.0},
-        {'genre_name': 'Pop', 'weighted_track_count': 0.82},
-        {'genre_name': 'Rock', 'weighted_track_count': 0.11},
+        {'genre_name': 'Anime', 'genre_name_zh': '动漫', 'weighted_track_count': 1.01},
+        {'genre_name': 'Vocaloid', 'genre_name_zh': 'Vocaloid', 'weighted_track_count': 1.0},
+        {'genre_name': 'Pop', 'genre_name_zh': '流行', 'weighted_track_count': 0.82},
+        {'genre_name': 'Rock', 'genre_name_zh': '摇滚', 'weighted_track_count': 0.11},
     ]
+
+
+def test_build_year_report_l03_emits_chinese_genre_labels_for_library_structure():
+    module = load_module()
+
+    report = module.build_year_report({
+        'year': 2026,
+        'library_tracks': [
+            {
+                'track_id': 'track-1',
+                'track_title': '月亮备忘录',
+                'artist_display': '歌手A',
+                'primary_genre': 'Pop---J-pop',
+                'language_norm': '日语',
+                'first_added_year': 2026,
+            },
+        ],
+        'genre_matches': [
+            {
+                'track_id': 'track-1',
+                'genre_name': 'Pop---J-pop',
+                'match_score': 0.9,
+            },
+        ],
+    })
+    l03 = {page['page_id']: page for page in report['pages']}['L03']
+
+    assert l03['primary_genre_distribution'][0]['genre_name'] == 'Pop---J-pop'
+    assert l03['primary_genre_distribution'][0]['genre_name_zh'] == '日系流行'
+    assert l03['weighted_genre_distribution'][0]['genre_name'] == 'Pop---J-pop'
+    assert l03['weighted_genre_distribution'][0]['genre_name_zh'] == '日系流行'
 
 
 def test_build_year_report_aggregates_language_distribution_from_language_norm():
@@ -570,6 +796,18 @@ def test_build_year_report_builds_p32_summary_cards_from_existing_sections():
                 'track_title': 'Add B',
             },
         ],
+        'genre_matches': [
+            {
+                'track_id': 'n1',
+                'genre_name': 'Pop---J-pop',
+                'match_score': 0.91,
+            },
+            {
+                'track_id': 'n2',
+                'genre_name': 'Anime',
+                'match_score': 0.46,
+            },
+        ],
     })
     p32 = {page['page_id']: page for page in report['pages']}['P32']
 
@@ -580,6 +818,9 @@ def test_build_year_report_builds_p32_summary_cards_from_existing_sections():
     assert 'top-new-artist' in card_ids
     assert 'library-structure' in card_ids
     assert p32['summary_text']
+
+    structure_card = next(card for card in p32['summary_cards'] if card['card_id'] == 'library-structure')
+    assert structure_card['value'] == '日系流行'
 
 
 def test_build_year_report_uses_genre_matches_for_genre_coverage_when_primary_is_missing():
@@ -610,3 +851,26 @@ def test_build_year_report_uses_genre_matches_for_genre_coverage_when_primary_is
 
     # 即使旧字段 primary_genre 缺失，只要曲风映射表中存在候选结果，也应视为已识别曲风。
     assert p31['coverage']['genre_ratio'] == 0.5
+
+
+def test_build_year_report_cli_writes_output_json(tmp_path):
+    import json
+    import subprocess
+    import sys
+
+    output_path = tmp_path / 'report_preview.json'
+    input_path = tmp_path / 'input.json'
+    input_path.write_text(json.dumps({'year': 2025, 'play_history': [], 'library_tracks': []}), encoding='utf-8')
+
+    completed = subprocess.run(
+        [sys.executable, str(MODULE_PATH), '--input-json', str(input_path), '--output', str(output_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert output_path.exists()
+    payload = json.loads(output_path.read_text(encoding='utf-8'))
+    assert payload['year'] == 2025
+    assert isinstance(payload['pages'], list)
+    assert 'Wrote year report JSON' in completed.stdout

@@ -11,9 +11,17 @@ import P16ArtistHeroPage from '../pages/P16ArtistHeroPage.vue'
 import P18CalendarHeatmapPage from '../pages/P18CalendarHeatmapPage.vue'
 import P19TimePreferencePage from '../pages/P19TimePreferencePage.vue'
 import P21TimelineNightPage from '../pages/P21TimelineNightPage.vue'
+import P22RepeatRankingPage from '../pages/P22RepeatRankingPage.vue'
 import P23AlbumHeroPage from '../pages/P23AlbumHeroPage.vue'
 import P24AlbumRankingPage from '../pages/P24AlbumRankingPage.vue'
 import P25SongHeroPage from '../pages/P25SongHeroPage.vue'
+import P26SongRankingPage from '../pages/P26SongRankingPage.vue'
+import P27ArtistRankingPage from '../pages/P27ArtistRankingPage.vue'
+import P28ArtistJourneyPage from '../pages/P28ArtistJourneyPage.vue'
+import P29ArtistRankingDetailPage from '../pages/P29ArtistRankingDetailPage.vue'
+import P30ArtistYearlyRankingPage from '../pages/P30ArtistYearlyRankingPage.vue'
+import P31LibraryCoveragePage from '../pages/P31LibraryCoveragePage.vue'
+import L01LibraryOverviewPage from '../pages/L01LibraryOverviewPage.vue'
 import L02LibraryGrowthPage from '../pages/L02LibraryGrowthPage.vue'
 import L03LibraryStructurePage from '../pages/L03LibraryStructurePage.vue'
 import L04LibraryArtistRankingPage from '../pages/L04LibraryArtistRankingPage.vue'
@@ -62,6 +70,24 @@ function createArtistRanking(prefix, metricKey, metricLabel) {
   })
 }
 
+// 为 P26/P29 生成稳定的榜单样例，方便验证前端列表与排序结构。
+function createSongRanking() {
+  return [
+    { rank: 1, track_title: '夜航星', artist_display: '不才', album_display: '不才作品集', play_count: 15, active_days: 12, listened_sec: 2600, score: 11.958 },
+    { rank: 2, track_title: '群青', artist_display: 'YOASOBI', album_display: 'THE BOOK', play_count: 11, active_days: 7, listened_sec: 1800, score: 8.925 },
+    { rank: 3, track_title: '若月亮没来', artist_display: '王宇宙Leto', album_display: '若月亮没来', play_count: 9, active_days: 6, listened_sec: 1500, score: 7.312 },
+  ]
+}
+
+// 为 P27/P29 生成年度歌手榜单样例，保证不同页面可以共用同一口径。
+function createYearArtistRanking() {
+  return [
+    { rank: 1, artist_display: '不才', play_total: 21, listened_sec: 3500, track_total: 2, top_track_title: '夜航星' },
+    { rank: 2, artist_display: 'YOASOBI', play_total: 11, listened_sec: 1800, track_total: 1, top_track_title: '群青' },
+    { rank: 3, artist_display: '王宇宙Leto', play_total: 9, listened_sec: 1500, track_total: 1, top_track_title: '若月亮没来' },
+  ]
+}
+
 const sampleContract = {
   meta: {
     year: 2025,
@@ -69,7 +95,7 @@ const sampleContract = {
     page_order: [
       'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10',
       'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20',
-      'P21', 'P23', 'P24', 'P25', 'L02', 'L03', 'L04A', 'L04B', 'P32',
+      'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P31', 'L01', 'L02', 'L03', 'L04A', 'L04B', 'P32',
     ],
   },
   pages: [
@@ -420,6 +446,19 @@ const sampleContract = {
       },
     },
     {
+      page_id: 'P22',
+      template: 'repeat-ranking',
+      title: '反复聆听',
+      summary_text: 'summary',
+      payload: {
+        repeat_ranking: [
+          { rank: 1, track_title: '夜航星', artist_display: '不才', play_count: 12, active_days: 3, repeat_index: 4.0 },
+          { rank: 2, track_title: '若月亮没来', artist_display: '王宇宙Leto', play_count: 8, active_days: 2, repeat_index: 4.0 },
+          { rank: 3, track_title: '群青', artist_display: 'YOASOBI', play_count: 10, active_days: 5, repeat_index: 2.0 },
+        ],
+      },
+    },
+    {
       page_id: 'P01',
       template: 'hero-cover',
       title: '第一次相遇',
@@ -464,6 +503,167 @@ const sampleContract = {
         song_of_year: {
           track_title: '夜航星',
           artist_display: '不才',
+        },
+      },
+    },
+    {
+      page_id: 'P26',
+      template: 'song-ranking',
+      title: '年度歌曲榜单',
+      summary_text: 'summary',
+      payload: {
+        song_ranking: createSongRanking(),
+      },
+    },
+    {
+      page_id: 'P27',
+      template: 'artist-ranking',
+      title: '年度歌手页',
+      summary_text: 'summary',
+      payload: {
+        artist_ranking: createYearArtistRanking(),
+      },
+    },
+    {
+      page_id: 'P28',
+      template: 'artist-journey',
+      title: '与年度歌手的轨迹',
+      summary_text: 'summary',
+      payload: {
+        artist_journey: {
+          artist_display: '不才',
+          first_played_at: '2024-02-14 20:00:00',
+          days_since_first_play: 687,
+          first_track: {
+            track_title: '夜航星',
+            artist_display: '不才',
+            album_display: '不才作品集',
+          },
+          peak_day: {
+            date: '2025-03-08',
+            play_total: 15,
+            track_title: '夜航星',
+          },
+        },
+      },
+    },
+    {
+      page_id: 'P29',
+      template: 'artist-ranking-detail',
+      title: '年度最爱歌手榜单',
+      summary_text: 'summary',
+      payload: {
+        artist_ranking: createYearArtistRanking(),
+      },
+    },
+    {
+      page_id: 'P30',
+      template: 'artist-yearly-ranking',
+      title: '历年歌手榜',
+      summary_text: 'summary',
+      payload: {
+        yearly_artist_ranking: [
+          {
+            year: 2024,
+            ranking: [
+              { rank: 1, artist_display: 'Aimer', play_total: 18, top_track_title: 'Polaris' },
+              { rank: 2, artist_display: 'YOASOBI', play_total: 12, top_track_title: '群青' },
+            ],
+          },
+          {
+            year: 2025,
+            ranking: [
+              { rank: 1, artist_display: '不才', play_total: 21, top_track_title: '夜航星' },
+              { rank: 2, artist_display: 'YOASOBI', play_total: 11, top_track_title: '群青' },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      page_id: 'P31',
+      template: 'library-coverage',
+      title: '元数据完成度与封面颜色',
+      summary_text: 'summary',
+      payload: {
+        coverage: {
+          lyrics_ratio: 0.82,
+          cover_ratio: 0.91,
+          genre_ratio: 0.88,
+          album_ratio: 0.95,
+          artist_ratio: 0.99,
+          duration_ratio: 1,
+          credit_ratio: 0.41,
+        },
+        cover_color_summary: {
+          counted_track_total: 236,
+          excluded_track_total: 14,
+          treemap_total: 94,
+          top_colors: [
+            { color_hex: '#6A8FE8', track_count: 38, representative_track_title: '群青', share_ratio: 0.4043, tone_label: '雾蓝' },
+            { color_hex: '#E6C6B6', track_count: 29, representative_track_title: 'Polaris', share_ratio: 0.3085, tone_label: '奶杏' },
+            { color_hex: '#394B8A', track_count: 27, representative_track_title: '夜航星', share_ratio: 0.2872, tone_label: '夜航蓝' },
+          ],
+        },
+        source_distribution: {
+          system_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby', bucket_label: 'Emby', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          client_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby-web', bucket_label: 'Emby Web', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          device_distribution: [
+            { bucket_key: 'mobile', bucket_label: 'mobile', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'edge-windows', bucket_label: 'Edge Windows', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          playback_method_distribution: [
+            { bucket_key: 'directplay', bucket_label: 'DirectPlay', play_count: 176, listened_sec: 18820, ratio: 1 },
+          ],
+        },
+      },
+    },
+    {
+      page_id: 'L01',
+      template: 'library-overview',
+      title: '歌曲库总览',
+      summary_text: 'summary',
+      payload: {
+        metrics: {
+          track_total: 512,
+          artist_total: 182,
+          album_total: 146,
+          duration_total_sec: 126000,
+          new_track_total: 118,
+          new_artist_total: 42,
+          new_album_total: 31,
+        },
+        coverage: {
+          lyrics_ratio: 0.82,
+          cover_ratio: 0.91,
+          genre_ratio: 0.88,
+          album_ratio: 0.95,
+          artist_ratio: 0.99,
+          duration_ratio: 1,
+          credit_ratio: 0.41,
+        },
+        source_distribution: {
+          system_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby', bucket_label: 'Emby', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          client_distribution: [
+            { bucket_key: 'jumusic', bucket_label: 'juMusic', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'emby-web', bucket_label: 'Emby Web', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          device_distribution: [
+            { bucket_key: 'mobile', bucket_label: 'mobile', play_count: 412, listened_sec: 45210, ratio: 0.7 },
+            { bucket_key: 'edge-windows', bucket_label: 'Edge Windows', play_count: 176, listened_sec: 18820, ratio: 0.3 },
+          ],
+          playback_method_distribution: [
+            { bucket_key: 'directplay', bucket_label: 'DirectPlay', play_count: 176, listened_sec: 18820, ratio: 1 },
+          ],
         },
       },
     },
@@ -564,6 +764,12 @@ describe('App', () => {
     expect(wrapper.text()).toContain('歌曲库歌手榜')
     expect(wrapper.text()).toContain('年度新增歌手榜')
     expect(wrapper.text()).toContain('年度最爱专辑榜')
+    expect(wrapper.text()).toContain('反复聆听')
+    expect(wrapper.text()).toContain('年度歌曲榜单')
+    expect(wrapper.text()).toContain('年度歌手页')
+    expect(wrapper.text()).toContain('与年度歌手的轨迹')
+    expect(wrapper.text()).toContain('年度最爱歌手榜单')
+    expect(wrapper.text()).toContain('历年歌手榜')
     expect(wrapper.text()).toContain('年度新增分析')
     expect(wrapper.text()).toContain('歌曲库结构分析')
     expect(wrapper.text()).toContain('年度总结四格')
@@ -702,8 +908,10 @@ describe('L04 artist ranking pages', () => {
     })
 
     expect(wrapper.find('.artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-page--compact').exists()).toBe(true)
     expect(wrapper.find('.hero-subtitle').text()).toBe('全曲库收藏最多的 10 位歌手')
     expect(wrapper.find('.artist-ranking-list-card').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-list-card--compact').exists()).toBe(true)
     expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(10)
     expect(wrapper.text()).toContain('馆藏歌手 1')
     expect(wrapper.text()).toContain('馆藏歌手 10')
@@ -727,8 +935,10 @@ describe('L04 artist ranking pages', () => {
     })
 
     expect(wrapper.find('.artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-page--compact').exists()).toBe(true)
     expect(wrapper.find('.hero-subtitle').text()).toBe('今年扩坑最多的 10 位歌手')
     expect(wrapper.find('.artist-ranking-list-card').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-list-card--compact').exists()).toBe(true)
     expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(10)
     expect(wrapper.text()).toContain('新增歌手 1')
     expect(wrapper.text()).toContain('新增歌手 10')
@@ -873,7 +1083,7 @@ describe('Sparse page layouts', () => {
           meta: {
             ...sampleContract.meta,
             design_height: 844,
-            page_order: ['P24', 'L02', 'L03', 'P32'],
+            page_order: ['P24', 'P31', 'L01', 'L02', 'L03', 'P32'],
           },
           pages: [
             {
@@ -883,6 +1093,57 @@ describe('Sparse page layouts', () => {
               section: '专辑章节',
               summary_text: 'summary',
               payload: { album_ranking: [{ rank: 1, album_display: 'Album A', artist_display: '歌手A', track_total: 3, play_total: 8 }] },
+            },
+            {
+              page_id: 'P31',
+              template: 'library-coverage',
+              title: '元数据完成度与封面颜色',
+              section: '曲库专题',
+              summary_text: 'summary',
+              payload: {
+                coverage: {
+                  lyrics_ratio: 0.82,
+                  cover_ratio: 0.91,
+                  genre_ratio: 0.88,
+                  album_ratio: 0.95,
+                  artist_ratio: 0.99,
+                  duration_ratio: 1,
+                  credit_ratio: 0.41,
+                },
+                cover_color_summary: {
+                  counted_track_total: 12,
+                  excluded_track_total: 2,
+                  treemap_total: 12,
+                  top_colors: [{ color_hex: '#111111', track_count: 12, representative_track_title: 'Song A', share_ratio: 1, tone_label: '深灰' }],
+                },
+              },
+            },
+            {
+              page_id: 'L01',
+              template: 'library-overview',
+              title: '歌曲库总览',
+              section: '曲库专题',
+              summary_text: 'summary',
+              payload: {
+                metrics: {
+                  track_total: 320,
+                  artist_total: 80,
+                  album_total: 64,
+                  duration_total_sec: 54000,
+                  new_track_total: 12,
+                  new_artist_total: 4,
+                  new_album_total: 3,
+                },
+                coverage: {
+                  lyrics_ratio: 0.82,
+                  cover_ratio: 0.91,
+                  genre_ratio: 0.88,
+                  album_ratio: 0.95,
+                  artist_ratio: 0.99,
+                  duration_ratio: 1,
+                  credit_ratio: 0.41,
+                },
+              },
             },
             {
               page_id: 'L02',
@@ -923,14 +1184,18 @@ describe('Sparse page layouts', () => {
     })
 
     expect(wrapper.get('[data-page-id="P24"]').exists()).toBe(true)
+    expect(wrapper.get('[data-page-id="P31"]').exists()).toBe(true)
+    expect(wrapper.get('[data-page-id="L01"]').exists()).toBe(true)
     expect(wrapper.get('[data-page-id="L02"]').exists()).toBe(true)
     expect(wrapper.get('[data-page-id="L03"]').exists()).toBe(true)
     expect(wrapper.get('[data-page-id="P32"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('年度最爱专辑榜')
+    expect(wrapper.text()).toContain('元数据完成度与封面颜色')
+    expect(wrapper.text()).toContain('歌曲库总览')
     expect(wrapper.text()).toContain('年度新增分析')
     expect(wrapper.text()).toContain('歌曲库结构分析')
     expect(wrapper.text()).toContain('年度总结四格')
-    expect(wrapper.text()).toContain('共 4 页')
+    expect(wrapper.text()).toContain('共 6 页')
     expect(wrapper.text()).not.toContain('未注册页面')
   })
 })
@@ -1173,6 +1438,127 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('15 次')
   })
 
+  it('P22 反复聆听页会按 repeat index 渲染循环强度榜单', () => {
+    const wrapper = mount(P22RepeatRankingPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P22'),
+      },
+    })
+
+    expect(wrapper.find('.repeat-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
+    expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
+    expect(wrapper.findAll('.ranking-item')).toHaveLength(3)
+    expect(wrapper.text()).toContain('夜航星')
+    expect(wrapper.text()).toContain('4.00')
+    expect(wrapper.text()).toContain('12 次 / 3 天')
+  })
+
+  it('P26 年度歌曲榜单页会渲染歌曲列表与综合分', () => {
+    const wrapper = mount(P26SongRankingPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P26'),
+      },
+    })
+
+    expect(wrapper.find('.song-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
+    expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
+    expect(wrapper.findAll('.ranking-item')).toHaveLength(3)
+    expect(wrapper.text()).toContain('夜航星')
+    expect(wrapper.text()).toContain('11.958')
+  })
+
+  it('P27 年度歌手页会渲染冠军歌手与榜单摘要', () => {
+    const wrapper = mount(P27ArtistRankingPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P27'),
+      },
+    })
+
+    expect(wrapper.find('.artist-hero-journey-page').exists()).toBe(true)
+    expect(wrapper.find('.hero-highlight').text()).toContain('不才')
+    expect(wrapper.findAll('.ranking-item')).toHaveLength(2)
+    expect(wrapper.text()).toContain('夜航星')
+  })
+
+  it('P28 年度歌手轨迹页会渲染首次相遇与高峰日故事', () => {
+    const wrapper = mount(P28ArtistJourneyPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P28'),
+      },
+    })
+
+    expect(wrapper.find('.artist-journey-page').exists()).toBe(true)
+    expect(wrapper.text()).toContain('2024-02-14 20:00:00')
+    expect(wrapper.text()).toContain('2025-03-08')
+    expect(wrapper.text()).toContain('687 天')
+  })
+
+  it('P29 年度最爱歌手榜单页会渲染完整 Top 列表', () => {
+    const wrapper = mount(P29ArtistRankingDetailPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P29'),
+      },
+    })
+
+    expect(wrapper.find('.artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-page--compact').exists()).toBe(true)
+    expect(wrapper.find('.artist-ranking-list-card--compact').exists()).toBe(true)
+    expect(wrapper.findAll('.artist-ranking-list-item')).toHaveLength(3)
+    expect(wrapper.text()).toContain('不才')
+    expect(wrapper.text()).toContain('YOASOBI')
+  })
+
+  it('P30 历年歌手榜页会按年份分组渲染历年冠军', () => {
+    const wrapper = mount(P30ArtistYearlyRankingPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P30'),
+      },
+    })
+
+    expect(wrapper.find('.yearly-artist-ranking-page').exists()).toBe(true)
+    expect(wrapper.find('.stats-layout--compact').exists()).toBe(true)
+    expect(wrapper.find('.ranking-panel--compact').exists()).toBe(true)
+    expect(wrapper.findAll('.yearly-ranking-group')).toHaveLength(2)
+    expect(wrapper.text()).toContain('2024')
+    expect(wrapper.text()).toContain('Aimer')
+    expect(wrapper.text()).toContain('不才')
+  })
+
+  it('P31 元数据完成度与封面颜色页会渲染覆盖率指标与颜色摘要', () => {
+    const wrapper = mount(P31LibraryCoveragePage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P31'),
+      },
+    })
+
+    expect(wrapper.text()).toContain('歌词覆盖')
+    expect(wrapper.text()).toContain('82.0%')
+    expect(wrapper.text()).toContain('封面颜色')
+    expect(wrapper.text()).toContain('已识别 236 首')
+    expect(wrapper.text()).toContain('播放来源')
+    expect(wrapper.text()).toContain('juMusic')
+    expect(wrapper.text()).toContain('mobile')
+  })
+
+  it('L01 歌曲库总览页会渲染曲库规模与覆盖率摘要', () => {
+    const wrapper = mount(L01LibraryOverviewPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'L01'),
+      },
+    })
+
+    expect(wrapper.text()).toContain('歌曲总量')
+    expect(wrapper.text()).toContain('512')
+    expect(wrapper.text()).toContain('新增歌曲')
+    expect(wrapper.text()).toContain('118')
+    expect(wrapper.text()).toContain('封面覆盖')
+    expect(wrapper.text()).toContain('播放来源摘要')
+    expect(wrapper.text()).toContain('Emby Web')
+    expect(wrapper.text()).toContain('Edge Windows')
+  })
+
   it('L02 年度新增分析页会渲染三项新增指标与月度趋势', () => {
     const wrapper = mount(L02LibraryGrowthPage, {
       props: {
@@ -1211,5 +1597,16 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.findAll('.story-card')).toHaveLength(4)
     expect(wrapper.text()).toContain('深夜时刻')
     expect(wrapper.text()).toContain('02:35')
+  })
+
+  it('P32 曲库结构总结卡优先显示中文曲风标签', () => {
+    const wrapper = mount(P32YearSummaryPage, {
+      props: {
+        page: sampleContract.pages.find((page) => page.page_id === 'P32'),
+      },
+    })
+
+    expect(wrapper.text()).toContain('日系流行')
+    expect(wrapper.text()).not.toContain('Pop---J-pop')
   })
 })
