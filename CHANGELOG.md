@@ -34,6 +34,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 修复播放页“歌词时间轴偏移”设置弹窗按钮文本在 Android 上触发 `Text strings must be rendered within a <Text>` 崩溃的问题
 - 修复切换应用图标后 Android 通知栏（播放通知 / 媒体库同步通知）小图标仍停留旧图标的问题，改为按当前 `common.appIcon` 动态刷新
 - 修复年报导出与预览中部分榜单页高度过高、导致 `P22` / `P26` / `P29` / `L04A` / `L04B` 无法稳定单页展示的问题，统一压缩页壳、榜单项与页脚摘要
+- 修复年报 `P06` 年度关键词会把歌手名与标题里的 `cover` / `翻自` / `VOCALOID` 等元信息误算进词云的问题，改为只保留歌词与净化后的歌名主体
 - 修复基础歌曲听歌记录补录链路仅依赖 juMusic 导出的问题，新增 Emby Playback Reporting 数据源并与现有记录合并
 
 新增

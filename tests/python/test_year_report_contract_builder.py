@@ -630,6 +630,42 @@ def test_extract_keywords_prefers_current_year_lyrics_and_titles_and_filters_noi
     assert '拂晓' in keywords or '拂晓来信' in keywords
     assert 'lavf' not in keywords
     assert '作词' not in keywords
+    assert '歌手A' not in keywords
+    assert '歌手B' not in keywords
+    assert '歌手C' not in keywords
+
+
+def test_extract_keywords_strips_artist_tokens_and_title_metadata_noise():
+    module = load_module()
+    contract = module.build_year_report_contract({
+        'year': 2026,
+        'play_history': [
+            {
+                'year': 2026,
+                'played_at': '2026-04-13 11:34:50',
+                'track_id': 'track-1',
+                'track_title': 'AtonyP - 【洛天依V4萌】不问天【VOCALOID COVER】（翻自 说说） (不问天)',
+                'artist_display': 'AtonyP;洛天依',
+            },
+        ],
+        'library_tracks': [
+            {
+                'track_id': 'track-1',
+                'track_title': 'AtonyP - 【洛天依V4萌】不问天【VOCALOID COVER】（翻自 说说） (不问天)',
+                'artist_display': 'AtonyP;洛天依',
+                'lyric_text': '',
+            },
+        ],
+    })
+    p06 = {page['page_id']: page for page in contract['pages']}['P06']['payload']
+    keywords = [item['keyword'] for item in p06['keywords']]
+
+    assert '不问天' in keywords
+    assert 'AtonyP' not in keywords
+    assert '洛天依' not in keywords
+    assert 'vocaloid' not in keywords
+    assert '翻自' not in keywords
+    assert '说说' not in keywords
 
 
 def test_p05_uses_real_entry_sources_and_revisit_is_based_on_library_added_year():
