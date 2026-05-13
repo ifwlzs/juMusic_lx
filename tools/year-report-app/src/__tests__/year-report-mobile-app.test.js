@@ -9,6 +9,7 @@ import P10GenreScorePage from '../pages/P10GenreScorePage.vue'
 import P11CoverColorPage from '../pages/P11CoverColorPage.vue'
 import P12SeasonFavoritePage from '../pages/P12SeasonFavoritePage.vue'
 import P16ArtistHeroPage from '../pages/P16ArtistHeroPage.vue'
+import P17WeekRhythmPage from '../pages/P17WeekRhythmPage.vue'
 import P18CalendarHeatmapPage from '../pages/P18CalendarHeatmapPage.vue'
 import P19TimePreferencePage from '../pages/P19TimePreferencePage.vue'
 import P21TimelineNightPage from '../pages/P21TimelineNightPage.vue'
@@ -1429,6 +1430,33 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.findAll('.time-hour-pill')).toHaveLength(3)
   })
 
+  it('P17 在 BPM 覆盖不足时不再渲染成一排 BPM 破折号', () => {
+    const wrapper = mount(P17WeekRhythmPage, {
+      props: {
+        page: {
+          page_id: 'P17',
+          template: 'week-rhythm',
+          title: '一周听歌心情',
+          summary_text: 'summary',
+          payload: {
+            weekday_distribution: [
+              { weekday: 1, weekday_label: '周一', play_total: 31, listened_sec: 3600, bpm_value: null },
+              { weekday: 2, weekday_label: '周二', play_total: 28, listened_sec: 3200, bpm_value: null },
+            ],
+            mood_summary: '这一页先保留活跃分布，BPM 覆盖还不足以强行解读心情。',
+            bpm_coverage_ratio: 0,
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('BPM —')
+    expect(wrapper.text()).toContain('播放 31 次')
+    expect(wrapper.text()).toContain('累计 60 分钟')
+    expect(wrapper.findAll('.weekday-card__meta')).toHaveLength(2)
+    expect(wrapper.findAll('.weekday-card__meta--fallback')).toHaveLength(2)
+  })
+
   it('P19 需要保留全部 7 个时段并维持原始顺序，只压缩展示密度不能删数据', () => {
     const wrapper = mount(P19TimePreferencePage, {
       props: {
@@ -1664,6 +1692,47 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('日系流行')
     expect(wrapper.text()).not.toContain('Pop---J-pop')
     expect(wrapper.findAll('.library-mini-table')).toHaveLength(2)
+    expect(wrapper.findAll('.library-mini-table').at(0)?.findAll('.library-mini-table__row')).toHaveLength(2)
+    expect(wrapper.findAll('.library-mini-table').at(1)?.findAll('.library-mini-table__row')).toHaveLength(2)
+  })
+
+  it('L03 会尽量补充更多曲风条目，减少页面留白', () => {
+    const wrapper = mount(L03LibraryStructurePage, {
+      props: {
+        page: {
+          page_id: 'L03',
+          title: '歌曲库结构分析',
+          section: '曲库专题',
+          summary_text: 'summary',
+          payload: {
+            language_distribution: [
+              { language_name: '中文', track_count: 12 },
+              { language_name: '日语', track_count: 10 },
+              { language_name: '英语', track_count: 8 },
+              { language_name: '韩语', track_count: 6 },
+              { language_name: '多语种', track_count: 4 },
+              { language_name: '俄语', track_count: 2 },
+            ],
+            weighted_genre_distribution: [
+              { genre_name: 'Pop---J-pop', genre_name_zh: '日系流行', weighted_track_count: 12.4 },
+              { genre_name: 'Folk', genre_name_zh: '民谣', weighted_track_count: 11.2 },
+              { genre_name: 'Mandopop', genre_name_zh: '华语流行', weighted_track_count: 9.8 },
+              { genre_name: 'Anime', genre_name_zh: '动漫', weighted_track_count: 8.7 },
+              { genre_name: 'Vocaloid', genre_name_zh: 'Vocaloid', weighted_track_count: 7.1 },
+              { genre_name: 'Electronic---House', genre_name_zh: '电子 / 浩室', weighted_track_count: 6.5 },
+              { genre_name: 'Electronic---Synth-pop', genre_name_zh: '电子 / 合成器流行', weighted_track_count: 6.2 },
+              { genre_name: 'Rock---Pop Rock', genre_name_zh: '流行摇滚', weighted_track_count: 5.4 },
+            ],
+          },
+        },
+      },
+    })
+
+    const tables = wrapper.findAll('.library-mini-table')
+    expect(tables.at(0)?.findAll('.library-mini-table__row')).toHaveLength(6)
+    expect(tables.at(1)?.findAll('.library-mini-table__row')).toHaveLength(8)
+    expect(wrapper.text()).toContain('电子 / 合成器流行')
+    expect(wrapper.text()).toContain('流行摇滚')
   })
 
   it('L03 会对旧 contract 里的英文曲风路径做前端中文兜底', () => {

@@ -8,12 +8,12 @@
       </div>
 
       <div class="library-panel-grid library-panel-grid--halves">
-        <section class="ranking-panel">
+        <section class="ranking-panel ranking-panel--stretch">
           <header class="panel-header">
             <h3>语种分布</h3>
             <span>{{ languageDistribution.length }} 种语种</span>
           </header>
-          <div class="library-mini-table library-mini-table--tight">
+          <div class="library-mini-table library-mini-table--micro">
             <div class="library-mini-table__header">
               <span>语种</span>
               <span>歌曲数</span>
@@ -32,12 +32,12 @@
           </div>
         </section>
 
-        <section class="ranking-panel ranking-panel--accent">
+        <section class="ranking-panel ranking-panel--accent ranking-panel--stretch">
           <header class="panel-header">
-            <h3>加权曲风 Top</h3>
+            <h3>加权曲风 Top{{ topWeightedGenreDistribution.length }}</h3>
             <span>{{ weightedGenreDistribution.length }} 项</span>
           </header>
-          <div class="library-mini-table library-mini-table--tight">
+          <div class="library-mini-table library-mini-table--micro">
             <div class="library-mini-table__header">
               <span>曲风</span>
               <span>加权值</span>
@@ -73,8 +73,10 @@ const props = defineProps({
 
 const languageDistribution = computed(() => props.page?.payload?.language_distribution || [])
 const weightedGenreDistribution = computed(() => props.page?.payload?.weighted_genre_distribution || [])
-const topLanguageDistribution = computed(() => languageDistribution.value.slice(0, 4))
-const topWeightedGenreDistribution = computed(() => weightedGenreDistribution.value.slice(0, 4))
+// L03 这页本身信息密度偏低，这里优先把可展示的语种尽量铺满，减少左侧留白。
+const topLanguageDistribution = computed(() => languageDistribution.value.slice(0, 6))
+// 曲风侧补到 8 条，既能显得更饱满，也能在 390x844 里维持单页展示。
+const topWeightedGenreDistribution = computed(() => weightedGenreDistribution.value.slice(0, 8))
 const languageTrackTotal = computed(() => languageDistribution.value.reduce((total, item) => total + Number(item?.track_count || 0), 0))
 
 function formatWeightedValue(value) {
