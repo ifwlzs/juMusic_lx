@@ -899,6 +899,29 @@ select {
   padding: 7px 0;
 }
 
+.library-mini-table--micro .library-mini-table__row {
+  padding: 5px 0;
+}
+
+.library-mini-table--micro .library-mini-table__copy {
+  gap: 1px;
+}
+
+.library-mini-table--micro .library-mini-table__copy strong {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.library-mini-table--micro .library-mini-table__copy small {
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.library-mini-table--micro .library-mini-table__row > span:last-child,
+.library-mini-table--micro .library-mini-table__header > span:last-child {
+  font-size: 11px;
+}
+
 .library-mini-table__row--ranked {
   align-items: flex-start;
 }
@@ -1251,6 +1274,18 @@ select {
 .weekday-card .metric-label,
 .weekday-card .metric-caption {
   margin: 0;
+}
+
+.weekday-card__meta {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.weekday-card__meta--fallback .metric-caption:last-child {
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .heatmap-grid {
@@ -2178,6 +2213,26 @@ select {
 .report-page[data-page-id='L01'] .coverage-compact-grid,
 .report-page[data-page-id='L03'] .library-panel-grid {
   gap: 8px;
+}
+
+.report-page[data-page-id='L03'] .stats-layout {
+  min-height: 100%;
+}
+
+.report-page[data-page-id='L03'] .ranking-panel {
+  grid-template-rows: auto 1fr;
+}
+
+.report-page[data-page-id='L03'] .library-mini-table {
+  align-content: start;
+}
+
+.report-page[data-page-id='L03'] .library-mini-table--micro .library-mini-table__header {
+  padding-bottom: 6px;
+}
+
+.report-page[data-page-id='L03'] .library-mini-table--micro .library-mini-table__row {
+  min-height: 0;
 }
 
 .report-page[data-page-id='P31'] .coverage-compact-chip,
