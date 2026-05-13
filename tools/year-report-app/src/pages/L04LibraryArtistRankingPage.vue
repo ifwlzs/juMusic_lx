@@ -7,7 +7,7 @@
         <p class="hero-subtitle">全曲库收藏最多的 10 位歌手</p>
       </div>
 
-      <section v-if="topTenRanking.length" class="artist-ranking-list-card artist-ranking-list-card--compact ranking-panel ranking-panel--accent ranking-panel--compact">
+      <section v-if="topTenRanking.length" class="artist-ranking-list-card artist-ranking-list-card--compact ranking-panel ranking-panel--accent ranking-panel--compact ranking-panel--stretch">
         <header class="panel-header">
           <h3>Top 1 - Top 10</h3>
           <span>{{ topTenRanking.length }} 位歌手</span>

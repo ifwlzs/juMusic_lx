@@ -7,7 +7,7 @@
         <p class="hero-subtitle">榜单仍按综合表现排序，但右侧数字直接展示这一年真实播放次数。</p>
       </div>
 
-      <section class="ranking-panel ranking-panel--accent ranking-panel--compact">
+      <section class="ranking-panel ranking-panel--accent ranking-panel--compact ranking-panel--stretch">
         <header class="panel-header">
           <h3>年度歌曲榜</h3>
           <span>{{ songRanking.length }} 首歌曲</span>

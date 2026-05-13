@@ -20,7 +20,7 @@
       </section>
 
       <div class="library-panel-grid library-panel-grid--single-column">
-        <section class="ranking-panel library-panel-grid__full">
+        <section class="ranking-panel ranking-panel--stretch library-panel-grid__full">
           <header class="panel-header">
             <h3>覆盖率与播放足迹</h3>
             <span>{{ coverageRows.length + footprintRows.length }} 项</span>

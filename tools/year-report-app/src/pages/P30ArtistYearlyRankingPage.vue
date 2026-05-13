@@ -7,7 +7,7 @@
         <p class="hero-subtitle">每一年只留一位冠军歌手，顺着近十年的主线往回看。</p>
       </div>
 
-      <section class="ranking-panel ranking-panel--compact ranking-panel--accent">
+      <section class="ranking-panel ranking-panel--compact ranking-panel--accent ranking-panel--stretch">
         <header class="panel-header">
           <h3>近十年年度冠军</h3>
           <span>{{ yearlyArtistRanking.length }} 年</span>

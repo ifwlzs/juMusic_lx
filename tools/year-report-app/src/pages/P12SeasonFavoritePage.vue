@@ -13,6 +13,7 @@
       </div>
 
       <div class="hero-fact-row">
+        <span class="hero-fact-chip">播放 {{ page.payload.favorite_track?.play_count || 0 }} 次</span>
         <span class="hero-fact-chip">收听 {{ formatMinutes(page.payload.favorite_track?.listened_sec) }}</span>
         <span class="hero-fact-chip">{{ seasonText(page.payload.season_key) }}</span>
       </div>

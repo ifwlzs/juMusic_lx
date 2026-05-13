@@ -7,7 +7,7 @@
         <p class="hero-subtitle">这些歌不是单纯听得多，而是在真正点开它的那些天里，你会一天反复听很多次。</p>
       </div>
 
-      <section class="ranking-panel ranking-panel--accent ranking-panel--compact">
+      <section class="ranking-panel ranking-panel--accent ranking-panel--compact ranking-panel--stretch">
         <header class="panel-header">
           <h3>循环强度榜</h3>
           <span>{{ repeatRanking.length }} 首歌曲</span>

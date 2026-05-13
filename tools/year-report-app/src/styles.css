@@ -140,6 +140,7 @@ select {
 .report-page {
   position: relative;
   min-height: 100dvh;
+  box-sizing: border-box;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   padding:
@@ -149,7 +150,7 @@ select {
 }
 
 .page-shell {
-  min-height: 100%;
+  min-height: calc(var(--page-design-height, 844px) - var(--report-page-padding-top, 22px) - var(--report-page-padding-bottom, 28px));
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 20px;
@@ -175,6 +176,7 @@ select {
 
 .page-content {
   display: flex;
+  min-height: 0;
 }
 
 .page-footer {
@@ -646,6 +648,19 @@ select {
 
 .ranking-panel {
   padding: 16px;
+}
+
+.ranking-panel--stretch {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-content: stretch;
+  min-height: 100%;
+}
+
+.ranking-panel--stretch .ranking-list,
+.ranking-panel--stretch .library-mini-table,
+.ranking-panel--stretch .library-split-panel {
+  align-content: start;
 }
 
 .ranking-panel--accent {
@@ -1129,6 +1144,10 @@ select {
   gap: 8px;
 }
 
+.cover-color-legend--compact {
+  gap: 6px;
+}
+
 .cover-color-legend-item {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
@@ -1180,6 +1199,10 @@ select {
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.cover-color-legend-track--truncate-2 {
+  -webkit-line-clamp: 2;
 }
 
 .cover-color-card {
@@ -1517,26 +1540,60 @@ select {
 
 .report-page:is(
   [data-page-id='P22'],
+  [data-page-id='P24'],
   [data-page-id='P26'],
   [data-page-id='P29'],
+  [data-page-id='P30'],
   [data-page-id='L04A'],
   [data-page-id='L04B']
 ) .stats-layout,
 .report-page:is(
   [data-page-id='P22'],
+  [data-page-id='P24'],
   [data-page-id='P26'],
   [data-page-id='P29'],
+  [data-page-id='P30'],
   [data-page-id='L04A'],
   [data-page-id='L04B']
 ) .hero-layout,
 .report-page:is(
   [data-page-id='P22'],
+  [data-page-id='P24'],
   [data-page-id='P26'],
   [data-page-id='P29'],
+  [data-page-id='P30'],
   [data-page-id='L04A'],
   [data-page-id='L04B']
 ) .artist-ranking-page {
   gap: 10px;
+  min-height: 100%;
+  align-content: stretch;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P24'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='P30'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .stats-layout,
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P24'],
+  [data-page-id='P26'],
+  [data-page-id='P30']
+) .stats-layout {
+  grid-template-rows: auto 1fr;
+}
+
+.report-page:is(
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-page {
+  grid-template-rows: auto 1fr;
 }
 
 .report-page:is(
@@ -1790,6 +1847,82 @@ select {
   padding: 10px 12px;
 }
 
+.report-page[data-page-id='P11'] .page-shell {
+  gap: 12px;
+  padding-top: 18px;
+}
+
+.report-page[data-page-id='P11'] .hero-layout {
+  gap: 8px;
+}
+
+.report-page[data-page-id='P11'] .hero-copy {
+  gap: 6px;
+}
+
+.report-page[data-page-id='P11'] .hero-title {
+  font-size: 24px;
+  line-height: 1.08;
+}
+
+.report-page[data-page-id='P11'] .hero-subtitle {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.report-page[data-page-id='P11'] .hero-fact-row {
+  gap: 8px;
+}
+
+.report-page[data-page-id='P11'] .hero-fact-chip {
+  padding: 7px 11px;
+  font-size: 11px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-treemap {
+  gap: 6px;
+  padding: 8px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-treemap-chart,
+.report-page[data-page-id='P11'] .cover-color-treemap-chart--bounded {
+  height: 180px;
+  max-height: 180px;
+  border-radius: 20px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend {
+  gap: 5px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend-item {
+  padding: 6px 8px;
+  border-radius: 14px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend-swatch {
+  width: 14px;
+  height: 14px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend-copy {
+  gap: 2px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend-heading strong {
+  font-size: 12px;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend-heading span,
+.report-page[data-page-id='P11'] .cover-color-legend-track {
+  font-size: 10px;
+  line-height: 1.28;
+}
+
+.report-page[data-page-id='P11'] .cover-color-legend-track--truncate {
+  -webkit-line-clamp: 2;
+}
+
 /* P22 之外的 10 条榜单页可以略微放松一点，但仍保持单屏。 */
 .report-page:is(
   [data-page-id='P26'],
@@ -1901,6 +2034,14 @@ select {
 .report-page[data-page-id='L02'] .hero-copy,
 .report-page[data-page-id='L03'] .hero-copy {
   gap: 6px;
+}
+
+.report-page:is(
+  [data-page-id='P24'],
+  [data-page-id='P30'],
+  [data-page-id='L01']
+) .stats-layout {
+  min-height: 100%;
 }
 
 .report-page[data-page-id='P24'] .hero-title,
@@ -2047,6 +2188,113 @@ select {
 .report-page[data-page-id='P31'] .coverage-compact-chip__value,
 .report-page[data-page-id='L01'] .coverage-compact-chip__value {
   font-size: 17px;
+}
+
+.report-page[data-page-id='P24'] .ranking-panel,
+.report-page[data-page-id='P30'] .ranking-panel,
+.report-page[data-page-id='L01'] .ranking-panel,
+.report-page[data-page-id='P22'] .ranking-panel,
+.report-page[data-page-id='P26'] .ranking-panel,
+.report-page[data-page-id='P29'] .ranking-panel,
+.report-page[data-page-id='L04A'] .ranking-panel,
+.report-page[data-page-id='L04B'] .ranking-panel {
+  min-height: 100%;
+}
+
+.report-page:is(
+  [data-page-id='P22'],
+  [data-page-id='P26'],
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-list {
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  min-height: 100%;
+}
+
+.report-page[data-page-id='P24'] .library-mini-table--ranked {
+  height: 100%;
+  align-content: stretch;
+  grid-auto-rows: minmax(0, 1fr);
+  align-content: stretch;
+}
+
+.report-page[data-page-id='P24'] .library-mini-table__row--ranked {
+  min-height: 96px;
+}
+
+.report-page[data-page-id='P30'] .ranking-list {
+  display: grid;
+  grid-auto-rows: minmax(56px, 1fr);
+  min-height: 100%;
+}
+
+.report-page[data-page-id='P30'] .ranking-item {
+  min-height: 56px;
+}
+
+.report-page:is(
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .ranking-item {
+  min-height: 42px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.report-page:is(
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-list-rank {
+  padding: 3px 6px;
+  font-size: 9px;
+}
+
+.report-page:is(
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-copy strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.report-page:is(
+  [data-page-id='P29'],
+  [data-page-id='L04A'],
+  [data-page-id='L04B']
+) .artist-ranking-item-copy small {
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.report-page[data-page-id='P29'] .page-summary-card {
+  padding: 7px 9px;
+}
+
+.report-page[data-page-id='P29'] .page-summary {
+  font-size: 10px;
+  line-height: 1.28;
+}
+
+.report-page[data-page-id='L01'] .coverage-compact-grid--overview {
+  min-height: 160px;
+}
+
+.report-page[data-page-id='L01'] .coverage-compact-chip {
+  align-content: center;
+}
+
+.report-page[data-page-id='L01'] .library-split-panel {
+  align-items: stretch;
+  min-height: 100%;
+}
+
+.report-page[data-page-id='L01'] .library-subpanel {
+  align-content: start;
 }
 
 .report-page[data-page-id='P24'] .library-mini-table--ranked {
