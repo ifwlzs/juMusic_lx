@@ -4,6 +4,11 @@ import { jsPDF } from 'jspdf'
 const EXPORT_SAFE_OVERRIDE_ATTRIBUTE = 'data-export-safe-overrides'
 const EXPORT_MODE_CLASS = 'pdf-export-mode'
 const EXPORT_SURFACE_BACKGROUND = '#f7f4ee'
+// 深夜主题页在导出时存在大量透明层，必须给 html2canvas 单独换底色，避免统一浅底从透明区域漏出来。
+const EXPORT_PAGE_BACKGROUND_MAP = {
+  P20: '#050917',
+  P21: '#070C1B',
+}
 
 export function buildYearReportPdfFileName(year) {
   const resolvedYear = Number(year) || 0
@@ -142,14 +147,53 @@ export function buildExportSafeOverrideCss() {
       background:
         linear-gradient(180deg, rgba(245, 248, 255, 0.94), rgba(255, 255, 255, 0.90)) !important;
     }
+
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] {
+      background: linear-gradient(180deg, #10172D, #050917) !important;
+    }
+
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P21'] {
+      background: linear-gradient(180deg, #121B34, #070C1B) !important;
+    }
+
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] .page-shell,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P21'] .page-shell {
+      background: linear-gradient(180deg, rgba(16, 23, 45, 0.12), rgba(5, 9, 23, 0.08)) !important;
+      border-radius: 28px !important;
+    }
+
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] .score-meta-band {
+      background:
+        linear-gradient(180deg, rgba(20, 27, 53, 0.82), rgba(12, 18, 39, 0.78)),
+        rgba(14, 20, 42, 0.72) !important;
+      border-color: rgba(160, 178, 235, 0.14) !important;
+      box-shadow: 0 14px 32px rgba(7, 10, 24, 0.24) !important;
+    }
+
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] .page-summary-card,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] .story-card,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] .ranking-panel,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P20'] .metric-card,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P21'] .page-summary-card,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P21'] .story-card,
+    .${EXPORT_MODE_CLASS} .report-page[data-page-id='P21'] .timeline-item {
+      background:
+        linear-gradient(180deg, rgba(20, 27, 53, 0.82), rgba(12, 18, 39, 0.78)),
+        rgba(14, 20, 42, 0.72) !important;
+      border-color: rgba(160, 178, 235, 0.14) !important;
+      box-shadow: 0 14px 32px rgba(7, 10, 24, 0.24) !important;
+    }
   `
 }
 
 export function buildHtml2CanvasOptions(pageElement, onclone) {
+  const pageId = pageElement?.dataset?.pageId
+
   return {
     useCORS: true,
     allowTaint: false,
-    backgroundColor: EXPORT_SURFACE_BACKGROUND,
+    // 普通页面继续使用统一米白底；深夜页改用章节真实底色，避免透明区域被导出成灰底。
+    backgroundColor: EXPORT_PAGE_BACKGROUND_MAP[pageId] || EXPORT_SURFACE_BACKGROUND,
     scale: 2,
     logging: false,
     // 导出时按页面真实尺寸抓取，确保像 L04 这种实际更高的页面也能完整展开。

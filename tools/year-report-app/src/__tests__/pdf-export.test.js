@@ -26,6 +26,22 @@ describe('pdf export sanitization', () => {
     expect(cssText).not.toContain('color(')
   })
 
+  it('导出覆盖样式需要保留 P20/P21 的深夜深色底与深色卡片，避免被统一灰底洗掉', () => {
+    const cssText = buildExportSafeOverrideCss()
+
+    expect(cssText).toContain(".report-page[data-page-id='P20']")
+    expect(cssText).toContain(".report-page[data-page-id='P21']")
+    expect(cssText).toContain('#10172D')
+    expect(cssText).toContain('#050917')
+    expect(cssText).toContain('#121B34')
+    expect(cssText).toContain('#070C1B')
+    expect(cssText).toContain('rgba(20, 27, 53, 0.82)')
+    expect(cssText).toContain('rgba(12, 18, 39, 0.78)')
+    expect(cssText).toContain(".report-page[data-page-id='P20'] .page-shell")
+    expect(cssText).toContain(".report-page[data-page-id='P21'] .page-shell")
+    expect(cssText).toContain(".report-page[data-page-id='P20'] .score-meta-band")
+  })
+
   it('导出前会给克隆文档注入安全样式并打上导出模式标记', () => {
     const dom = new JSDOM(`
       <html>
@@ -56,6 +72,9 @@ describe('pdf export sanitization', () => {
 
   it('html2canvas 导出参数会按页面真实尺寸截图，并显式使用米白背景', () => {
     const fakeElement = {
+      dataset: {
+        pageId: 'P08',
+      },
       scrollWidth: 320,
       scrollHeight: 1260,
     }
@@ -66,6 +85,32 @@ describe('pdf export sanitization', () => {
     expect(options.windowHeight).toBe(1260)
     expect(options.width).toBe(320)
     expect(options.height).toBe(1260)
+  })
+
+  it('html2canvas 导出参数需要为 P20/P21 改成深夜底色，避免透明区域漏出统一灰底', () => {
+    const p20Options = buildHtml2CanvasOptions(
+      {
+        dataset: {
+          pageId: 'P20',
+        },
+        scrollWidth: 390,
+        scrollHeight: 844,
+      },
+      () => {},
+    )
+    const p21Options = buildHtml2CanvasOptions(
+      {
+        dataset: {
+          pageId: 'P21',
+        },
+        scrollWidth: 390,
+        scrollHeight: 844,
+      },
+      () => {},
+    )
+
+    expect(p20Options.backgroundColor).toBe('#050917')
+    expect(p21Options.backgroundColor).toBe('#070C1B')
   })
 
   it('PDF 页面尺寸会跟随实际页面尺寸，避免长页被压缩进固定高度', () => {
