@@ -7,7 +7,7 @@
         <p class="hero-subtitle">把这一年最常循环的专辑压成紧凑榜单，看看哪些专辑真正陪你反复回放。</p>
       </div>
 
-      <section class="ranking-panel ranking-panel--compact">
+      <section class="ranking-panel ranking-panel--compact ranking-panel--stretch">
         <header class="panel-header">
           <h3>年度最爱专辑榜</h3>
           <span>{{ albumRanking.length }} 张专辑</span>

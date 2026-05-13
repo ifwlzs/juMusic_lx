@@ -66,8 +66,19 @@ let chartInstance = null
 
 const topColorItems = computed(() => {
   const items = props.page.payload.cover_color_summary?.top_colors || []
-  // 控制在 5 个主色内，既能保留信息，也能避免真实长文案把整页压爆。
-  return items.slice(0, 5)
+  // 图例最多保留 5 条，但如果“其他颜色”被排在后面，也要强制带上，
+  // 否则用户会误以为剩余颜色和聚合口径在页面里丢失了。
+  if (items.length <= 5) {
+    return items.slice(0, 5)
+  }
+
+  const otherBucket = items.find((item) => item?.is_other_bucket)
+  if (!otherBucket) {
+    return items.slice(0, 5)
+  }
+
+  const primaryItems = items.filter((item) => !item?.is_other_bucket).slice(0, 4)
+  return [...primaryItems, otherBucket]
 })
 
 const treemapTotal = computed(() => {

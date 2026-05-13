@@ -7,7 +7,7 @@
         <p class="hero-subtitle">把这一年最常回到的歌手榜单明细完整展开。</p>
       </div>
 
-      <section class="artist-ranking-list-card artist-ranking-list-card--compact ranking-panel ranking-panel--accent ranking-panel--compact">
+      <section class="artist-ranking-list-card artist-ranking-list-card--compact ranking-panel ranking-panel--accent ranking-panel--compact ranking-panel--stretch">
         <header class="panel-header">
           <h3>Top artist ranking</h3>
           <span>{{ artistRanking.length }} 位歌手</span>

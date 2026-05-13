@@ -7,6 +7,7 @@ import P08GenreRankingPage from '../pages/P08GenreRankingPage.vue'
 import P09GenreTimelinePage from '../pages/P09GenreTimelinePage.vue'
 import P10GenreScorePage from '../pages/P10GenreScorePage.vue'
 import P11CoverColorPage from '../pages/P11CoverColorPage.vue'
+import P12SeasonFavoritePage from '../pages/P12SeasonFavoritePage.vue'
 import P16ArtistHeroPage from '../pages/P16ArtistHeroPage.vue'
 import P18CalendarHeatmapPage from '../pages/P18CalendarHeatmapPage.vue'
 import P19TimePreferencePage from '../pages/P19TimePreferencePage.vue'
@@ -279,7 +280,7 @@ const sampleContract = {
       payload: {
         season_key: 'spring',
         season_label: '春',
-        favorite_track: { track_title: '夜航星', artist_display: '不才', listened_sec: 2600 },
+        favorite_track: { track_title: '夜航星', artist_display: '不才', play_count: 15, listened_sec: 2600 },
       },
     },
     {
@@ -290,7 +291,7 @@ const sampleContract = {
       payload: {
         season_key: 'summer',
         season_label: '夏',
-        favorite_track: { track_title: '群青', artist_display: 'YOASOBI', listened_sec: 2200 },
+        favorite_track: { track_title: '群青', artist_display: 'YOASOBI', play_count: 12, listened_sec: 2200 },
       },
     },
     {
@@ -301,7 +302,7 @@ const sampleContract = {
       payload: {
         season_key: 'autumn',
         season_label: '秋',
-        favorite_track: { track_title: 'Polaris', artist_display: 'Aimer', listened_sec: 2100 },
+        favorite_track: { track_title: 'Polaris', artist_display: 'Aimer', play_count: 11, listened_sec: 2100 },
       },
     },
     {
@@ -312,7 +313,7 @@ const sampleContract = {
       payload: {
         season_key: 'winter',
         season_label: '冬',
-        favorite_track: { track_title: '若月亮没来', artist_display: '王宇宙Leto', listened_sec: 2300 },
+        favorite_track: { track_title: '若月亮没来', artist_display: '王宇宙Leto', play_count: 13, listened_sec: 2300 },
       },
     },
     {
@@ -1283,6 +1284,38 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).not.toContain('Singularity')
   })
 
+  it('P11 即使真实数据超过 5 个色块，也要保留“其他颜色”聚合项，避免底部列表口径丢失', () => {
+    const wrapper = mount(P11CoverColorPage, {
+      props: {
+        page: {
+          page_id: 'P11',
+          section: '封面颜色',
+          title: '年度封面主色',
+          summary_text: 'summary',
+          payload: {
+            cover_color_summary: {
+              counted_track_total: 462,
+              excluded_track_total: 0,
+              treemap_total: 462,
+              top_colors: [
+                { color_hex: '#111111', track_count: 12, representative_track_title: 'Song A', representative_artist_display: '歌手A', share_ratio: 0.026, tone_label: '深灰' },
+                { color_hex: '#222222', track_count: 10, representative_track_title: 'Song B', representative_artist_display: '歌手B', share_ratio: 0.022, tone_label: '奶白' },
+                { color_hex: '#333333', track_count: 5, representative_track_title: 'Song C', representative_artist_display: '歌手C', share_ratio: 0.011, tone_label: '雾灰' },
+                { color_hex: '#444444', track_count: 4, representative_track_title: 'Song D', representative_artist_display: '歌手D', share_ratio: 0.009, tone_label: '青雾' },
+                { color_hex: '#555555', track_count: 3, representative_track_title: 'Song E', representative_artist_display: '歌手E', share_ratio: 0.006, tone_label: '青雾' },
+                { color_hex: '#CFCFD6', track_count: 428, representative_track_title: '其余颜色分布', representative_artist_display: '', share_ratio: 0.926, tone_label: '其他颜色', is_other_bucket: true },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    expect(wrapper.findAll('.cover-color-legend-item')).toHaveLength(5)
+    expect(wrapper.text()).toContain('其他颜色')
+    expect(wrapper.text()).toContain('未进入主展示色块的其余颜色')
+  })
+
   it('P11 会给其他颜色聚合项显示解释文案，避免用户误以为占比口径出错', () => {
     const wrapper = mount(P11CoverColorPage, {
       props: {
@@ -1433,6 +1466,21 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('15 次')
   })
 
+  it('P12-P15 四季页会直接展示播放次数冠军歌曲', () => {
+    const pages = ['P12', 'P13', 'P14', 'P15'].map((pageId) => sampleContract.pages.find((page) => page.page_id === pageId))
+
+    const wrappers = pages.map((page) => mount(P12SeasonFavoritePage, {
+      props: {
+        page,
+      },
+    }))
+
+    expect(wrappers[0].text()).toContain('播放 15 次')
+    expect(wrappers[1].text()).toContain('播放 12 次')
+    expect(wrappers[2].text()).toContain('播放 11 次')
+    expect(wrappers[3].text()).toContain('播放 13 次')
+  })
+
   it('P22 反复聆听页会按 repeat index 渲染循环强度榜单', () => {
     const wrapper = mount(P22RepeatRankingPage, {
       props: {
@@ -1523,6 +1571,30 @@ describe('Enhanced detail pages', () => {
     expect(wrapper.text()).toContain('Aimer')
     expect(wrapper.text()).toContain('不才')
     expect(wrapper.text()).not.toContain('2 位歌手')
+  })
+
+  it('P22/P24/P26/P29/P30/L01/L04 会复用统一的榜单面板类，方便整组页面统一拉高布局', () => {
+    const pagePairs = [
+      ['P22', P22RepeatRankingPage],
+      ['P24', P24AlbumRankingPage],
+      ['P26', P26SongRankingPage],
+      ['P29', P29ArtistRankingDetailPage],
+      ['P30', P30ArtistYearlyRankingPage],
+      ['L01', L01LibraryOverviewPage],
+      ['L04A', L04LibraryArtistRankingPage],
+      ['L04B', L04NewArtistRankingPage],
+    ]
+
+    pagePairs.forEach(([pageId, component]) => {
+      const wrapper = mount(component, {
+        props: {
+          page: sampleContract.pages.find((page) => page.page_id === pageId),
+        },
+      })
+
+      expect(wrapper.find('.ranking-panel').exists()).toBe(true)
+      expect(wrapper.find('.ranking-panel--stretch').exists()).toBe(true)
+    })
   })
 
   it('P31 元数据完成度与封面颜色页会渲染覆盖率指标与颜色摘要', () => {
