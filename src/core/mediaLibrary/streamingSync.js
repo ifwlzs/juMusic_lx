@@ -64,6 +64,9 @@ function isReusableCommittedItem(sourceItem, candidate) {
   const candidateKey = buildCandidateResumeKey(candidate)
   if (!sourceItem || !candidateKey) return false
   if (buildSourceItemResumeKey(sourceItem) !== candidateKey) return false
+  // 中文注释：checkpoint / 旧快照里的 degraded 或 0 时长记录不能视为“可复用已完成项”，
+  // 否则全量校验或列表内手动更新时会直接沿用 00:00 的占位元数据，不再尝试重新 hydrate。
+  if (sourceItem.scanStatus === 'degraded' || Number(sourceItem.durationSec) <= 0) return false
   return String(sourceItem.versionToken || '') === String(candidate.versionToken || '')
 }
 

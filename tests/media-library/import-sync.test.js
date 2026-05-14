@@ -983,6 +983,216 @@ test('updateImportRule incremental sync retries hydration until duration is avai
   assert.equal(saved.snapshot.snapshot.items[0].durationSec, 187)
 })
 
+test('updateImportRule incremental sync rehydrates unchanged songs when previous duration is 0', async() => {
+  const connection = createConnection()
+  const rule = createRule({
+    directories: [{
+      selectionId: 'dir_keep',
+      kind: 'directory',
+      pathOrUri: '/Albums/Keep',
+      displayName: 'Keep',
+    }],
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    lastIncrementalSyncAt: 100,
+    lastFullValidationAt: 80,
+    pendingFullValidation: true,
+    items: [
+      createSourceItem({
+        sourceItemId: 'conn_1__/Albums/Keep/song.mp3',
+        pathOrUri: '/Albums/Keep/song.mp3',
+        title: 'song',
+        artist: '',
+        album: '',
+        durationSec: 0,
+        versionToken: 'v_song',
+      }),
+    ],
+  }
+  const hydrateCalls = []
+  const saved = {
+    snapshot: null,
+  }
+
+  const result = await updateImportRule({
+    connection,
+    rule,
+    previousRule: rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return []
+      },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [
+                createCandidate({
+                  pathOrUri: '/Albums/Keep/song.mp3',
+                  fileName: 'song.mp3',
+                  versionToken: 'v_song',
+                  modifiedTime: 90,
+                }),
+              ],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            hydrateCalls.push(candidate.pathOrUri)
+            return {
+              candidate,
+              metadata: {
+                title: 'song',
+                artist: '',
+                album: '',
+                durationSec: 188,
+              },
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+    },
+    now: () => 200,
+  })
+
+  assert.deepEqual(hydrateCalls, ['/Albums/Keep/song.mp3'])
+  assert.equal(result.nextItems.length, 1)
+  assert.equal(result.nextItems[0].durationSec, 188)
+  assert.equal(saved.snapshot.snapshot.items[0].durationSec, 188)
+})
+
+test('updateImportRule full validation rehydrates unchanged songs when previous snapshot metadata is degraded', async() => {
+  const connection = createConnection()
+  const rule = createRule({
+    directories: [{
+      selectionId: 'dir_keep',
+      kind: 'directory',
+      pathOrUri: '/Albums/Keep',
+      displayName: 'Keep',
+    }],
+  })
+  const previousSnapshot = {
+    ruleId: 'rule_1',
+    scannedAt: 100,
+    items: [
+      {
+        ...createSourceItem({
+          sourceItemId: 'conn_1__/Albums/Keep/song.mp3',
+          pathOrUri: '/Albums/Keep/song.mp3',
+          title: 'song',
+          artist: '',
+          album: '',
+          durationSec: 0,
+          versionToken: 'v_song',
+        }),
+        scanStatus: 'degraded',
+      },
+    ],
+  }
+  const hydrateCalls = []
+  const saved = {
+    snapshot: null,
+  }
+
+  const result = await updateImportRule({
+    connection,
+    rule,
+    previousRule: rule,
+    syncMode: 'full_validation',
+    repository: {
+      async getImportSnapshot() {
+        return previousSnapshot
+      },
+      async saveImportSnapshot(ruleId, snapshot) {
+        saved.snapshot = { ruleId, snapshot }
+      },
+      async getImportRules() {
+        return [rule]
+      },
+      async saveImportRules() {},
+      async getConnections() {
+        return [connection]
+      },
+      async saveSourceItems() {},
+      async getAllSourceItems() {
+        return []
+      },
+      async saveAggregateSongs() {},
+      async getSyncRuns() {
+        return []
+      },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [
+                createCandidate({
+                  pathOrUri: '/Albums/Keep/song.mp3',
+                  fileName: 'song.mp3',
+                  versionToken: 'v_song',
+                  modifiedTime: 90,
+                }),
+              ],
+            }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            hydrateCalls.push(candidate.pathOrUri)
+            return {
+              candidate,
+              metadata: {
+                title: 'song',
+                artist: 'Singer',
+                album: '',
+                durationSec: 245,
+              },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    now: () => 200,
+  })
+
+  assert.deepEqual(hydrateCalls, ['/Albums/Keep/song.mp3'])
+  assert.equal(result.nextItems.length, 1)
+  assert.equal(result.nextItems[0].durationSec, 245)
+  assert.equal(saved.snapshot.snapshot.items[0].durationSec, 245)
+})
+
 test('updateImportRule incremental sync preserves previous metadata when hydration is incomplete', async() => {
   const connection = createConnection()
   const rule = createRule({

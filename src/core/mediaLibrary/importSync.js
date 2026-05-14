@@ -444,6 +444,13 @@ function didHydrationFail(hydrated) {
   return hydrated.metadata == null
 }
 
+function shouldRehydratePreviousItem(previousItem) {
+  if (!previousItem) return false
+  // 中文注释：旧快照里若已是 0 时长或 degraded，占位数据不能继续复用，
+  // 否则“更新”时会因为版本号未变化而永远跳过补元数据，导致列表长期显示 00:00。
+  return Number(previousItem.durationSec) <= 0 || previousItem.scanStatus === 'degraded'
+}
+
 async function runFullSync({
   connection,
   rule,
@@ -641,7 +648,9 @@ async function runIncrementalSync({
         ? String(previousItem.versionToken || '') !== String(candidate.versionToken || '')
         : true
       const modifiedTime = Number(candidate?.modifiedTime) || 0
+      const previousMetadataIncomplete = shouldRehydratePreviousItem(previousItem)
       const shouldHydrate = !previousItem ||
+        previousMetadataIncomplete ||
         versionChanged ||
         modifiedTime > lastIncrementalCutoff
 
