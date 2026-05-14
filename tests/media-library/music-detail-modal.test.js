@@ -8,6 +8,7 @@ const ts = require('typescript')
 // 统一从仓库根目录读取源码文件，避免测试受执行目录影响。
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 const listActionPath = path.resolve(__dirname, '../../src/screens/Home/Views/Mylist/MusicList/listAction.ts')
+const detailSectionsPath = path.resolve(__dirname, '../../src/components/MusicDetailModal/buildDetailSections.ts')
 
 // 通过转译并动态加载 TS 模块，直接执行纯函数行为，避免只靠源码 grep 判断分流逻辑。
 const loadListActionModule = ({ musicSdk = {}, toOldMusicInfo = info => info } = {}) => {
@@ -95,6 +96,28 @@ const loadListActionModule = ({ musicSdk = {}, toOldMusicInfo = info => info } =
   return mod.exports
 }
 
+// 通过转译并动态加载纯函数模块，直接验证分组和复制文本的真实行为。
+const loadDetailSectionsModule = () => {
+  const source = fs.readFileSync(detailSectionsPath, 'utf8')
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+      esModuleInterop: true,
+    },
+    fileName: detailSectionsPath,
+  }).outputText
+
+  const mod = new Module(detailSectionsPath, module)
+  mod.filename = detailSectionsPath
+  mod.paths = Module._nodeModulePaths(path.dirname(detailSectionsPath))
+  mod.require = request => {
+    throw new Error(`Unexpected dependency: ${request}`)
+  }
+  mod._compile(transpiled, detailSectionsPath)
+  return mod.exports
+}
+
 test('媒体库歌曲详情菜单对本地和不可用歌曲不再禁用', () => {
   const menuFile = readFile('src/screens/Home/Views/Mylist/MusicList/ListMenu.tsx')
 
@@ -137,6 +160,81 @@ test('详情分流纯函数会根据歌曲来源与 SDK 返回真实结果', () 
     'https://detail.test/123/album',
   )
   assert.equal(moduleExports.getExternalMusicSourceDetailUrl({ id: '456', source: 'tx', meta: {} }), '')
+})
+
+test('媒体库歌曲详情分组和复制文本会按顺序输出并映射状态', () => {
+  const {
+    buildMusicDetailSections,
+    buildMusicDetailCopyText,
+    getMusicDetailCopyActions,
+  } = loadDetailSectionsModule()
+
+  const musicInfo = {
+    id: 'song_1',
+    name: '海阔天空',
+    singer: 'Beyond',
+    source: 'webdav',
+    interval: '04:13',
+    meta: {
+      albumName: '乐与怒',
+      filePath: '/Music/海阔天空.flac',
+      ext: 'flac',
+      mediaLibrary: {
+        connectionId: 'conn_1',
+        sourceItemId: 'item_1',
+        aggregateSongId: 'agg_1',
+        providerType: 'webdav',
+        remotePathOrUri: '/remote/海阔天空.flac',
+        versionToken: 'v_1',
+        fileName: '海阔天空.flac',
+        modifiedTime: 1700000000000,
+        preferredSourceItemId: 'item_preferred',
+        unavailableReason: 'connection_removed',
+      },
+    },
+  }
+
+  const sections = buildMusicDetailSections(musicInfo)
+  assert.deepEqual(sections.map(section => section.key), ['basic', 'file', 'media_library', 'status'])
+  assert.deepEqual(sections[0].items.map(item => item.label), ['歌名', '歌手', '专辑', '时长', '来源'])
+  assert.deepEqual(sections[0].items.map(item => item.value), ['海阔天空', 'Beyond', '乐与怒', '04:13', 'webdav'])
+
+  const fileValues = sections[1].items.map(item => item.value)
+  assert.deepEqual(fileValues, ['/remote/海阔天空.flac', '海阔天空.flac', '1700000000000', 'v_1'])
+  assert.doesNotMatch(fileValues.join('\n'), /\/Music\/海阔天空\.flac/)
+
+  const mediaLibraryValues = sections[2].items.map(item => item.value)
+  assert.deepEqual(mediaLibraryValues, ['conn_1', 'item_1', 'agg_1', 'item_preferred', 'webdav'])
+
+  const statusSection = sections[3]
+  assert.deepEqual(statusSection.items.map(item => item.value), ['连接已移除'])
+  assert.doesNotMatch(buildMusicDetailCopyText('full', musicInfo), /connection_removed/)
+  assert.match(buildMusicDetailCopyText('full', musicInfo), /状态：连接已移除/)
+  assert.match(buildMusicDetailCopyText('full', musicInfo), /歌名：海阔天空/)
+  assert.match(buildMusicDetailCopyText('full', musicInfo), /歌手：Beyond/)
+  assert.match(buildMusicDetailCopyText('full', musicInfo), /专辑：乐与怒/)
+  assert.doesNotMatch(buildMusicDetailCopyText('full', musicInfo), /\n\s*\n/)
+
+  assert.equal(buildMusicDetailCopyText('name', musicInfo), '海阔天空')
+  assert.equal(buildMusicDetailCopyText('name_with_artist', musicInfo), 'Beyond - 海阔天空')
+  assert.equal(buildMusicDetailCopyText('path', musicInfo), '/remote/海阔天空.flac')
+
+  const actions = getMusicDetailCopyActions(musicInfo)
+  assert.deepEqual(actions.map(action => action.action), ['name', 'name_with_artist', 'full', 'path'])
+  assert.equal(actions.find(action => action.action === 'path').disabled, false)
+
+  const missingPathMusicInfo = {
+    ...musicInfo,
+    meta: {
+      ...musicInfo.meta,
+      mediaLibrary: {
+        ...musicInfo.meta.mediaLibrary,
+        remotePathOrUri: '',
+      },
+    },
+  }
+  assert.equal(buildMusicDetailCopyText('path', missingPathMusicInfo), '')
+  assert.equal(getMusicDetailCopyActions(missingPathMusicInfo).find(action => action.action === 'path').disabled, true)
 })
 
 test('媒体库歌曲详情弹窗组件通过 state 刷新当前歌曲并显示最小 Dialog', () => {
