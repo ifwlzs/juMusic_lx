@@ -84,6 +84,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       { action: 'changePosition', disabled: isMoveDisabled, label: t('change_position') },
       { action: 'toggleSource', disabled: isToggleSourceDisabled, label: t('toggle_source') },
       { action: 'copyName', label: t('copy_name') },
+      // 详情入口统一保持可点击，具体走应用内弹窗还是外链由页面层继续分流。
       { action: 'musicSourceDetail', label: t('music_source_detail') },
       // { action: 'musicSearch', label: t('music_search') },
       { action: 'dislike', disabled: hasDislike(musicInfo), label: t('dislike') },

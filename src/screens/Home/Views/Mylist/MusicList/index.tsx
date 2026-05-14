@@ -169,10 +169,12 @@ export default ({ onOpenMediaSourceManager }: {
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
         onCopyName={info => { handleShare(info.musicInfo) }}
         onMusicSourceDetail={info => {
+          // 本地歌曲与媒体库歌曲优先走应用内详情弹窗，避免再次跳回外部链接。
           if (isInternalMusicDetailTarget(info.musicInfo)) {
             musicDetailModalRef.current?.show(info.musicInfo)
             return
           }
+          // 在线音源仍然保留外链详情行为，保证既有入口不受这次任务 1 修复影响。
           void handleShowMusicSourceDetail(info.musicInfo)
         }}
         onAdd={handleAddMusic}

@@ -13,6 +13,7 @@ import { type Metadata } from '@/components/MetadataEditModal'
 import musicSdk from '@/utils/musicSdk'
 import { getListMusicSync } from '@/utils/listManage'
 
+// 统一读取媒体库附加信息，供菜单可用性与详情入口分流复用。
 const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
   return 'mediaLibrary' in musicInfo.meta ? musicInfo.meta.mediaLibrary : undefined
 }
@@ -21,10 +22,12 @@ export const isUnavailableMediaLibraryMusic = (musicInfo: LX.Music.MusicInfo) =>
   return !!getMediaLibraryInfo(musicInfo)?.unavailableReason
 }
 
+// 本地歌曲与媒体库歌曲都需要走应用内详情弹窗，而不是跳转外链。
 export const isInternalMusicDetailTarget = (musicInfo: LX.Music.MusicInfo) => {
   return !!(musicInfo.source == 'local' || getMediaLibraryInfo(musicInfo))
 }
 
+// 在线音源详情继续走外链，这里统一收敛 URL 生成逻辑，便于入口分流复用。
 export const getExternalMusicSourceDetailUrl = (minfo: LX.Music.MusicInfo) => {
   return musicSdk[minfo.source as LX.OnlineSource]?.getMusicDetailPageUrl(toOldMusicInfo(minfo)) ?? ''
 }
@@ -160,6 +163,7 @@ export const searchListMusic = (list: LX.Music.MusicInfo[], text: string) => {
   return sortedList.map(item => item.data).reverse()
 }
 
+// 仅处理在线音源的详情外链打开；应用内详情弹窗由页面层分流后直接触发。
 export const handleShowMusicSourceDetail = async(minfo: SelectInfo['musicInfo']) => {
   const url = getExternalMusicSourceDetailUrl(minfo)
   if (!url) return
