@@ -2,9 +2,98 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
+const Module = require('node:module')
+const ts = require('typescript')
 
 // 统一从仓库根目录读取源码文件，避免测试受执行目录影响。
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
+const listActionPath = path.resolve(__dirname, '../../src/screens/Home/Views/Mylist/MusicList/listAction.ts')
+
+// 通过转译并动态加载 TS 模块，直接执行纯函数行为，避免只靠源码 grep 判断分流逻辑。
+const loadListActionModule = ({ musicSdk = {}, toOldMusicInfo = info => info } = {}) => {
+  const source = fs.readFileSync(listActionPath, 'utf8')
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+      esModuleInterop: true,
+    },
+    fileName: listActionPath,
+  }).outputText
+
+  const mod = new Module(listActionPath, module)
+  mod.filename = listActionPath
+  mod.paths = Module._nodeModulePaths(path.dirname(listActionPath))
+  mod.require = request => {
+    switch (request) {
+      case '@/core/list':
+        return {
+          addListMusics: async() => {},
+          removeListMusics: async() => {},
+          updateListMusicPosition: async() => {},
+          updateListMusics: async() => {},
+        }
+      case '@/core/player/player':
+        return {
+          playList: async() => {},
+          playListById: async() => {},
+          playNext: async() => {},
+        }
+      case '@/core/player/tempPlayList':
+        return {
+          addTempPlayList: () => {},
+        }
+      case '@/store/setting/state':
+        return {
+          setting: {
+            'common.shareType': 'text',
+            'download.fileName': '{name}',
+            'list.addMusicLocationType': 'bottom',
+          },
+        }
+      case '@/utils':
+        return {
+          similar: () => 0,
+          sortInsert: (target, item) => target.push(item),
+          toOldMusicInfo,
+        }
+      case '@/utils/tools':
+        return {
+          confirmDialog: async() => false,
+          openUrl: () => {},
+          shareMusic: () => {},
+          toast: () => {},
+        }
+      case '@/core/dislikeList':
+        return {
+          addDislikeInfo: async() => {},
+          hasDislike: () => false,
+        }
+      case '@/store/player/state':
+        return {
+          playMusicInfo: {
+            listId: '',
+            musicInfo: null,
+          },
+        }
+      case '@/store/list/state':
+        return {
+          allList: [],
+        }
+      case '@/utils/musicSdk':
+        return musicSdk
+      case '@/utils/listManage':
+        return {
+          getListMusicSync: () => [],
+        }
+      default:
+        throw new Error(`Unexpected dependency: ${request}`)
+    }
+  }
+
+  mod._compile(transpiled, listActionPath)
+  return mod.exports
+}
 
 test('媒体库歌曲详情菜单对本地和不可用歌曲不再禁用', () => {
   const menuFile = readFile('src/screens/Home/Views/Mylist/MusicList/ListMenu.tsx')
@@ -26,6 +115,30 @@ test('我的列表详情动作对在线音源走外链，对媒体库歌曲走�
   assert.match(indexFile, /onMusicSourceDetail=\{info => \{/)
 })
 
+test('详情分流纯函数会根据歌曲来源与 SDK 返回真实结果', () => {
+  const moduleExports = loadListActionModule({
+    musicSdk: {
+      kg: {
+        getMusicDetailPageUrl: info => `https://detail.test/${info.id}/${info.albumName ?? 'none'}`,
+      },
+    },
+    toOldMusicInfo: info => ({
+      id: info.id,
+      albumName: info.meta.albumName,
+    }),
+  })
+
+  // 直接执行导出的纯函数，验证任务 1 的分流契约不是只停留在源码字符串层面。
+  assert.equal(moduleExports.isInternalMusicDetailTarget({ source: 'local', meta: {} }), true)
+  assert.equal(moduleExports.isInternalMusicDetailTarget({ source: 'kg', meta: { mediaLibrary: { path: 'D:/Music/a.mp3' } } }), true)
+  assert.equal(moduleExports.isInternalMusicDetailTarget({ source: 'kg', meta: {} }), false)
+  assert.equal(
+    moduleExports.getExternalMusicSourceDetailUrl({ id: '123', source: 'kg', meta: { albumName: 'album' } }),
+    'https://detail.test/123/album',
+  )
+  assert.equal(moduleExports.getExternalMusicSourceDetailUrl({ id: '456', source: 'tx', meta: {} }), '')
+})
+
 test('媒体库歌曲详情弹窗组件通过 state 刷新当前歌曲并显示最小 Dialog', () => {
   const modalFile = readFile('src/components/MusicDetailModal/index.tsx')
 
@@ -36,8 +149,8 @@ test('媒体库歌曲详情弹窗组件通过 state 刷新当前歌曲并显示�
   assert.match(modalFile, /setMusicInfo\(musicInfo\)/)
   assert.match(modalFile, /dialogRef\.current\?\.setVisible\(true\)/)
   assert.match(modalFile, /title=\{[^\n]*歌曲详情[^\n]*\}/)
-  assert.match(modalFile, /musicInfo\?\.name/)
-  assert.match(modalFile, /musicInfo\?\.singer/)
+  assert.match(modalFile, /musicInfo\?\.name \?\? '-'/)
+  assert.match(modalFile, /musicInfo\?\.singer \?\? '-'/)
   assert.doesNotMatch(modalFile, /musicInfoRef\.current/)
 })
 

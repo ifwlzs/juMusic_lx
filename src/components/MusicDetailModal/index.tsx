@@ -39,8 +39,8 @@ export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
       <View style={styles.content}>
         {/* 任务 1 只提供最小可见弹窗，用基础只读信息证明分流已经接到真实歌曲详情界面。 */}
         <Text style={styles.label} size={14}>{t('music_source_detail') || '歌曲详情'}</Text>
-        <Text size={13}>歌名：{musicInfo?.name || '-'}</Text>
-        <Text size={13}>歌手：{musicInfo?.singer || '-'}</Text>
+        <Text size={13}>歌名：{musicInfo?.name ?? '-'}</Text>
+        <Text size={13}>歌手：{musicInfo?.singer ?? '-'}</Text>
       </View>
     </Dialog>
   ) : null
