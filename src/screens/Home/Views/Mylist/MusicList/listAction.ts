@@ -21,6 +21,15 @@ export const isUnavailableMediaLibraryMusic = (musicInfo: LX.Music.MusicInfo) =>
   return !!getMediaLibraryInfo(musicInfo)?.unavailableReason
 }
 
+export const isInternalMusicDetailTarget = (musicInfo: LX.Music.MusicInfo) => {
+  return !!(musicInfo.source == 'local' || getMediaLibraryInfo(musicInfo))
+}
+
+export const getExternalMusicSourceDetailUrl = (minfo: LX.Music.MusicInfo) => {
+  return musicSdk[minfo.source as LX.OnlineSource]?.getMusicDetailPageUrl(toOldMusicInfo(minfo)) ?? ''
+}
+
+
 export const isReadOnlyGeneratedList = (listId: string) => {
   const listInfo = listState.allList.find(item => item.id == listId) as LX.List.UserListInfo | undefined
   return !!listInfo?.mediaSource?.readOnly
@@ -152,7 +161,7 @@ export const searchListMusic = (list: LX.Music.MusicInfo[], text: string) => {
 }
 
 export const handleShowMusicSourceDetail = async(minfo: SelectInfo['musicInfo']) => {
-  const url = musicSdk[minfo.source as LX.OnlineSource]?.getMusicDetailPageUrl(toOldMusicInfo(minfo))
+  const url = getExternalMusicSourceDetailUrl(minfo)
   if (!url) return
   void openUrl(url)
 }

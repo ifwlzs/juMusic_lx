@@ -3,7 +3,7 @@ import { type MediaSourceManagerShowOptions } from '../../Setting/settings/Basic
 
 import listState from '@/store/list/state'
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
-import { handleDislikeMusic, handlePlay, handlePlayLater, handleRemove, handleShare, handleShowMusicSourceDetail, handleUpdateMusicInfo, handleUpdateMusicPosition } from './listAction'
+import { handleDislikeMusic, handlePlay, handlePlayLater, handleRemove, handleShare, handleShowMusicSourceDetail, handleUpdateMusicInfo, handleUpdateMusicPosition, isInternalMusicDetailTarget } from './listAction'
 import List, { type ListType } from './List'
 import ListMusicAdd, { type MusicAddModalType as ListMusicAddType } from '@/components/MusicAddModal'
 import ListMusicMultiAdd, { type MusicMultiAddModalType as ListAddMultiType } from '@/components/MusicMultiAddModal'
@@ -16,6 +16,7 @@ import ListMusicSearch, { type ListMusicSearchType } from './ListMusicSearch'
 import MusicPositionModal, { type MusicPositionModalType } from './MusicPositionModal'
 import MetadataEditModal, { type MetadataEditType, type MetadataEditProps } from '@/components/MetadataEditModal'
 import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
+import MusicDetailModal, { type MusicDetailModalType } from '@/components/MusicDetailModal'
 
 
 export default ({ onOpenMediaSourceManager }: {
@@ -33,6 +34,7 @@ export default ({ onOpenMediaSourceManager }: {
   const metadataEditTypeRef = useRef<MetadataEditType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const musicToggleModalRef = useRef<MusicToggleModalType>(null)
+  const musicDetailModalRef = useRef<MusicDetailModalType>(null)
   const layoutHeightRef = useRef<number>(0)
   const isShowMultipleModeBar = useRef(false)
   const isShowSearchBarModeBar = useRef(false)
@@ -166,7 +168,13 @@ export default ({ onOpenMediaSourceManager }: {
         onRemove={info => { hancelExitSelect(); handleRemove(info.listId, info.musicInfo, info.selectedList, hancelExitSelect) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
         onCopyName={info => { handleShare(info.musicInfo) }}
-        onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
+        onMusicSourceDetail={info => {
+          if (isInternalMusicDetailTarget(info.musicInfo)) {
+            musicDetailModalRef.current?.show(info.musicInfo)
+            return
+          }
+          void handleShowMusicSourceDetail(info.musicInfo)
+        }}
         onAdd={handleAddMusic}
         onMove={handleMoveMusic}
         onEditMetadata={handleEditMetadata}
@@ -178,6 +186,7 @@ export default ({ onOpenMediaSourceManager }: {
         onUpdate={handleUpdateMetadata}
       />
       <MusicToggleModal ref={musicToggleModalRef} />
+      <MusicDetailModal ref={musicDetailModalRef} />
     </View>
   )
 }

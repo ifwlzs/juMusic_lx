@@ -70,22 +70,26 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
     const listInfo = listState.allList.find(item => item.id == selectInfo.listId) as LX.List.UserListInfo | undefined
     const isReadOnlyList = !!listInfo?.mediaSource?.readOnly
     const isUnavailable = !!getMediaLibraryInfo(musicInfo)?.unavailableReason
+    const isPlayDisabled = isUnavailable
+    const isMoveDisabled = isReadOnlyList || isUnavailable
+    const isToggleSourceDisabled = isUnavailable
+    const isRemoveDisabled = isReadOnlyList || isUnavailable
     let edit_metadata = false
     const menu = [
-      { action: 'play', disabled: isUnavailable, label: t('play') },
-      { action: 'playLater', disabled: isUnavailable, label: t('play_later') },
+      { action: 'play', disabled: isPlayDisabled, label: t('play') },
+      { action: 'playLater', disabled: isPlayDisabled, label: t('play_later') },
       // { action: 'download', label: '下载' },
       { action: 'add', label: t('add_to') },
-      { action: 'move', disabled: isReadOnlyList || isUnavailable, label: t('move_to') },
-      { action: 'changePosition', disabled: isReadOnlyList || isUnavailable, label: t('change_position') },
-      { action: 'toggleSource', disabled: isUnavailable, label: t('toggle_source') },
+      { action: 'move', disabled: isMoveDisabled, label: t('move_to') },
+      { action: 'changePosition', disabled: isMoveDisabled, label: t('change_position') },
+      { action: 'toggleSource', disabled: isToggleSourceDisabled, label: t('toggle_source') },
       { action: 'copyName', label: t('copy_name') },
-      { action: 'musicSourceDetail', disabled: musicInfo.source == 'local' || isUnavailable, label: t('music_source_detail') },
+      { action: 'musicSourceDetail', label: t('music_source_detail') },
       // { action: 'musicSearch', label: t('music_search') },
       { action: 'dislike', disabled: hasDislike(musicInfo), label: t('dislike') },
-      { action: 'remove', disabled: isReadOnlyList || isUnavailable, label: t('delete') },
+      { action: 'remove', disabled: isRemoveDisabled, label: t('delete') },
     ]
-    if (musicInfo.source == 'local') menu.splice(5, 0, { action: 'editMetadata', disabled: isReadOnlyList || isUnavailable || !edit_metadata, label: t('edit_metadata') })
+    if (musicInfo.source == 'local') menu.splice(5, 0, { action: 'editMetadata', disabled: isMoveDisabled || !edit_metadata, label: t('edit_metadata') })
     setMenus(menu)
     void Promise.all([hasEditMetadata(musicInfo)]).then(([_edit_metadata]) => {
       // console.log(_edit_metadata)
@@ -98,7 +102,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       if (isUpdated) {
         const editMetadataIndex = menu.findIndex(m => m.action == 'editMetadata')
         if (editMetadataIndex < 0) return
-        menu[editMetadataIndex].disabled = isReadOnlyList || isUnavailable || !edit_metadata
+        menu[editMetadataIndex].disabled = isMoveDisabled || !edit_metadata
         setMenus([...menu])
       }
     })
