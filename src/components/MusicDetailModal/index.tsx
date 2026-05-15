@@ -21,13 +21,6 @@ const isTranslateValueKey = (value: string) => {
   return value.startsWith('music_detail_') || value.startsWith('source_real_')
 }
 
-const copyActionLabelKeys = {
-  name: 'music_detail_copy_name',
-  name_with_artist: 'music_detail_copy_name_with_artist',
-  full: 'music_detail_copy_full',
-  path: 'music_detail_copy_path',
-} as const
-
 export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
   const t = useI18n()
   const theme = useTheme()
@@ -98,7 +91,8 @@ export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
                 disabled={action.disabled}
                 onPress={() => { handleCopy(action.key) }}
               >
-                <Text color={theme['c-button-font']} size={13}>{t(copyActionLabelKeys[action.key] ?? action.label)}</Text>
+                {/* 复制动作文案直接消费纯函数返回的 label，保证 UI 与任务 2 的动作契约保持单一事实来源。 */}
+                <Text color={theme['c-button-font']} size={13}>{t(action.label)}</Text>
               </Button>
             ))}
           </View>
