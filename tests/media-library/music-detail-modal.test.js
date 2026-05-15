@@ -348,6 +348,57 @@ test('媒体库歌曲详情弹窗组件通过 state 刷新当前歌曲并显示�
   assert.doesNotMatch(modalFile, /musicInfoRef\.current/)
 })
 
+test('任务 3 详情弹窗会接入分组渲染与复制动作契约', () => {
+  const modalFile = readFile('src/components/MusicDetailModal/index.tsx')
+
+  // 锁定任务 3 的 UI 接线：弹窗要真正消费任务 2 的纯函数，并把复制动作接到剪贴板与提示文案。
+  assert.match(modalFile, /from '@\/components\/common\/Dialog'/)
+  assert.match(modalFile, /buildMusicDetailSections/)
+  assert.match(modalFile, /getMusicDetailCopyActions/)
+  assert.match(modalFile, /buildMusicDetailCopyText/)
+  assert.match(modalFile, /clipboardWriteText/)
+  assert.match(modalFile, /toast\(t\('copy_name_tip'\)\)/)
+  assert.match(modalFile, /music_detail_copy_name/)
+  assert.match(modalFile, /music_detail_copy_name_with_artist/)
+  assert.match(modalFile, /music_detail_copy_full/)
+  assert.match(modalFile, /music_detail_copy_path/)
+  assert.match(modalFile, /t\(item\.label\)/)
+  assert.match(modalFile, /music_detail_/)
+  assert.match(modalFile, /source_real_/)
+  assert.match(modalFile, /<Dialog/)
+})
+
+test('任务 3 语言文件补齐详情弹窗文案键', () => {
+  const zhCn = JSON.parse(readFile('src/lang/zh-cn.json'))
+  const zhTw = JSON.parse(readFile('src/lang/zh-tw.json'))
+  const enUs = JSON.parse(readFile('src/lang/en-us.json'))
+
+  // 锁定任务 3 至少要求的标题、字段、不可用状态与复制动作文案，避免 UI 接线后缺翻译键。
+  assert.equal(zhCn.music_detail_title, '歌曲详情')
+  assert.equal(zhCn.music_detail_path, '路径')
+  assert.equal(zhCn.music_detail_unavailable_rule_removed, '规则已移除')
+  assert.ok(zhCn.music_detail_copy_name)
+  assert.ok(zhCn.music_detail_copy_name_with_artist)
+  assert.ok(zhCn.music_detail_copy_full)
+  assert.ok(zhCn.music_detail_copy_path)
+
+  assert.ok(zhTw.music_detail_title)
+  assert.ok(zhTw.music_detail_path)
+  assert.ok(zhTw.music_detail_unavailable_rule_removed)
+  assert.ok(zhTw.music_detail_copy_name)
+  assert.ok(zhTw.music_detail_copy_name_with_artist)
+  assert.ok(zhTw.music_detail_copy_full)
+  assert.ok(zhTw.music_detail_copy_path)
+
+  assert.ok(enUs.music_detail_title)
+  assert.ok(enUs.music_detail_path)
+  assert.ok(enUs.music_detail_unavailable_rule_removed)
+  assert.ok(enUs.music_detail_copy_name)
+  assert.ok(enUs.music_detail_copy_name_with_artist)
+  assert.ok(enUs.music_detail_copy_full)
+  assert.ok(enUs.music_detail_copy_path)
+})
+
 test('任务 1 修复涉及的新增契约代码补齐中文注释', () => {
   const actionFile = readFile('src/screens/Home/Views/Mylist/MusicList/listAction.ts')
   const modalFile = readFile('src/components/MusicDetailModal/index.tsx')
