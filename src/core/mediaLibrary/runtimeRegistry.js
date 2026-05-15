@@ -126,7 +126,10 @@ function createMediaLibraryRuntimeRegistry(repository = mediaLibraryRepository) 
       return `${temporaryDirectoryPath}/media_library_webdav_${Date.now()}_${Math.random().toString(36).slice(2)}${extension}`
     },
     removeTempFile: unlink,
-    hydrateMetadataOnSync: false,
+    // 中文注释：WebDAV 默认同步阶段需要允许单曲级远端 metadata hydrate，
+    // 这样增量更新与全量校验才能把旧的 0 时长记录补齐；但整批 scan 仍保持轻量，避免回退成全量远端下载。
+    hydrateMetadataOnSync: true,
+    hydrateMetadataOnScan: false,
     directoryConcurrency: 6,
   })
   const oneDriveProvider = createOneDriveProvider({

@@ -75,3 +75,13 @@ test('runtime registry no longer stubs smb and webdav remote metadata reads as n
   assert.match(file, /downloadFile/)
   assert.match(file, /readMetadata/)
 })
+
+test('runtime registry 默认开启 WebDAV 同步补元数据并保持扫描轻量', () => {
+  const file = readFile('src/core/mediaLibrary/runtimeRegistry.js')
+
+  // 中文注释：Node 侧无法直接执行 React Native 的 utils 依赖，因此这里锁定运行时装配配置，
+  // 避免 WebDAV provider 在真实同步链路里继续禁用远端 metadata hydrate，同时守住 scan 轻量策略。
+  assert.match(file, /const webdavProvider = createWebdavProvider\([\s\S]+?hydrateMetadataOnSync:\s*true,/)
+  assert.match(file, /const webdavProvider = createWebdavProvider\([\s\S]+?hydrateMetadataOnScan:\s*false,/)
+  assert.doesNotMatch(file, /const webdavProvider = createWebdavProvider\([\s\S]+?hydrateMetadataOnSync:\s*false,/)
+})

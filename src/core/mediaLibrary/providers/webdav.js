@@ -296,7 +296,10 @@ function createWebdavProvider({
   metadataConcurrency = DEFAULT_CONCURRENCY,
   directoryConcurrency = DEFAULT_CONCURRENCY,
   hydrateMetadataOnSync = true,
+  hydrateMetadataOnScan = hydrateMetadataOnSync,
 }) {
+  // 中文注释：同步阶段的 hydrateCandidate 需要支持“按需下载单首远端文件补 metadata”，
+  // 但 scanSelection / scanConnection 这类整批扫描入口可以单独保持轻量，避免把一次同步退回成整批远端下载。
   return {
     type: 'webdav',
     async browseConnection(connection, pathOrUri = connection.rootPathOrUri) {
@@ -363,7 +366,7 @@ function createWebdavProvider({
         readMetadata,
         createTempFilePath,
         removeTempFile,
-      }, metadataConcurrency, hydrateMetadataOnSync)
+      }, metadataConcurrency, hydrateMetadataOnScan)
     },
     async scanConnection(connection) {
       const entries = await requestPropfind(request, connection, connection.rootPathOrUri, 'infinity')
@@ -372,7 +375,7 @@ function createWebdavProvider({
         readMetadata,
         createTempFilePath,
         removeTempFile,
-      }, metadataConcurrency, hydrateMetadataOnSync)
+      }, metadataConcurrency, hydrateMetadataOnScan)
     },
     async downloadToCache(connection, sourceItem, savePath) {
       return downloadFile(connection, sourceItem.pathOrUri, savePath)

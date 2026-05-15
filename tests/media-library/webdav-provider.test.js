@@ -302,7 +302,7 @@ test('createWebdavProvider streamEnumerateSelection emits shallower directory ca
           </d:response>
         </d:multistatus>`
       }
-      return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />`
+      return '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />'
     },
     async downloadFile() {},
     async readMetadata() { return null },
@@ -462,6 +462,93 @@ test('createWebdavProvider hydrateCandidate falls back to temp-file metadata whe
   ])
 })
 
+test('createWebdavProvider 可保持扫描轻量，同时允许同步补元数据读取远端 metadata', async() => {
+  const xml = `<?xml version="1.0"?>
+  <d:multistatus xmlns:d="DAV:">
+    <d:response>
+      <d:href>/music/</d:href>
+      <d:propstat>
+        <d:prop>
+          <d:getetag>"root"</d:getetag>
+        </d:prop>
+      </d:propstat>
+    </d:response>
+    <d:response>
+      <d:href>/music/test.mp3</d:href>
+      <d:propstat>
+        <d:prop>
+          <d:getetag>"abc"</d:getetag>
+          <d:getlastmodified>Sat, 05 Apr 2026 10:00:00 GMT</d:getlastmodified>
+          <d:getcontentlength>321</d:getcontentlength>
+        </d:prop>
+      </d:propstat>
+    </d:response>
+  </d:multistatus>`
+
+  const calls = []
+  const provider = createWebdavProvider({
+    async request() {
+      return xml
+    },
+    async downloadFile(connection, uri, savePath) {
+      calls.push(['download', connection.connectionId, uri, savePath])
+      return savePath
+    },
+    async readMetadata(localPath) {
+      calls.push(['metadata', localPath])
+      return {
+        name: '定向补齐',
+        singer: 'WebDAV',
+        albumName: 'Album',
+        interval: 245,
+      }
+    },
+    createTempFilePath(fileName) {
+      calls.push(['temp', fileName])
+      return `/tmp/${fileName}`
+    },
+    async removeTempFile(localPath) {
+      calls.push(['cleanup', localPath])
+    },
+    hydrateMetadataOnSync: true,
+    hydrateMetadataOnScan: false,
+  })
+
+  const scanResult = await provider.scanConnection({
+    connectionId: 'conn_1',
+    rootPathOrUri: '/music',
+  })
+  assert.equal(scanResult.items[0].durationSec, 0)
+  assert.deepEqual(calls, [])
+
+  const hydrated = await provider.hydrateCandidate({
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+  }, {
+    sourceStableKey: '/music/test.mp3',
+    pathOrUri: '/music/test.mp3',
+    fileName: 'test.mp3',
+    versionToken: '"abc"',
+    metadataHints: {
+      title: 'test',
+      artist: '',
+      album: '',
+      durationSec: 0,
+    },
+  }, {
+    attempt: 1,
+  })
+
+  assert.equal(hydrated.metadata.durationSec, 245)
+  assert.equal(hydrated.metadata.artist, 'WebDAV')
+  assert.deepEqual(calls, [
+    ['temp', 'test.mp3'],
+    ['download', 'conn_1', '/music/test.mp3', '/tmp/test.mp3'],
+    ['metadata', '/tmp/test.mp3'],
+    ['cleanup', '/tmp/test.mp3'],
+  ])
+})
+
 
 test('createWebdavProvider streamEnumerateSelection emits shallower directory candidates before deeper traversal finishes', async() => {
   const batches = []
@@ -520,7 +607,7 @@ test('createWebdavProvider streamEnumerateSelection emits shallower directory ca
           </d:response>
         </d:multistatus>`
       }
-      return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />`
+      return '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />'
     },
     async downloadFile() {},
     async readMetadata() { return null },
