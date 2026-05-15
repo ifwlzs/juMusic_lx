@@ -67,6 +67,13 @@ const COPY_TEXT_STATUS_VALUES: Record<NonNullable<LX.Music.MusicInfo['meta']['me
   rule_removed: '规则已移除',
 }
 
+const COPY_TEXT_SOURCE_VALUES: Record<string, string> = {
+  source_real_local: '本地',
+  source_real_webdav: 'WebDAV',
+  source_real_smb: 'SMB',
+  source_real_onedrive: 'OneDrive',
+}
+
 const hasMediaLibrary = (musicInfo: LX.Music.MusicInfo) => {
   return 'mediaLibrary' in musicInfo.meta && !!musicInfo.meta.mediaLibrary
 }
@@ -194,7 +201,12 @@ const getFullTextLines = (musicInfo: LX.Music.MusicInfo) => {
   }
   for (const section of sections) {
     for (const item of section.items) {
-      const resolvedValue = item.key == 'status' ? (statusValueByKey[item.value] ?? item.value) : item.value
+      let resolvedValue = item.value
+      if (item.key == 'status') resolvedValue = statusValueByKey[item.value] ?? item.value
+      if (item.key == 'source' || item.key == 'providerType') {
+        // section 数据继续保留 i18n key，但 full 复制文本要转成可读文案，避免把内部 key 暴露给用户。
+        resolvedValue = COPY_TEXT_SOURCE_VALUES[item.value] ?? item.value
+      }
       lines.push(`${copyLabelByKey[item.key] ?? item.label}：${resolvedValue}`)
     }
   }
