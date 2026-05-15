@@ -14,34 +14,33 @@ export interface MusicDetailSection {
 }
 
 export interface MusicDetailCopyActionItem {
-  action: MusicDetailCopyAction
+  key: MusicDetailCopyAction
   label: string
   disabled?: boolean
 }
 
 const LABELS = {
-  name: '歌名',
-  singer: '歌手',
-  album: '专辑',
-  interval: '时长',
-  source: '来源',
-  filePath: '文件路径',
-  ext: '文件扩展名',
-  remotePathOrUri: '远端路径',
-  fileName: '文件名',
-  modifiedTime: '修改时间',
-  versionToken: '版本标识',
-  connectionId: '连接ID',
-  sourceItemId: '源项目ID',
-  aggregateSongId: '聚合歌曲ID',
-  preferredSourceItemId: '首选源项目ID',
-  providerType: '提供方类型',
-  status: '状态',
+  name: 'music_detail_name',
+  singer: 'music_detail_singer',
+  album: 'music_detail_album',
+  interval: 'music_detail_interval',
+  source: 'music_detail_source',
+  path: 'music_detail_path',
+  ext: 'music_detail_ext',
+  fileName: 'music_detail_file_name',
+  modifiedTime: 'music_detail_modified_time',
+  versionToken: 'music_detail_version_token',
+  connectionId: 'music_detail_connection_id',
+  sourceItemId: 'music_detail_source_item_id',
+  aggregateSongId: 'music_detail_aggregate_song_id',
+  preferredSourceItemId: 'music_detail_preferred_source_item_id',
+  providerType: 'music_detail_provider_type',
+  status: 'music_detail_status',
 } as const
 
 const STATUS_LABELS: Record<NonNullable<LX.Music.MusicInfo['meta']['mediaLibrary']>['unavailableReason'], string> = {
-  connection_removed: '连接已移除',
-  rule_removed: '规则已移除',
+  connection_removed: 'music_detail_unavailable_connection_removed',
+  rule_removed: 'music_detail_unavailable_rule_removed',
 }
 
 const hasMediaLibrary = (musicInfo: LX.Music.MusicInfo) => {
@@ -50,6 +49,10 @@ const hasMediaLibrary = (musicInfo: LX.Music.MusicInfo) => {
 
 const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
   return hasMediaLibrary(musicInfo) ? musicInfo.meta.mediaLibrary : undefined
+}
+
+const getSourceDisplayKey = (source: unknown) => {
+  return `source_real_${String(source)}`
 }
 
 const formatValue = (value: unknown) => {
@@ -70,21 +73,21 @@ const buildBasicSection = (musicInfo: LX.Music.MusicInfo) => {
   pushItem(items, 'singer', LABELS.singer, musicInfo.singer)
   pushItem(items, 'album', LABELS.album, musicInfo.meta.albumName)
   pushItem(items, 'interval', LABELS.interval, musicInfo.interval)
-  pushItem(items, 'source', LABELS.source, musicInfo.source)
+  pushItem(items, 'source', LABELS.source, getSourceDisplayKey(musicInfo.source))
   return items
 }
 
 const buildFileSection = (musicInfo: LX.Music.MusicInfo) => {
   const items: MusicDetailSectionItem[] = []
   const mediaLibrary = getMediaLibraryInfo(musicInfo)
-  // 本地歌曲只展示本地文件路径和扩展名；媒体库歌曲优先展示远端路径和归档字段，避免把来源混在一起。
+  // 文件分组首项统一抽象为 path，避免 UI 层再分辨 filePath / remotePathOrUri 两种不同字段名。
   if (mediaLibrary) {
-    pushItem(items, 'remotePathOrUri', LABELS.remotePathOrUri, mediaLibrary.remotePathOrUri)
+    pushItem(items, 'path', LABELS.path, mediaLibrary.remotePathOrUri)
     pushItem(items, 'fileName', LABELS.fileName, mediaLibrary.fileName)
     pushItem(items, 'modifiedTime', LABELS.modifiedTime, mediaLibrary.modifiedTime)
     pushItem(items, 'versionToken', LABELS.versionToken, mediaLibrary.versionToken)
   } else {
-    if ('filePath' in musicInfo.meta) pushItem(items, 'filePath', LABELS.filePath, musicInfo.meta.filePath)
+    if ('filePath' in musicInfo.meta) pushItem(items, 'path', LABELS.path, musicInfo.meta.filePath)
     if ('ext' in musicInfo.meta) pushItem(items, 'ext', LABELS.ext, musicInfo.meta.ext)
   }
   return items
@@ -99,7 +102,7 @@ const buildMediaLibrarySection = (musicInfo: LX.Music.MusicInfo) => {
   pushItem(items, 'sourceItemId', LABELS.sourceItemId, mediaLibrary.sourceItemId)
   pushItem(items, 'aggregateSongId', LABELS.aggregateSongId, mediaLibrary.aggregateSongId)
   pushItem(items, 'preferredSourceItemId', LABELS.preferredSourceItemId, mediaLibrary.preferredSourceItemId)
-  pushItem(items, 'providerType', LABELS.providerType, mediaLibrary.providerType)
+  pushItem(items, 'providerType', LABELS.providerType, getSourceDisplayKey(mediaLibrary.providerType))
   return items
 }
 
@@ -165,9 +168,9 @@ export const buildMusicDetailCopyText = (action: MusicDetailCopyAction, musicInf
 export const getMusicDetailCopyActions = (musicInfo: LX.Music.MusicInfo): MusicDetailCopyActionItem[] => {
   const path = buildMusicDetailCopyText('path', musicInfo)
   return [
-    { action: 'name', label: '复制歌名' },
-    { action: 'name_with_artist', label: '复制歌手+歌名' },
-    { action: 'full', label: '复制完整详情' },
-    { action: 'path', label: '复制路径', disabled: !path },
+    { key: 'name', label: '复制歌名' },
+    { key: 'name_with_artist', label: '复制歌手+歌名' },
+    { key: 'full', label: '复制完整详情' },
+    { key: 'path', label: '复制路径', disabled: !path },
   ]
 }
