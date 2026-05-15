@@ -988,3 +988,12 @@ test('任务 1 修复涉及的新增契约代码补齐中文注释', () => {
   assert.match(indexFile, /\/\/.*外链/)
   assert.match(menuFile, /\/\/.*详情入口/)
 })
+
+// 锁定本次发版说明，避免“详情弹窗 + 复制动作”能力遗漏在变更日志之外。
+test('changelog notes the media-library music detail modal and copy actions', () => {
+  const changelog = readFile('CHANGELOG.md')
+
+  assert.match(changelog, /媒体库歌曲详情弹窗/)
+  assert.match(changelog, /复制歌名/)
+  assert.match(changelog, /复制路径/)
+})

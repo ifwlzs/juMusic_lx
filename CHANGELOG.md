@@ -13,6 +13,8 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 年报预览补齐 P22 / P26 / P27 / P28 / P29 / P30 / P31 / L01 / L02 / L03 / L04A / L04B / P32 页面链路与真实数据契约，恢复移动端年报完整预览
 - 新增年报导出与预览的页面压缩样式，确保 Top10 榜单页在 844px 视口内稳定单屏展示
 - 新增基础歌曲听歌记录的 Emby Playback Reporting 补录脚本与播放来源字段，支持 juMusic / Emby 双来源
+- 新增媒体库歌曲详情弹窗，支持在「我的列表」中查看本地 / WebDAV / SMB / OneDrive 歌曲的基础信息、来源信息与不可用原因
+- 新增媒体库歌曲详情内的复制歌名、复制歌手 - 歌名、复制完整详情、复制路径动作，便于排障与分享
 
 修复
 
