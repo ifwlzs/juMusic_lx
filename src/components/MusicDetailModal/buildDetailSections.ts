@@ -21,7 +21,7 @@ export interface MusicDetailCopyActionItem {
 
 const LABELS = {
   name: 'music_detail_name',
-  singer: 'music_detail_singer',
+  artist: 'music_detail_artist',
   album: 'music_detail_album',
   interval: 'music_detail_interval',
   source: 'music_detail_source',
@@ -35,12 +35,36 @@ const LABELS = {
   aggregateSongId: 'music_detail_aggregate_song_id',
   preferredSourceItemId: 'music_detail_preferred_source_item_id',
   providerType: 'music_detail_provider_type',
-  status: 'music_detail_status',
+  unavailableReason: 'music_detail_unavailable_reason',
 } as const
 
 const STATUS_LABELS: Record<NonNullable<LX.Music.MusicInfo['meta']['mediaLibrary']>['unavailableReason'], string> = {
   connection_removed: 'music_detail_unavailable_connection_removed',
   rule_removed: 'music_detail_unavailable_rule_removed',
+}
+
+const COPY_TEXT_LABELS = {
+  name: '歌名',
+  artist: '歌手',
+  album: '专辑',
+  interval: '时长',
+  source: '来源',
+  path: '路径',
+  ext: '扩展名',
+  fileName: '文件名',
+  modifiedTime: '修改时间',
+  versionToken: '版本标识',
+  connectionId: '连接ID',
+  sourceItemId: '源项目ID',
+  aggregateSongId: '聚合歌曲ID',
+  preferredSourceItemId: '首选源项目ID',
+  providerType: '提供方类型',
+  unavailableReason: '状态',
+} as const
+
+const COPY_TEXT_STATUS_VALUES: Record<NonNullable<LX.Music.MusicInfo['meta']['mediaLibrary']>['unavailableReason'], string> = {
+  connection_removed: '连接已移除',
+  rule_removed: '规则已移除',
 }
 
 const hasMediaLibrary = (musicInfo: LX.Music.MusicInfo) => {
@@ -53,6 +77,10 @@ const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
 
 const getSourceDisplayKey = (source: unknown) => {
   return `source_real_${String(source)}`
+}
+
+const getResolvedSource = (musicInfo: LX.Music.MusicInfo) => {
+  return getMediaLibraryInfo(musicInfo)?.providerType ?? musicInfo.source
 }
 
 const formatValue = (value: unknown) => {
@@ -70,10 +98,11 @@ const buildBasicSection = (musicInfo: LX.Music.MusicInfo) => {
   const items: MusicDetailSectionItem[] = []
   // 基础信息按阅读顺序固定输出，便于后续 UI 与复制文本保持一致。
   pushItem(items, 'name', LABELS.name, musicInfo.name)
-  pushItem(items, 'singer', LABELS.singer, musicInfo.singer)
+  pushItem(items, 'artist', LABELS.artist, musicInfo.singer)
   pushItem(items, 'album', LABELS.album, musicInfo.meta.albumName)
   pushItem(items, 'interval', LABELS.interval, musicInfo.interval)
-  pushItem(items, 'source', LABELS.source, getSourceDisplayKey(musicInfo.source))
+  // 来源显示优先使用媒体库 providerType，保证远端缓存歌曲仍展示真实提供方而不是当前 musicInfo.source。
+  pushItem(items, 'source', LABELS.source, getSourceDisplayKey(getResolvedSource(musicInfo)))
   return items
 }
 
@@ -113,7 +142,7 @@ const buildStatusSection = (musicInfo: LX.Music.MusicInfo) => {
   // 状态字段需要映射成可读文本，避免把内部枚举值直接暴露给 UI 或复制文本。
   items.push({
     key: 'status',
-    label: LABELS.status,
+    label: LABELS.unavailableReason,
     value: STATUS_LABELS[mediaLibrary.unavailableReason],
   })
   return items
@@ -139,11 +168,34 @@ const getNameWithArtist = (musicInfo: LX.Music.MusicInfo) => {
 
 const getFullTextLines = (musicInfo: LX.Music.MusicInfo) => {
   const lines: string[] = []
-  // full 文本按分组顺序拼接，缺失字段不输出空行，避免复制时混入无意义空白。
+  // full 文本按固定中文摘要输出，便于直接复制到聊天或工单；同时继续保持字段顺序稳定与无空行。
   const sections = buildMusicDetailSections(musicInfo)
+  const copyLabelByKey: Record<string, string> = {
+    name: COPY_TEXT_LABELS.name,
+    artist: COPY_TEXT_LABELS.artist,
+    album: COPY_TEXT_LABELS.album,
+    interval: COPY_TEXT_LABELS.interval,
+    source: COPY_TEXT_LABELS.source,
+    path: COPY_TEXT_LABELS.path,
+    ext: COPY_TEXT_LABELS.ext,
+    fileName: COPY_TEXT_LABELS.fileName,
+    modifiedTime: COPY_TEXT_LABELS.modifiedTime,
+    versionToken: COPY_TEXT_LABELS.versionToken,
+    connectionId: COPY_TEXT_LABELS.connectionId,
+    sourceItemId: COPY_TEXT_LABELS.sourceItemId,
+    aggregateSongId: COPY_TEXT_LABELS.aggregateSongId,
+    preferredSourceItemId: COPY_TEXT_LABELS.preferredSourceItemId,
+    providerType: COPY_TEXT_LABELS.providerType,
+    status: COPY_TEXT_LABELS.unavailableReason,
+  }
+  const statusValueByKey: Record<string, string> = {
+    [STATUS_LABELS.connection_removed]: COPY_TEXT_STATUS_VALUES.connection_removed,
+    [STATUS_LABELS.rule_removed]: COPY_TEXT_STATUS_VALUES.rule_removed,
+  }
   for (const section of sections) {
     for (const item of section.items) {
-      lines.push(`${item.label}：${item.value}`)
+      const resolvedValue = item.key == 'status' ? (statusValueByKey[item.value] ?? item.value) : item.value
+      lines.push(`${copyLabelByKey[item.key] ?? item.label}：${resolvedValue}`)
     }
   }
   return lines
@@ -168,9 +220,9 @@ export const buildMusicDetailCopyText = (action: MusicDetailCopyAction, musicInf
 export const getMusicDetailCopyActions = (musicInfo: LX.Music.MusicInfo): MusicDetailCopyActionItem[] => {
   const path = buildMusicDetailCopyText('path', musicInfo)
   return [
-    { key: 'name', label: '复制歌名' },
-    { key: 'name_with_artist', label: '复制歌手+歌名' },
-    { key: 'full', label: '复制完整详情' },
-    { key: 'path', label: '复制路径', disabled: !path },
+    { key: 'name', label: 'music_detail_copy_name' },
+    { key: 'name_with_artist', label: 'music_detail_copy_name_with_artist' },
+    { key: 'full', label: 'music_detail_copy_full' },
+    { key: 'path', label: 'music_detail_copy_path', disabled: !path },
   ]
 }
