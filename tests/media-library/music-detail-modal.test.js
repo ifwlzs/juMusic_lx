@@ -119,8 +119,172 @@ const loadDetailSectionsModule = () => {
   return mod.exports
 }
 
-// 通过最小依赖桩加载详情弹窗模块，确认任务 3 的 TSX 组件至少能被转译并编译导出，避免仅靠字符串断言遗漏明显接线错误。
-const loadMusicDetailModalModule = () => {
+// 详情弹窗测试需要一个极小的 hooks/JSX 运行时，才能在不引入真实 React Native 环境的前提下执行 show -> render -> 点击复制链路。
+let currentMusicDetailModalTestRuntime = null
+
+const getMusicDetailModalTestRuntime = () => {
+  assert.ok(currentMusicDetailModalTestRuntime, 'MusicDetailModal 测试运行时尚未初始化')
+  return currentMusicDetailModalTestRuntime
+}
+
+// 统一把 JSX children 归一化为数组，方便后续遍历按钮与提取文本。
+const normalizeRenderedChildren = children => {
+  if (children === null || children === undefined || children === false) return []
+  if (Array.isArray(children)) return children.flatMap(normalizeRenderedChildren)
+  return [children]
+}
+
+// 递归把简化 JSX 树展开为可遍历结构，函数组件会在这里被执行成宿主节点。
+const resolveRenderedNode = node => {
+  if (node === null || node === undefined || node === false) return null
+  if (Array.isArray(node)) return node.map(resolveRenderedNode).flat().filter(item => item !== null)
+  if (typeof node !== 'object') return node
+  if (typeof node.type === 'function') return resolveRenderedNode(node.type(node.props ?? {}))
+  const props = { ...(node.props ?? {}) }
+  props.children = normalizeRenderedChildren(props.children).map(resolveRenderedNode).flat().filter(item => item !== null)
+  return { type: node.type, props }
+}
+
+// 把已渲染节点拍平成列表，便于按组件类型查找复制按钮。
+const flattenRenderedNodes = node => {
+  if (node === null || node === undefined) return []
+  if (Array.isArray(node)) return node.flatMap(flattenRenderedNodes)
+  if (typeof node !== 'object') return []
+  return [node, ...normalizeRenderedChildren(node.props?.children).flatMap(flattenRenderedNodes)]
+}
+
+// 提取节点里的纯文本内容，用于按按钮文案定位具体复制动作。
+const collectRenderedText = node => {
+  if (node === null || node === undefined || node === false) return ''
+  if (Array.isArray(node)) return node.map(collectRenderedText).join('')
+  if (typeof node !== 'object') return String(node)
+  return normalizeRenderedChildren(node.props?.children).map(collectRenderedText).join('')
+}
+
+// 构造最小测试渲染器：支持 hooks 状态、imperative ref、requestAnimationFrame 队列与树查询。
+const createMusicDetailModalTestRenderer = component => {
+  const hookStates = []
+  const ref = { current: null }
+  const dialogVisibilityCalls = []
+  const rafQueue = []
+  const previousRuntime = currentMusicDetailModalTestRuntime
+  const previousRequestAnimationFrame = global.requestAnimationFrame
+  let hookIndex = 0
+  let tree = null
+
+  const isSameDeps = (left, right) => {
+    if (!Array.isArray(left) || !Array.isArray(right)) return left === right
+    if (left.length !== right.length) return false
+    return left.every((value, index) => Object.is(value, right[index]))
+  }
+
+  const runtime = {
+    createElement(type, props = {}, key) {
+      return key === undefined ? { type, props } : { type, props: { ...props, key } }
+    },
+    createHostNode(type, props = {}) {
+      if (type === 'Dialog' && props.ref && typeof props.ref === 'object') {
+        props.ref.current = {
+          setVisible: value => {
+            dialogVisibilityCalls.push(value)
+          },
+        }
+      }
+      return { type, props }
+    },
+    useCallback(fn, deps) {
+      return runtime.useMemo(() => fn, deps)
+    },
+    useImperativeHandle(targetRef, create, deps) {
+      const stateIndex = hookIndex++
+      const previous = hookStates[stateIndex]
+      if (!previous || !isSameDeps(previous.deps, deps)) {
+        if (targetRef && typeof targetRef === 'object') targetRef.current = create()
+        hookStates[stateIndex] = { deps: Array.isArray(deps) ? [...deps] : deps }
+      }
+    },
+    useMemo(factory, deps) {
+      const stateIndex = hookIndex++
+      const previous = hookStates[stateIndex]
+      if (previous && isSameDeps(previous.deps, deps)) return previous.value
+      const value = factory()
+      hookStates[stateIndex] = {
+        deps: Array.isArray(deps) ? [...deps] : deps,
+        value,
+      }
+      return value
+    },
+    useRef(initialValue) {
+      const stateIndex = hookIndex++
+      if (!(stateIndex in hookStates)) hookStates[stateIndex] = { current: initialValue }
+      return hookStates[stateIndex]
+    },
+    useState(initialValue) {
+      const stateIndex = hookIndex++
+      if (!(stateIndex in hookStates)) {
+        hookStates[stateIndex] = typeof initialValue === 'function' ? initialValue() : initialValue
+      }
+      return [
+        hookStates[stateIndex],
+        nextValue => {
+          hookStates[stateIndex] = typeof nextValue === 'function'
+            ? nextValue(hookStates[stateIndex])
+            : nextValue
+        },
+      ]
+    },
+  }
+
+  const rerender = () => {
+    currentMusicDetailModalTestRuntime = runtime
+    hookIndex = 0
+    tree = resolveRenderedNode(component({}, ref))
+    return tree
+  }
+
+  global.requestAnimationFrame = callback => {
+    rafQueue.push(callback)
+    return rafQueue.length
+  }
+
+  const flushAnimationFrames = () => {
+    while (rafQueue.length) {
+      const callback = rafQueue.shift()
+      callback?.()
+    }
+  }
+
+  const cleanup = () => {
+    currentMusicDetailModalTestRuntime = previousRuntime
+    if (previousRequestAnimationFrame === undefined) {
+      delete global.requestAnimationFrame
+      return
+    }
+    global.requestAnimationFrame = previousRequestAnimationFrame
+  }
+
+  rerender()
+
+  return {
+    ref,
+    rerender,
+    cleanup,
+    flushAnimationFrames,
+    getTree: () => tree,
+    getDialogVisibilityCalls: () => [...dialogVisibilityCalls],
+    collectText: collectRenderedText,
+    findAllByType: type => flattenRenderedNodes(tree).filter(node => node.type === type),
+    findButtonByText: text => flattenRenderedNodes(tree).find(node => node.type === 'Button' && collectRenderedText(node) === text),
+  }
+}
+
+// 通过最小依赖桩加载详情弹窗模块，既保留转译 smoke test，又允许测试里执行最小可运行的复制按钮链路。
+const loadMusicDetailModalModule = ({
+  translations = {},
+  clipboardWriteText = () => {},
+  toast = () => {},
+  detailSectionsModule = loadDetailSectionsModule(),
+} = {}) => {
   const source = fs.readFileSync(musicDetailModalPath, 'utf8')
   const transpiled = ts.transpileModule(source, {
     compilerOptions: {
@@ -140,16 +304,16 @@ const loadMusicDetailModalModule = () => {
       case 'react':
         return {
           forwardRef: render => render,
-          useCallback: fn => fn,
-          useImperativeHandle: () => {},
-          useMemo: factory => factory(),
-          useRef: value => ({ current: value }),
-          useState: initial => [initial, () => {}],
+          useCallback: (fn, deps) => getMusicDetailModalTestRuntime().useCallback(fn, deps),
+          useImperativeHandle: (targetRef, create, deps) => getMusicDetailModalTestRuntime().useImperativeHandle(targetRef, create, deps),
+          useMemo: (factory, deps) => getMusicDetailModalTestRuntime().useMemo(factory, deps),
+          useRef: value => getMusicDetailModalTestRuntime().useRef(value),
+          useState: initial => getMusicDetailModalTestRuntime().useState(initial),
         }
       case 'react/jsx-runtime':
         return {
-          jsx: (type, props) => ({ type, props }),
-          jsxs: (type, props) => ({ type, props }),
+          jsx: (type, props, key) => getMusicDetailModalTestRuntime().createElement(type, props, key),
+          jsxs: (type, props, key) => getMusicDetailModalTestRuntime().createElement(type, props, key),
           Fragment: 'Fragment',
         }
       case 'react-native':
@@ -157,14 +321,21 @@ const loadMusicDetailModalModule = () => {
           ScrollView: 'ScrollView',
           View: 'View',
         }
-      case '@/components/common/Button':
-      case '@/components/common/Text':
-        return function MockComponent() { return null }
       case '@/components/common/Dialog':
-        return Object.assign(function MockDialog() { return null }, { default: function MockDialog() { return null } })
+        return function MockDialog(props) {
+          return getMusicDetailModalTestRuntime().createHostNode('Dialog', props)
+        }
+      case '@/components/common/Button':
+        return function MockButton(props) {
+          return getMusicDetailModalTestRuntime().createHostNode('Button', props)
+        }
+      case '@/components/common/Text':
+        return function MockText(props) {
+          return getMusicDetailModalTestRuntime().createHostNode('Text', props)
+        }
       case '@/lang':
         return {
-          useI18n: () => key => key,
+          useI18n: () => key => translations[key] ?? key,
         }
       case '@/store/theme/hook':
         return {
@@ -175,21 +346,18 @@ const loadMusicDetailModalModule = () => {
         }
       case '@/utils/tools':
         return {
-          clipboardWriteText: () => {},
+          clipboardWriteText,
           createStyle: styles => styles,
-          toast: () => {},
+          toast,
         }
       case './buildDetailSections':
-        return {
-          buildMusicDetailCopyText: () => '',
-          buildMusicDetailSections: () => [],
-          getMusicDetailCopyActions: () => [],
-        }
+        return detailSectionsModule
       default:
         throw new Error(`Unexpected dependency: ${request}`)
     }
   }
   mod._compile(transpiled, musicDetailModalPath)
+  mod.exports.__createTestRenderer = () => createMusicDetailModalTestRenderer(mod.exports.default)
   return mod.exports
 }
 
@@ -431,22 +599,72 @@ test('任务 3 详情弹窗模块可以被转译并加载导出', () => {
   assert.ok(modalModule.default)
 })
 
-test('任务 3 详情弹窗会接入分组渲染与复制动作契约', () => {
-  const modalFile = readFile('src/components/MusicDetailModal/index.tsx')
+test('任务 3 详情弹窗会渲染四个复制按钮并接通真实复制链路', () => {
+  const zhCn = JSON.parse(readFile('src/lang/zh-cn.json'))
+  const { buildMusicDetailCopyText } = loadDetailSectionsModule()
+  const clipboardWrites = []
+  const toastMessages = []
+  const modalModule = loadMusicDetailModalModule({
+    translations: zhCn,
+    clipboardWriteText: text => clipboardWrites.push(text),
+    toast: message => toastMessages.push(message),
+  })
+  const renderer = modalModule.__createTestRenderer()
+  const musicInfo = {
+    id: 'song_modal_1',
+    name: '海阔天空',
+    singer: 'Beyond',
+    source: 'kg',
+    interval: '04:13',
+    meta: {
+      albumName: '乐与怒',
+      filePath: '/Music/海阔天空.flac',
+      ext: 'flac',
+      mediaLibrary: {
+        connectionId: 'conn_modal_1',
+        sourceItemId: 'item_modal_1',
+        aggregateSongId: 'agg_modal_1',
+        providerType: 'webdav',
+        remotePathOrUri: '/remote/海阔天空.flac',
+        versionToken: 'v_modal_1',
+        fileName: '海阔天空.flac',
+        modifiedTime: 1700000000000,
+      },
+    },
+  }
 
-  // 锁定任务 3 的 UI 接线：弹窗要真正消费任务 2 的纯函数，并把复制动作接到剪贴板与提示文案。
-  assert.match(modalFile, /from '@\/components\/common\/Dialog'/)
-  assert.match(modalFile, /buildMusicDetailSections/)
-  assert.match(modalFile, /getMusicDetailCopyActions/)
-  assert.match(modalFile, /buildMusicDetailCopyText/)
-  assert.match(modalFile, /clipboardWriteText/)
-  assert.match(modalFile, /toast\(t\('copy_name_tip'\)\)/)
-  assert.match(modalFile, /isTranslateValueKey/)
-  assert.match(modalFile, /t\(item\.label\)/)
-  assert.match(modalFile, /isTranslateValueKey\(item\.value\) \? t\(item\.value\) : item\.value/)
-  assert.match(modalFile, /t\(action\.label\)/)
-  assert.doesNotMatch(modalFile, /copyActionLabelKeys/)
-  assert.match(modalFile, /<Dialog/)
+  try {
+    assert.equal(typeof renderer.ref.current?.show, 'function')
+    assert.equal(renderer.getTree(), null)
+
+    renderer.ref.current.show(musicInfo)
+    renderer.rerender()
+    renderer.flushAnimationFrames()
+
+    const buttons = renderer.findAllByType('Button')
+    assert.equal(buttons.length, 4)
+
+    const expectedCopyTextByLabel = new Map([
+      [zhCn.music_detail_copy_name, '海阔天空'],
+      [zhCn.music_detail_copy_name_with_artist, 'Beyond - 海阔天空'],
+      // full 复制文本本身由任务 2 纯函数定义，这里直接复用真实摘要结果，重点验证按钮点击是否把同一份文本送进剪贴板。
+      [zhCn.music_detail_copy_full, buildMusicDetailCopyText('full', musicInfo)],
+      [zhCn.music_detail_copy_path, '/remote/海阔天空.flac'],
+    ])
+
+    for (const [label, expectedText] of expectedCopyTextByLabel) {
+      const button = renderer.findButtonByText(label)
+      assert.ok(button, `缺少复制按钮：${label}`)
+      button.props.onPress()
+      assert.equal(clipboardWrites.at(-1), expectedText)
+      assert.equal(toastMessages.at(-1), zhCn.copy_name_tip)
+    }
+
+    assert.equal(toastMessages.length, 4)
+    assert.deepEqual(renderer.getDialogVisibilityCalls(), [true])
+  } finally {
+    renderer.cleanup()
+  }
 })
 
 test('任务 3 语言文件补齐详情弹窗文案键', () => {
