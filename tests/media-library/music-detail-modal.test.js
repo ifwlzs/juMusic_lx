@@ -252,14 +252,12 @@ test('媒体库歌曲详情分组和复制文本会按顺序输出并映射状�
   assert.equal(buildMusicDetailCopyText('path', musicInfo), '/remote/海阔天空.flac')
 
   const actions = getMusicDetailCopyActions(musicInfo)
-  assert.deepEqual(actions.map(action => action.key), ['name', 'name_with_artist', 'full', 'path'])
-  assert.deepEqual(actions.map(action => action.label), [
-    'music_detail_copy_name',
-    'music_detail_copy_name_with_artist',
-    'music_detail_copy_full',
-    'music_detail_copy_path',
+  assert.deepEqual(actions, [
+    { key: 'name', label: 'music_detail_copy_name', disabled: false },
+    { key: 'name_with_artist', label: 'music_detail_copy_name_with_artist', disabled: false },
+    { key: 'full', label: 'music_detail_copy_full', disabled: false },
+    { key: 'path', label: 'music_detail_copy_path', disabled: false },
   ])
-  assert.equal(actions.find(action => action.key === 'path').disabled, false)
 
   const missingPathMusicInfo = {
     ...musicInfo,
@@ -273,6 +271,61 @@ test('媒体库歌曲详情分组和复制文本会按顺序输出并映射状�
   }
   assert.equal(buildMusicDetailCopyText('path', missingPathMusicInfo), '')
   assert.equal(getMusicDetailCopyActions(missingPathMusicInfo).find(action => action.key === 'path').disabled, true)
+})
+
+test('媒体库歌曲详情会覆盖 rule_removed 状态映射与中文摘要文本', () => {
+  const {
+    buildMusicDetailSections,
+    buildMusicDetailCopyText,
+  } = loadDetailSectionsModule()
+
+  const musicInfo = {
+    id: 'song_rule',
+    name: '稻香',
+    singer: '周杰伦',
+    source: 'tx',
+    interval: '03:43',
+    meta: {
+      albumName: '魔杰座',
+      mediaLibrary: {
+        connectionId: 'conn_rule',
+        sourceItemId: 'item_rule',
+        aggregateSongId: 'agg_rule',
+        providerType: 'webdav',
+        remotePathOrUri: '/remote/稻香.mp3',
+        versionToken: 'v_rule',
+        unavailableReason: 'rule_removed',
+      },
+    },
+  }
+
+  const sections = buildMusicDetailSections(musicInfo)
+  const statusSection = sections.find(section => section.key === 'status')
+  assert.deepEqual(statusSection.items.map(item => item.value), ['music_detail_unavailable_rule_removed'])
+  assert.match(buildMusicDetailCopyText('full', musicInfo), /状态：规则已移除/)
+})
+
+test('本地歌曲详情文件分组会统一输出 path 字段并保留 ext', () => {
+  const { buildMusicDetailSections } = loadDetailSectionsModule()
+
+  const localMusic = {
+    id: 'local_1',
+    name: '晴天',
+    singer: '周杰伦',
+    source: 'local',
+    interval: '04:29',
+    meta: {
+      albumName: '叶惠美',
+      filePath: 'D:/Music/晴天.flac',
+      ext: 'flac',
+    },
+  }
+
+  const sections = buildMusicDetailSections(localMusic)
+  const fileSection = sections.find(section => section.key === 'file')
+  assert.deepEqual(fileSection.items.map(item => item.key), ['path', 'ext'])
+  assert.deepEqual(fileSection.items.map(item => item.label), ['music_detail_path', 'music_detail_ext'])
+  assert.deepEqual(fileSection.items.map(item => item.value), ['D:/Music/晴天.flac', 'flac'])
 })
 
 test('媒体库歌曲详情弹窗组件通过 state 刷新当前歌曲并显示最小 Dialog', () => {

@@ -16,7 +16,7 @@ export interface MusicDetailSection {
 export interface MusicDetailCopyActionItem {
   key: MusicDetailCopyAction
   label: string
-  disabled?: boolean
+  disabled: boolean
 }
 
 const LABELS = {
@@ -220,9 +220,9 @@ export const buildMusicDetailCopyText = (action: MusicDetailCopyAction, musicInf
 export const getMusicDetailCopyActions = (musicInfo: LX.Music.MusicInfo): MusicDetailCopyActionItem[] => {
   const path = buildMusicDetailCopyText('path', musicInfo)
   return [
-    { key: 'name', label: 'music_detail_copy_name' },
-    { key: 'name_with_artist', label: 'music_detail_copy_name_with_artist' },
-    { key: 'full', label: 'music_detail_copy_full' },
+    { key: 'name', label: 'music_detail_copy_name', disabled: false },
+    { key: 'name_with_artist', label: 'music_detail_copy_name_with_artist', disabled: false },
+    { key: 'full', label: 'music_detail_copy_full', disabled: false },
     { key: 'path', label: 'music_detail_copy_path', disabled: !path },
   ]
 }
