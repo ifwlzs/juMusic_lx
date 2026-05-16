@@ -163,6 +163,16 @@ test('ListMusicSearch 为歌手模式复用列表筛选与空结果提示约定'
   assert.match(source, /if\s*\(!result\.length\)\s*\{[\s\S]*?if\s*\(showEmptyArtistToast\)\s*\{[\s\S]*?toast\(global\.i18n\.t\('music_detail_artist_related_empty'\)\)[\s\S]*?\}[\s\S]*?clearSearchState\(\)\s*return\s*\}/)
 })
 
+test('ListMusicSearch 背景点击会按 keyword 与 artist 模式分流处理隐藏行为', () => {
+  const source = readListMusicSearchSource()
+
+  // 背景点击必须走独立分流逻辑，不能再把两种模式都绑定到彻底清理上。
+  assert.match(source, /const\s+handlePressBg\s*=\s*\(\)\s*=>/)
+  assert.match(source, /if\s*\(currentQueryRef\.current\?\.type\s*==\s*'artist'\)\s*\{[\s\S]*?clearSearchState\(\)\s*return\s*\}/)
+  assert.match(source, /searchTipListRef\.current\?\.setList\(\[\]\)/)
+  assert.match(source, /onPressBg=\{handlePressBg\}/)
+})
+
 test('三份语言文件包含歌手相关歌曲模式的空结果提示文案', () => {
   // 三份语言文案是任务 2 的静态契约之一，避免 UI 出现缺失 key。
   assert.equal(readLanguage(zhCnPath).music_detail_artist_related_empty, '当前列表未找到该歌手相关歌曲')

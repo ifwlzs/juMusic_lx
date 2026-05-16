@@ -61,6 +61,15 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
     searchTipListRef.current?.setList([])
   }
 
+  // 背景点击需要按查询模式分流：关键字模式保留原有上下文，artist 模式则彻底清理旧查询。
+  const handlePressBg = () => {
+    if (currentQueryRef.current?.type == 'artist') {
+      clearSearchState()
+      return
+    }
+    searchTipListRef.current?.setList([])
+  }
+
   // 统一驱动浮层结果刷新：首次展示可选择弹空提示，列表订阅刷新时则只静默收起。
   const updateListByQuery = (query: SearchQuery, height: number, showEmptyArtistToast: boolean) => {
     if (height > 0) currentHeightRef.current = height
@@ -169,7 +178,7 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
       ? <SearchTipList
           ref={searchTipListRef}
           renderItem={renderItem}
-          onPressBg={clearSearchState}
+          onPressBg={handlePressBg}
           keyExtractor={getkey}
           getItemLayout={getItemLayout}
         />
