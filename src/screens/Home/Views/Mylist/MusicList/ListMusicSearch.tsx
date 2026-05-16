@@ -126,9 +126,9 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
       showWithQuery({ type: 'keyword', value: keyword }, height, false)
     },
     showArtistRelatedSongs(artist, height) {
-      // 歌手模式必须显式写入 artist 查询，供列表变更后的自动刷新逻辑复用。
-      currentQueryRef.current = { type: 'artist', value: artist }
-      showWithQuery(currentQueryRef.current, height, true)
+      // 歌手模式只构造一次查询对象，再交给统一入口提交状态，避免重复写入 query ref。
+      const query = { type: 'artist', value: artist } as const
+      showWithQuery(query, height, true)
     },
     hide() {
       clearSearchState()
