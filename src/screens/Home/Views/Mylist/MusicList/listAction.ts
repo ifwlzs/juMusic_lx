@@ -32,6 +32,18 @@ export const getExternalMusicSourceDetailUrl = (minfo: LX.Music.MusicInfo) => {
   return musicSdk[minfo.source as LX.OnlineSource]?.getMusicDetailPageUrl(toOldMusicInfo(minfo)) ?? ''
 }
 
+// 只做首尾空白裁剪，避免把联名歌手、分隔符或其它字符结构误拆开。
+export const normalizeArtistMatchValue = (value: string) => value.trim()
+
+// 媒体库相关歌曲只按“完整歌手字符串”做全等匹配，并且保持原列表顺序返回命中的歌曲 id。
+export const findArtistRelatedSongsInList = (list: LX.Music.MusicInfo[], artist: string) => {
+  const normalizedArtist = normalizeArtistMatchValue(artist)
+  if (!normalizedArtist) return []
+
+  return list
+    .filter(musicInfo => normalizeArtistMatchValue(musicInfo.singer ?? '') === normalizedArtist)
+    .map(musicInfo => musicInfo.id)
+}
 
 export const isReadOnlyGeneratedList = (listId: string) => {
   const listInfo = listState.allList.find(item => item.id == listId) as LX.List.UserListInfo | undefined
