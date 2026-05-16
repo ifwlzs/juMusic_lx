@@ -698,6 +698,7 @@
   "music_detail_section_status": "狀態資訊",
   "music_detail_name": "歌名",
   "music_detail_artist": "歌手",
+  "music_detail_artist_related_empty": "目前清單未找到該歌手相關歌曲",
   "music_detail_album": "專輯",
   "music_detail_interval": "時長",
   "music_detail_source": "來源",

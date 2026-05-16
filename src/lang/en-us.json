@@ -699,6 +699,7 @@
   "music_detail_section_status": "Status",
   "music_detail_name": "Name",
   "music_detail_artist": "Artist",
+  "music_detail_artist_related_empty": "No related songs from this artist were found in the current list",
   "music_detail_album": "Album",
   "music_detail_interval": "Duration",
   "music_detail_source": "Source",
