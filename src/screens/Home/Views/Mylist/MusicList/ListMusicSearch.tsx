@@ -69,8 +69,8 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
     const id = currentListIdRef.current = listState.activeListId
 
     if (!hasQueryValue(query)) {
-      currentQueryRef.current = null
-      searchTipListRef.current?.setList([])
+      // 空查询直接清掉上下文并收口，避免残留旧状态继续响应列表刷新。
+      clearSearchState()
       return
     }
 
@@ -87,8 +87,13 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
       const result = resolveListByQuery(list, query)
       if (currentListIdRef.current != id) return
       if (currentQueryRef.current?.type != query.type || currentQueryRef.current.value != query.value) return
-      if (!result.length && showEmptyArtistToast) {
-        toast(global.i18n.t('music_detail_artist_related_empty'))
+      if (!result.length) {
+        // artist 模式无结果时必须同步清理查询状态，避免旧查询在后续列表更新时把浮层重新顶出来。
+        if (showEmptyArtistToast) {
+          toast(global.i18n.t('music_detail_artist_related_empty'))
+        }
+        clearSearchState()
+        return
       }
       searchTipListRef.current?.setList(result)
     })

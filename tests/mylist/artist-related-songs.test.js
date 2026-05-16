@@ -158,6 +158,9 @@ test('ListMusicSearch 为歌手模式复用列表筛选与空结果提示约定'
 
   // 初次触发歌手模式且无结果时，必须弹出指定国际化文案提示。
   assert.match(source, /toast\(global\.i18n\.t\('music_detail_artist_related_empty'\)\)/)
+
+  // artist 模式无结果时必须清空当前查询状态并收起，避免后续列表更新又被旧查询重新顶开。
+  assert.match(source, /if\s*\(!result\.length\)\s*\{[\s\S]*?if\s*\(showEmptyArtistToast\)\s*\{[\s\S]*?toast\(global\.i18n\.t\('music_detail_artist_related_empty'\)\)[\s\S]*?\}[\s\S]*?clearSearchState\(\)\s*return\s*\}/)
 })
 
 test('三份语言文件包含歌手相关歌曲模式的空结果提示文案', () => {
