@@ -16,12 +16,19 @@ export interface MusicDetailModalType {
   show: (musicInfo: LX.Music.MusicInfo) => void
 }
 
+interface MusicDetailModalProps {
+  onPressArtist?: (payload: {
+    artist: string
+    musicInfo: LX.Music.MusicInfo
+  }) => void
+}
+
 const isTranslateValueKey = (value: string) => {
   // 详情分组里的 value 可能仍是 i18n key，UI 层需要在这里兜底翻译，避免把内部 key 直接展示给用户。
   return value.startsWith('music_detail_') || value.startsWith('source_real_')
 }
 
-export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
+export default forwardRef<MusicDetailModalType, MusicDetailModalProps>(({ onPressArtist }, ref) => {
   const t = useI18n()
   const theme = useTheme()
   const dialogRef = useRef<DialogType>(null)
@@ -52,6 +59,9 @@ export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
     return buildMusicDetailSections(musicInfo)
   }, [musicInfo])
 
+  const artistValue = useMemo(() => (musicInfo?.singer ?? '').trim(), [musicInfo])
+  const canPressArtist = !!artistValue && !!musicInfo && !!onPressArtist
+
   const copyActions = useMemo(() => {
     if (!musicInfo) return []
     return getMusicDetailCopyActions(musicInfo)
@@ -68,6 +78,14 @@ export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
     toast(t('copy_name_tip'))
   }, [musicInfo, t])
 
+  const handlePressArtist = useCallback(() => {
+    if (!musicInfo || !artistValue || !onPressArtist) return
+    // 歌手可点击时统一从这里分发，保证详情弹窗内所有歌手入口都复用同一份 payload 规则。
+    // 触发歌手跳转前先关闭详情弹窗，避免当前弹窗遮住后续“当前列表内相关歌曲”结果浮层。
+    dialogRef.current?.setVisible(false)
+    onPressArtist({ artist: artistValue, musicInfo })
+  }, [artistValue, musicInfo, onPressArtist])
+
   const handleHide = useCallback(() => {
     // 关闭时保留最近一次歌曲信息即可；下次 show 会先 setState，因此不会影响后续刷新正确性。
   }, [])
@@ -80,7 +98,13 @@ export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
           <View style={styles.summary}>
             <Text style={styles.summaryTitle} size={15}>{t('music_detail_title') || '歌曲详情'}</Text>
             <Text size={13}>{t('music_detail_name')}：{musicInfo?.name ?? '-'}</Text>
-            <Text size={13}>{t('music_detail_artist')}：{musicInfo?.singer ?? '-'}</Text>
+            {canPressArtist ? (
+              <Button style={styles.artistButton} onPress={handlePressArtist}>
+                <Text size={13}>{t('music_detail_artist')}：{artistValue}</Text>
+              </Button>
+            ) : (
+              <Text size={13}>{t('music_detail_artist')}：{musicInfo?.singer ?? '-'}</Text>
+            )}
           </View>
 
           <View style={styles.copyActionList}>
@@ -104,9 +128,15 @@ export default forwardRef<MusicDetailModalType, {}>((_props, ref) => {
                 {section.items.map(item => (
                   <View key={`${section.key}_${item.key}`} style={styles.itemRow}>
                     <Text style={styles.itemLabel} size={13}>{t(item.label)}</Text>
-                    <Text style={styles.itemValue} size={13}>
-                      {isTranslateValueKey(item.value) ? t(item.value) : item.value}
-                    </Text>
+                    {canPressArtist && section.key == 'basic' && item.key == 'artist' ? (
+                      <Button style={styles.artistButton} onPress={handlePressArtist}>
+                        <Text style={styles.itemValue} size={13}>{t('music_detail_artist')}：{artistValue}</Text>
+                      </Button>
+                    ) : (
+                      <Text style={styles.itemValue} size={13}>
+                        {isTranslateValueKey(item.value) ? t(item.value) : item.value}
+                      </Text>
+                    )}
                   </View>
                 ))}
               </View>
@@ -136,6 +166,9 @@ const styles = createStyle({
   },
   summaryTitle: {
     fontWeight: 'bold',
+  },
+  artistButton: {
+    alignSelf: 'flex-start',
   },
   copyActionList: {
     flexDirection: 'row',

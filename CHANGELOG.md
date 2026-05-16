@@ -15,6 +15,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 新增基础歌曲听歌记录的 Emby Playback Reporting 补录脚本与播放来源字段，支持 juMusic / Emby 双来源
 - 新增媒体库歌曲详情弹窗，支持在「我的列表」中查看本地 / WebDAV / SMB / OneDrive 歌曲的基础信息、来源信息与不可用原因
 - 新增媒体库歌曲详情内的复制歌名、复制歌手 - 歌名、复制完整详情、复制路径动作，便于排障与分享
+- 新增「我的列表」歌曲详情弹窗内的歌手点击入口，可直接展示当前列表内该歌手的相关歌曲并快速定位
 
 修复
 

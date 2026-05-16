@@ -188,7 +188,13 @@ export default ({ onOpenMediaSourceManager }: {
         onUpdate={handleUpdateMetadata}
       />
       <MusicToggleModal ref={musicToggleModalRef} />
-      <MusicDetailModal ref={musicDetailModalRef} />
+      <MusicDetailModal
+        ref={musicDetailModalRef}
+        onPressArtist={({ artist }) => {
+          // 歌手点击只在当前列表内展开相关歌曲结果，避免这期需求扩散成跨列表或独立歌手页跳转。
+          listMusicSearchRef.current?.showArtistRelatedSongs(artist, layoutHeightRef.current)
+        }}
+      />
     </View>
   )
 }
