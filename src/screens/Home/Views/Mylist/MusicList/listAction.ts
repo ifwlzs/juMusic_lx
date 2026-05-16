@@ -33,7 +33,7 @@ export const getExternalMusicSourceDetailUrl = (minfo: LX.Music.MusicInfo) => {
 }
 
 // 只做首尾空白裁剪，避免把联名歌手、分隔符或其它字符结构误拆开。
-export const normalizeArtistMatchValue = (value: string) => value.trim()
+const normalizeArtistMatchValue = (value: string) => value.trim()
 
 // 媒体库相关歌曲只按“完整歌手字符串”做全等匹配，并且保持原列表顺序返回命中的歌曲对象。
 export const findArtistRelatedSongsInList = (list: LX.Music.MusicInfo[], artist: string) => {
