@@ -99,12 +99,13 @@ test('findArtistRelatedSongsInList 仅按首尾空白裁剪后做完整字符串
     { id: 'song_1', singer: 'Beyond', name: '海阔天空' },
     { id: 'song_2', singer: 'Beyond', name: '光辉岁月' },
     { id: 'song_3', singer: 'Beyond / 黄家驹', name: '真的爱你' },
-    { id: 'song_4', singer: '黄家驹', name: '喜欢你' },
+    { id: 'song_4', singer: ' Beyond ', name: '灰色轨迹' },
+    { id: 'song_5', singer: '黄家驹', name: '喜欢你' },
   ]
 
   // 只验证完整字符串全等匹配，不拆分联名歌手，结果必须保持原列表顺序。
-  assert.deepEqual(findArtistRelatedSongsInList(list, ' Beyond '), ['song_1', 'song_2'])
-  assert.deepEqual(findArtistRelatedSongsInList(list, 'Beyond / 黄家驹'), ['song_3'])
-  assert.deepEqual(findArtistRelatedSongsInList(list, 'Beyond;黄家驹'), [])
-  assert.deepEqual(findArtistRelatedSongsInList(list, '   '), [])
+  assert.deepEqual(findArtistRelatedSongsInList(list, ' Beyond ').map(item => item.id), ['song_1', 'song_2', 'song_4'])
+  assert.deepEqual(findArtistRelatedSongsInList(list, 'Beyond / 黄家驹').map(item => item.id), ['song_3'])
+  assert.deepEqual(findArtistRelatedSongsInList(list, 'Beyond;黄家驹').map(item => item.id), [])
+  assert.deepEqual(findArtistRelatedSongsInList(list, '   ').map(item => item.id), [])
 })
