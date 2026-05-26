@@ -26,6 +26,11 @@ export interface FastScrollHandleTopByOffsetOptions {
   handleHeight: number
 }
 
+export interface FastScrollLocalYOptions {
+  pageY: number
+  containerPageY: number
+}
+
 const clamp = (value: number, min: number, max: number): number => {
   return Math.min(max, Math.max(min, value))
 }
@@ -70,4 +75,9 @@ export const getFastScrollHandleTopByOffset = ({ offset, contentHeight, height, 
 
   // 普通滚动时同步把手位置，避免把手固定在中间造成“不能拉”的误解。
   return clamp(Math.round((offset / maxOffset) * maxTop), 0, maxTop)
+}
+
+export const getFastScrollLocalY = ({ pageY, containerPageY }: FastScrollLocalYOptions): number => {
+  // 拖动事件使用屏幕绝对坐标，减去热区屏幕顶部后得到稳定的本地 Y，避免移动中的把手反过来改变 locationY。
+  return pageY - containerPageY
 }
