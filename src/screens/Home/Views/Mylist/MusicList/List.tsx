@@ -1,6 +1,6 @@
 import { playList } from '@/core/player/player'
-import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type FlatListProps } from 'react-native'
+import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react'
+import { FlatList, PanResponder, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type FlatListProps } from 'react-native'
 
 import listState from '@/store/list/state'
 import playerState from '@/store/player/state'
@@ -15,6 +15,7 @@ import type { SelectMode } from './MultipleModeBar'
 import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { isUnavailableMediaLibraryMusic, showUnavailableMusicToast } from './listAction'
+import { getFastScrollTarget, shouldShowFastScroll } from './fastScroll'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
@@ -54,6 +55,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const selectModeRef = useRef<SelectMode>('single')
   const prevSelectIndexRef = useRef(-1)
   const [selectedList, setSelectedList] = useState<LX.List.ListMusics>([])
+  const [listHeight, setListHeight] = useState(0)
   const selectedListRef = useRef<LX.List.ListMusics>([])
   const currentListIdRef = useRef('')
   const waitJumpListPositionRef = useRef(false)
@@ -180,6 +182,41 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }, [])
 
   const activeIndex = usePlayIndex()
+  const isFastScrollVisible = shouldShowFastScroll({
+    height: listHeight,
+    itemCount: currentList.length,
+    rowNum: rowInfo.current.rowNum,
+  })
+
+  const handleListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListHeight(event.nativeEvent.layout.height)
+  }, [])
+
+  const handleFastScrollGesture = useCallback((locationY: number) => {
+    // 右侧热区只负责把手指位置换算成 FlatList 行号，实际滚动位置仍交给 onScroll 持久化。
+    const index = getFastScrollTarget({
+      y: locationY,
+      height: listHeight,
+      itemCount: currentList.length,
+      rowNum: rowInfo.current.rowNum,
+    })
+
+    try {
+      flatListRef.current?.scrollToIndex({ index, animated: false })
+    } catch {}
+  }, [currentList.length, listHeight])
+
+  const fastScrollPanResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => isFastScrollVisible,
+    onMoveShouldSetPanResponder: () => isFastScrollVisible,
+    onPanResponderGrant: event => {
+      handleFastScrollGesture(event.nativeEvent.locationY)
+    },
+    onPanResponderMove: event => {
+      handleFastScrollGesture(event.nativeEvent.locationY)
+    },
+  }), [handleFastScrollGesture, isFastScrollVisible])
+
   const handlePlay = (index: number) => {
     void playList(activeListId, index)
   }
@@ -275,33 +312,71 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }
 
   return (
-    <FlatList
-      ref={flatListRef}
-      onScroll={handleScroll}
-      style={styles.list}
-      data={currentList}
-      maxToRenderPerBatch={4}
-      numColumns={rowInfo.current.rowNum}
-      horizontal={false}
-      // updateCellsBatchingPeriod={80}
-      windowSize={8}
-      removeClippedSubviews={true}
-      initialNumToRender={12}
-      renderItem={renderItem}
-      keyExtractor={getkey}
-      extraData={activeIndex}
-      getItemLayout={getItemLayout}
-    />
+    <View style={styles.container} onLayout={handleListLayout}>
+      <FlatList
+        ref={flatListRef}
+        onScroll={handleScroll}
+        style={styles.list}
+        data={currentList}
+        maxToRenderPerBatch={4}
+        numColumns={rowInfo.current.rowNum}
+        horizontal={false}
+        // updateCellsBatchingPeriod={80}
+        windowSize={8}
+        removeClippedSubviews={true}
+        initialNumToRender={12}
+        renderItem={renderItem}
+        keyExtractor={getkey}
+        extraData={activeIndex}
+        getItemLayout={getItemLayout}
+      />
+      {
+        isFastScrollVisible
+          ? (
+              <View style={styles.fastScrollTouch} {...fastScrollPanResponder.panHandlers}>
+                <View style={styles.fastScrollTrack}>
+                  <View style={styles.fastScrollThumb} />
+                </View>
+              </View>
+            )
+          : null
+      }
+    </View>
   )
 })
 
 const styles = createStyle({
   container: {
     flex: 1,
+    position: 'relative',
   },
   list: {
     flexGrow: 1,
     flexShrink: 1,
+  },
+  fastScrollTouch: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 22,
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fastScrollTrack: {
+    width: 4,
+    height: 88,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fastScrollThumb: {
+    width: 4,
+    height: 36,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.28)',
   },
 })
 
