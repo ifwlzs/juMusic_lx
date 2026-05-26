@@ -55,6 +55,16 @@ test('我的列表快速滚动只在长列表且有有效高度时显示', () =>
   assert.equal(shouldShowFastScroll({ itemCount: 80, height: 480, rowNum: 2 }), true)
 })
 
+test('我的列表快速滚动把手位置会跟随拖动与列表滚动并保持在边界内', () => {
+  const { getFastScrollHandleTop, getFastScrollHandleTopByOffset } = loadFastScrollModule()
+
+  assert.equal(getFastScrollHandleTop({ y: 240, height: 480, handleHeight: 60 }), 210)
+  assert.equal(getFastScrollHandleTop({ y: -20, height: 480, handleHeight: 60 }), 0)
+  assert.equal(getFastScrollHandleTop({ y: 520, height: 480, handleHeight: 60 }), 420)
+  assert.equal(getFastScrollHandleTopByOffset({ offset: 500, contentHeight: 2000, height: 500, handleHeight: 50 }), 150)
+  assert.equal(getFastScrollHandleTopByOffset({ offset: 9999, contentHeight: 2000, height: 500, handleHeight: 50 }), 450)
+})
+
 test('我的列表组件接入右侧快速滚动热区并保留中文注释', () => {
   const listFile = fs.readFileSync(listPath, 'utf8')
 
@@ -69,10 +79,22 @@ test('我的列表组件接入右侧快速滚动热区并保留中文注释', ()
   assert.match(listFile, /\/\/.*实际滚动位置/)
 })
 
+test('我的列表快速滚动显示明确的可拖动按钮并避免深色主题隐身', () => {
+  const listFile = fs.readFileSync(listPath, 'utf8')
+
+  // 用户需要看到可拉动的按钮，而不是只有深色背景下几乎不可见的 4px 黑色细条。
+  assert.match(listFile, /useTheme/)
+  assert.match(listFile, /fastScrollHandle/)
+  assert.match(listFile, /fastScrollHandleGrip/)
+  assert.match(listFile, /c-primary/)
+  assert.doesNotMatch(listFile, /backgroundColor: 'rgba\(0,0,0,0\.28\)'/)
+})
+
 test('changelog notes mylist side fast scroll', () => {
   const changelog = fs.readFileSync(changelogPath, 'utf8')
 
   assert.match(changelog, /我的列表/)
   assert.match(changelog, /快速滚动/)
   assert.match(changelog, /右侧/)
+  assert.match(changelog, /可拖动把手/)
 })

@@ -13,6 +13,23 @@ export interface FastScrollVisibleOptions {
   rowNum?: number | null
 }
 
+export interface FastScrollHandleTopOptions {
+  y: number
+  height: number
+  handleHeight: number
+}
+
+export interface FastScrollHandleTopByOffsetOptions {
+  offset: number
+  contentHeight: number
+  height: number
+  handleHeight: number
+}
+
+const clamp = (value: number, min: number, max: number): number => {
+  return Math.min(max, Math.max(min, value))
+}
+
 const normalizeRowNum = (rowNum?: number | null): number => {
   // 横屏时 FlatList 会用多列渲染，这里统一折算成 FlatList 接收的“行号”。
   return rowNum && rowNum > 0 ? rowNum : 1
@@ -36,4 +53,21 @@ export const getFastScrollTarget = ({ y, height, itemCount, rowNum }: FastScroll
 export const shouldShowFastScroll = ({ height, itemCount, rowNum }: FastScrollVisibleOptions): boolean => {
   // 只有长列表才展示右侧快速滚动条，短列表继续保持原来的干净界面。
   return height > 0 && getFastScrollRowCount(itemCount, rowNum) > FAST_SCROLL_MIN_ROWS
+}
+
+export const getFastScrollHandleTop = ({ y, height, handleHeight }: FastScrollHandleTopOptions): number => {
+  if (height <= 0 || handleHeight <= 0) return 0
+  const maxTop = Math.max(0, height - handleHeight)
+
+  // 把拖动位置对齐到把手中心，保证用户按住把手时视觉位置跟着手指走。
+  return clamp(Math.round(y - handleHeight / 2), 0, maxTop)
+}
+
+export const getFastScrollHandleTopByOffset = ({ offset, contentHeight, height, handleHeight }: FastScrollHandleTopByOffsetOptions): number => {
+  if (contentHeight <= height || height <= 0 || handleHeight <= 0) return 0
+  const maxTop = Math.max(0, height - handleHeight)
+  const maxOffset = contentHeight - height
+
+  // 普通滚动时同步把手位置，避免把手固定在中间造成“不能拉”的误解。
+  return clamp(Math.round((offset / maxOffset) * maxTop), 0, maxTop)
 }

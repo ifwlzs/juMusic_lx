@@ -14,10 +14,12 @@ import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
 import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { useTheme } from '@/store/theme/hook'
 import { isUnavailableMediaLibraryMusic, showUnavailableMusicToast } from './listAction'
-import { getFastScrollTarget, shouldShowFastScroll } from './fastScroll'
+import { getFastScrollHandleTop, getFastScrollHandleTopByOffset, getFastScrollTarget, shouldShowFastScroll } from './fastScroll'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
+const FAST_SCROLL_HANDLE_HEIGHT = ITEM_HEIGHT
 
 export interface ListProps {
   onShowMenu: (musicInfo: LX.Music.MusicInfo, index: number, position: Position) => void
@@ -56,6 +58,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const prevSelectIndexRef = useRef(-1)
   const [selectedList, setSelectedList] = useState<LX.List.ListMusics>([])
   const [listHeight, setListHeight] = useState(0)
+  const [fastScrollHandleTop, setFastScrollHandleTop] = useState(0)
   const selectedListRef = useRef<LX.List.ListMusics>([])
   const currentListIdRef = useRef('')
   const waitJumpListPositionRef = useRef(false)
@@ -63,6 +66,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const activeListId = useActiveListId()
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
+  const theme = useTheme()
   // console.log('render music list')
 
   useImperativeHandle(ref, () => ({
@@ -193,7 +197,14 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }, [])
 
   const handleFastScrollGesture = useCallback((locationY: number) => {
-    // 右侧热区只负责把手指位置换算成 FlatList 行号，实际滚动位置仍交给 onScroll 持久化。
+    // 右侧拖动把手要同步跟随手指，避免只有透明热区响应而看不到“正在拉”的反馈。
+    setFastScrollHandleTop(getFastScrollHandleTop({
+      y: locationY,
+      height: listHeight,
+      handleHeight: FAST_SCROLL_HANDLE_HEIGHT,
+    }))
+
+    // 右侧热区把手指位置换算成 FlatList 行号，实际滚动位置仍交给 onScroll 持久化。
     const index = getFastScrollTarget({
       y: locationY,
       height: listHeight,
@@ -284,6 +295,14 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }
 
   const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isFastScrollVisible) {
+      setFastScrollHandleTop(getFastScrollHandleTopByOffset({
+        offset: nativeEvent.contentOffset.y,
+        contentHeight: nativeEvent.contentSize.height,
+        height: nativeEvent.layoutMeasurement.height,
+        handleHeight: FAST_SCROLL_HANDLE_HEIGHT,
+      }))
+    }
     if (listFirstScrollRef.current) {
       listFirstScrollRef.current = false
       return
@@ -334,8 +353,18 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
         isFastScrollVisible
           ? (
               <View style={styles.fastScrollTouch} {...fastScrollPanResponder.panHandlers}>
-                <View style={styles.fastScrollTrack}>
-                  <View style={styles.fastScrollThumb} />
+                <View style={{ ...styles.fastScrollTrack, backgroundColor: theme['c-primary-background-hover'] }} />
+                <View style={{
+                  ...styles.fastScrollHandle,
+                  top: fastScrollHandleTop,
+                  height: FAST_SCROLL_HANDLE_HEIGHT,
+                  backgroundColor: theme['c-primary'],
+                }}>
+                  <View style={styles.fastScrollHandleGripGroup}>
+                    <View style={{ ...styles.fastScrollHandleGrip, backgroundColor: theme['c-primary-font'] }} />
+                    <View style={{ ...styles.fastScrollHandleGrip, backgroundColor: theme['c-primary-font'] }} />
+                    <View style={{ ...styles.fastScrollHandleGrip, backgroundColor: theme['c-primary-font'] }} />
+                  </View>
                 </View>
               </View>
             )
@@ -359,24 +388,38 @@ const styles = createStyle({
     top: 0,
     right: 0,
     bottom: 0,
-    width: 22,
+    width: 34,
     zIndex: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   fastScrollTrack: {
-    width: 4,
-    height: 88,
+    position: 'absolute',
+    top: 8,
+    right: 15,
+    bottom: 8,
+    width: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.12)',
+    opacity: 0.65,
+  },
+  fastScrollHandle: {
+    position: 'absolute',
+    right: 4,
+    width: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+  },
+  fastScrollHandleGripGroup: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fastScrollThumb: {
-    width: 4,
-    height: 36,
-    borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.28)',
+  fastScrollHandleGrip: {
+    width: 10,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 2,
+    marginBottom: 2,
+    opacity: 0.9,
   },
 })
 
