@@ -34,7 +34,7 @@ declare namespace LX {
       id: 'temp'
       name: '临时列表'
       // list: LX.Music.MusicInfo[]
-      // TODO: save default lists info
+      // 临时列表只保留运行时恢复需要的最小元信息，默认列表持久化策略另由待办文档跟踪。
       meta: {
         id?: string
       }

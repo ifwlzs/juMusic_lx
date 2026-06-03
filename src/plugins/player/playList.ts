@@ -151,11 +151,9 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
       if (time) await TrackPlayer.seekTo(time)
       if (global.lx.restorePlayInfo) {
         await TrackPlayer.pause()
-        // let startupAutoPlay = settingState.setting['player.startupAutoPlay']
         global.lx.restorePlayInfo = null
 
-      // TODO startupAutoPlay
-      // if (startupAutoPlay) store.dispatch(playerAction.playMusic())
+        // 恢复播放信息时保持暂停，避免应用启动阶段在未确认设置语义前自动出声。
       } else {
         await TrackPlayer.play()
       }

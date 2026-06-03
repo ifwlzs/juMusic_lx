@@ -1,4 +1,3 @@
-// import { dateFormat } from '@/utils/common'
 import { setListUpdateTime } from '@/utils/data'
 import { overwriteListMusics, setFetchingListStatus } from './list'
 import { getListDetailAll } from '@/core/songlist'
@@ -26,7 +25,6 @@ export default async(targetListInfo: LX.List.UserListInfo) => {
   // console.log(list)
   void overwriteListMusics(targetListInfo.id, list)
   const now = Date.now()
+  // 同步来源列表刷新后只维护当前使用的时间戳字段，旧版格式化时间字段已不再写入。
   void setListUpdateTime(targetListInfo.id, now)
-  // TODO
-  // setUpdateTime(targetListInfo.id, dateFormat(now))
 }

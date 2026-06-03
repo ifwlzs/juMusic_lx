@@ -40,8 +40,7 @@ export const getPicUrl = async({ musicInfo, isRefresh, listId, onToggleSource = 
   }
 
   return getOnlinePicUrl({ musicInfo: musicInfo.metadata.musicInfo, isRefresh, onToggleSource }).then((url) => {
-    // TODO: when listId required save url (update downloadInfo)
-
+    // 下载项复用其 metadata.musicInfo 的封面缓存；下载列表自身没有稳定 listId 写回入口。
     return url
   })
 }

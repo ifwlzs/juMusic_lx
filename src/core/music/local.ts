@@ -93,7 +93,7 @@ export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = tru
       // saveLyric(musicInfo, data.lyricInfo)
       if (!isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)
 
-      // TODO: save url ?
+      // 这里只缓存匹配到的在线候选源 URL，本地歌曲本身仍优先通过文件路径播放。
       return url
     })
   })

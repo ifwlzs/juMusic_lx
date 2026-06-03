@@ -13,7 +13,7 @@ export const registerEvent = (socket: LX.Sync.Socket) => {
   unregisterLocalListAction = registerDislikeActionEvent((action) => {
     if (!socket.moduleReadys?.dislike) return
     void socket.remoteQueueDislike.onDislikeSyncAction(action).catch(err => {
-      // TODO send status
+      // 不喜欢列表同步动作失败时先关闭连接，具体状态提示由同步重连与错误展示链路统一处理。
       socket.moduleReadys.dislike = false
       socket.close(SYNC_CLOSE_CODE.failed)
       console.log(err.message)

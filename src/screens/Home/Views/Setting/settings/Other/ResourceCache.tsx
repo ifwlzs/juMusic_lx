@@ -17,9 +17,6 @@ export default memo(() => {
   const t = useI18n()
   const [cleaning, setCleaning] = useState(false)
   const [cacheSize, setCacheSize] = useState<string | null>(null)
-  // const setting = useGetter('common', 'setting')
-  // TODO clear list cache
-  // const clearCache = useDispatch('list', 'clearCache')
 
   const handleGetAppCacheSize = () => {
     void Promise.all([getAppCacheSize(), getCacheSize()]).then(([size, size2]) => {
@@ -36,6 +33,7 @@ export default memo(() => {
     }).then(confirm => {
       if (!confirm) return
       setCleaning(true)
+      // 资源缓存清理只处理当前已有明确清理入口的缓存，列表缓存策略需单独确认后再接入。
       void Promise.all([
         clearAppCache(),
         clearCache(),

@@ -75,6 +75,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 优化
 
+- 清理第一批源码 TODO 技术债，移除歌词请求的 `any` 类型兜底，并将仍需语义确认的缓存、同步状态与自动播放策略收口到待办文档
 - 年报曲风相关查询改为优先联表 `ods_jumusic_genre_dim` 显示中文曲风名称，曲库画像 / 曲风进化 / 年度主曲风观感更统一
 - 补全曲风维度表中文翻译，并将真实年报曲风展示切换为中文优先、英文回退
 
