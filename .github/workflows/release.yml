@@ -22,7 +22,7 @@ jobs:
       TZ: Asia/Shanghai
     steps:
       - name: Check out git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -87,7 +87,7 @@ jobs:
           PACKAGE_VERSION: ${{ env.PACKAGE_VERSION }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: juMusic 安卓版 v${{ env.PACKAGE_VERSION }}
           body_path: ./publish/releaseBody.md

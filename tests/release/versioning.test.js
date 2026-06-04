@@ -288,8 +288,36 @@ test('beta workflow uses a no-daemon release build on CI', () => {
 test('setup action uses temurin jdk for android builds', () => {
   const setupAction = fs.readFileSync(path.resolve(__dirname, '../../.github/actions/setup/action.yml'), 'utf8')
 
-  assert.match(setupAction, /setup-java@v4/)
+  assert.match(setupAction, /setup-java@v5/)
   assert.match(setupAction, /distribution:\s*'temurin'/)
+})
+
+test('github actions use Node 24 runtime compatible action majors', () => {
+  // GitHub Actions 的 Node 20 runtime 已进入弃用周期；这里用静态契约锁定 CI 仍能保留原流程语义，
+  // 但所有外部 action 引用都升级到已经声明使用 Node 24 runtime 的主版本。
+  const actionFiles = [
+    '.github/workflows/release.yml',
+    '.github/workflows/beta-pack.yml',
+    '.github/workflows/build-test.yml',
+    '.github/workflows/publish-version-info.yml',
+    '.github/actions/setup/action.yml',
+    '.github/actions/upload-artifact/action.yml',
+  ]
+  const githubActionsConfig = actionFiles
+    .map(file => fs.readFileSync(path.resolve(__dirname, '../..', file), 'utf8'))
+    .join('\n')
+
+  assert.match(githubActionsConfig, /actions\/checkout@v5/)
+  assert.match(githubActionsConfig, /actions\/setup-node@v5/)
+  assert.match(githubActionsConfig, /actions\/setup-java@v5/)
+  assert.match(githubActionsConfig, /actions\/cache@v5/)
+  assert.match(githubActionsConfig, /actions\/upload-artifact@v6/)
+  assert.match(githubActionsConfig, /softprops\/action-gh-release@v3/)
+  assert.match(githubActionsConfig, /peter-evans\/repository-dispatch@v4/)
+  assert.doesNotMatch(githubActionsConfig, /actions\/(?:checkout|setup-node|setup-java|cache)@v4/)
+  assert.doesNotMatch(githubActionsConfig, /actions\/upload-artifact@v[45]/)
+  assert.doesNotMatch(githubActionsConfig, /softprops\/action-gh-release@v2/)
+  assert.doesNotMatch(githubActionsConfig, /peter-evans\/repository-dispatch@v2/)
 })
 
 test('local PowerShell packaging script parses without syntax errors', () => {
