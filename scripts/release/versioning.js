@@ -237,6 +237,7 @@ const buildChangelogEntry = ({ version, previousVersion, releaseDate, releaseNot
 
 const applyReleaseVersion = ({
   packageJson,
+  packageLockJson,
   versionJson,
   changelogMarkdown,
   releaseNotesMarkdown,
@@ -269,6 +270,22 @@ const applyReleaseVersion = ({
     versionCode,
   }
 
+  const nextPackageLockJson = packageLockJson
+    ? {
+        ...packageLockJson,
+        // npm v7+ 的 lockfile 会同时在根对象与 packages[''] 里记录应用版本；发版时必须同步，
+        // 避免后续依赖变更无关地夹带旧版本号修正。
+        version,
+        packages: {
+          ...packageLockJson.packages,
+          '': {
+            ...(packageLockJson.packages?.[''] || {}),
+            version,
+          },
+        },
+      }
+    : undefined
+
   const nextChangelogMarkdown = upsertLatestChangelogEntry({
     changelogMarkdown,
     version,
@@ -283,6 +300,7 @@ const applyReleaseVersion = ({
 
   return {
     packageJson: nextPackageJson,
+    packageLockJson: nextPackageLockJson,
     versionJson: nextVersionJson,
     changelogMarkdown: nextChangelogMarkdown,
     releaseNotes,

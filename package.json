@@ -80,7 +80,7 @@
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@babel/eslint-parser": "^7.28.6",
-    "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
+    "@babel/plugin-transform-export-namespace-from": "^7.27.1",
     "@babel/preset-env": "^7.29.2",
     "@babel/runtime": "^7.29.2",
     "@react-native/babel-preset": "^0.74.89",

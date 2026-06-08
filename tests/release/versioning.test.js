@@ -140,6 +140,54 @@ test('applyReleaseVersion writes displayVersion and keeps versionCode numeric', 
   assert.doesNotMatch(result.changelogMarkdown, /@ikun0014|Folltoshe|thanks/i)
 })
 
+test('applyReleaseVersion keeps package-lock root version in sync when present', () => {
+  assert.equal(fs.existsSync(versioningPath), true)
+  const { applyReleaseVersion } = require(versioningPath)
+
+  const result = applyReleaseVersion({
+    packageJson: {
+      name: 'lx-music-mobile',
+      version: '0.26.06050031',
+      versionCode: 1303060000,
+      repository: {
+        url: 'git+https://github.com/ifwlzs/juMusic_lx.git',
+      },
+    },
+    packageLockJson: {
+      name: 'lx-music-mobile',
+      version: '0.26.04091227',
+      lockfileVersion: 3,
+      packages: {
+        '': {
+          name: 'lx-music-mobile',
+          version: '0.26.04091227',
+        },
+      },
+    },
+    versionJson: {
+      version: '0.26.06050031',
+      desc: '',
+      history: [],
+    },
+    changelogMarkdown: [
+      '# Changelog',
+      '',
+      '## [0.26.06050031](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.06030816...v0.26.06050031) - 2026-06-05',
+      '',
+      '旧内容',
+      '',
+    ].join('\n'),
+    releaseNotesMarkdown: '- 更新依赖',
+    version: '0.26.06081120',
+    versionCode: 1303045600,
+    releaseDate: '2026-06-08',
+  })
+
+  assert.equal(result.packageJson.version, '0.26.06081120')
+  assert.equal(result.packageLockJson.version, '0.26.06081120')
+  assert.equal(result.packageLockJson.packages[''].version, '0.26.06081120')
+})
+
 test('buildVersionCodeFromDisplayVersion keeps hourly serial stable when the displayVersion already exists', () => {
   assert.equal(fs.existsSync(versioningPath), true)
   const { buildVersionCodeFromDisplayVersion } = require(versioningPath)
@@ -246,6 +294,12 @@ test('release workflow generates the next displayVersion and release artifacts u
   assert.match(workflow, /lx-music-mobile-v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}-universal\.apk/)
   assert.match(uploadAction, /lx-music-mobile-v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}-arm64-v8a\.apk/)
   assert.match(uploadAction, /lx-music-mobile-v\$\{\{\s*env\.PACKAGE_VERSION\s*\}\}-x86\.apk/)
+})
+
+test('release workflow commits package-lock when release metadata changes', () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
+
+  assert.match(workflow, /git add package\.json package-lock\.json publish\/version\.json CHANGELOG\.md/)
 })
 
 test('release workflow protects against recursive release commits', () => {

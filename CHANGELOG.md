@@ -75,6 +75,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 优化
 
+- 将 Babel 导出命名空间插件从已弃用的 proposal 包迁移到 transform 包，并让发版脚本同步 `package-lock.json` 根版本
 - 升级 GitHub Actions 依赖到 Node 24 runtime 兼容版本，消除 Node 20 action runtime 弃用预警
 - 清理第一批源码 TODO 技术债，移除歌词请求的 `any` 类型兜底，并将仍需语义确认的缓存、同步状态与自动播放策略收口到待办文档
 - 年报曲风相关查询改为优先联表 `ods_jumusic_genre_dim` 显示中文曲风名称，曲库画像 / 曲风进化 / 年度主曲风观感更统一

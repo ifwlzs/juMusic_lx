@@ -3,6 +3,7 @@ const { jp } = require('./index')
 const chalk = require('chalk')
 const changelogPath = jp('../../CHANGELOG.md')
 const pkgPath = jp('../../package.json')
+const packageLockPath = jp('../../package-lock.json')
 const versionPath = jp('../version.json')
 const releaseBodyPath = jp('../releaseBody.md')
 const {
@@ -20,8 +21,10 @@ module.exports = async(newVerNum, {
   versionCode,
 } = {}) => {
   const pkg = readJson(pkgPath)
+  const packageLock = fs.existsSync(packageLockPath) ? readJson(packageLockPath) : null
   const version = readJson(versionPath)
   const pkg_bak = JSON.stringify(pkg, null, 2)
+  const packageLock_bak = packageLock ? JSON.stringify(packageLock, null, 2) : null
   const version_bak = JSON.stringify(version, null, 2)
   const changelog_bak = fs.readFileSync(changelogPath, 'utf-8')
   if (!newVerNum) newVerNum = formatDisplayVersion()
@@ -38,6 +41,7 @@ module.exports = async(newVerNum, {
   })
   const nextState = applyReleaseVersion({
     packageJson: pkg,
+    packageLockJson: packageLock,
     versionJson: version,
     changelogMarkdown: changelog_bak,
     releaseNotesMarkdown: releaseBodyMarkdown,
@@ -52,6 +56,7 @@ module.exports = async(newVerNum, {
   fs.writeFileSync(versionPath, JSON.stringify(nextState.versionJson) + '\n', 'utf-8')
 
   fs.writeFileSync(pkgPath, JSON.stringify(nextState.packageJson, null, 2) + '\n', 'utf-8')
+  if (nextState.packageLockJson) fs.writeFileSync(packageLockPath, JSON.stringify(nextState.packageLockJson, null, 2) + '\n', 'utf-8')
 
   fs.writeFileSync(changelogPath, nextState.changelogMarkdown, 'utf-8')
   fs.writeFileSync(
@@ -62,6 +67,7 @@ module.exports = async(newVerNum, {
 
   return {
     pkg_bak,
+    packageLock_bak,
     version_bak,
     changelog_bak,
   }

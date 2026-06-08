@@ -67,7 +67,7 @@ jobs:
 
       - name: Commit release metadata back to main
         run: |
-          git add package.json publish/version.json CHANGELOG.md
+          git add package.json package-lock.json publish/version.json CHANGELOG.md
           if git diff --cached --quiet; then
             echo "No release metadata changes to commit."
           else
