@@ -17,7 +17,7 @@ test('自定义 IcoMoon 图标迁移到按字体族拆分的新 vector-icons 包
 
   assert.equal(packageJson.dependencies['react-native-vector-icons'], undefined)
   assert.equal(packageJson.devDependencies['@types/react-native-vector-icons'], undefined)
-  assert.match(packageJson.dependencies['@react-native-vector-icons/icomoon'], /^\^13\./)
+  assert.equal(packageJson.dependencies['@react-native-vector-icons/icomoon'], '13.0.0')
   assert.deepEqual(packageJson.reactNativeVectorIcons, {
     fontDir: 'src/resources/fonts',
   })
@@ -25,7 +25,8 @@ test('自定义 IcoMoon 图标迁移到按字体族拆分的新 vector-icons 包
   assert.equal(packageLock.packages['node_modules/react-native-vector-icons'], undefined)
   assert.equal(packageLock.packages['']?.dependencies?.['react-native-vector-icons'], undefined)
   assert.equal(packageLock.packages['']?.devDependencies?.['@types/react-native-vector-icons'], undefined)
-  assert.match(packageLock.packages['']?.dependencies?.['@react-native-vector-icons/icomoon'], /^\^13\./)
+  assert.equal(packageLock.packages['']?.dependencies?.['@react-native-vector-icons/icomoon'], '13.0.0')
+  assert.equal(packageLock.packages['node_modules/@react-native-vector-icons/icomoon']?.version, '13.0.0')
 
   // @react-native-vector-icons/icomoon 的 Gradle 脚本会读取 `${fontDir}/icomoon/*.ttf`，目录结构不匹配会在 CI 配置阶段失败。
   assert.equal(fs.statSync(icomoonFontDir).isDirectory(), true)
