@@ -13,6 +13,7 @@ test('自定义 IcoMoon 图标迁移到按字体族拆分的新 vector-icons 包
   const packageJson = readJson('package.json')
   const packageLock = readJson('package-lock.json')
   const iconSource = readText('src/components/common/Icon.tsx')
+  const icomoonFontDir = path.resolve(repoRoot, packageJson.reactNativeVectorIcons.fontDir, 'icomoon')
 
   assert.equal(packageJson.dependencies['react-native-vector-icons'], undefined)
   assert.equal(packageJson.devDependencies['@types/react-native-vector-icons'], undefined)
@@ -25,6 +26,12 @@ test('自定义 IcoMoon 图标迁移到按字体族拆分的新 vector-icons 包
   assert.equal(packageLock.packages['']?.dependencies?.['react-native-vector-icons'], undefined)
   assert.equal(packageLock.packages['']?.devDependencies?.['@types/react-native-vector-icons'], undefined)
   assert.match(packageLock.packages['']?.dependencies?.['@react-native-vector-icons/icomoon'], /^\^13\./)
+
+  // @react-native-vector-icons/icomoon 的 Gradle 脚本会读取 `${fontDir}/icomoon/*.ttf`，目录结构不匹配会在 CI 配置阶段失败。
+  assert.equal(fs.statSync(icomoonFontDir).isDirectory(), true)
+  assert.equal(fs.statSync(path.join(icomoonFontDir, 'icomoon.ttf')).isFile(), true)
+  assert.equal(fs.existsSync(path.resolve(repoRoot, packageJson.reactNativeVectorIcons.fontDir, 'icomoon.ttf')), false)
+  assert.equal(fs.existsSync(path.resolve(repoRoot, 'android/app/src/main/assets/fonts/icomoon.ttf')), false)
 
   assert.doesNotMatch(iconSource, /from ['"]react-native-vector-icons['"]/)
   assert.match(iconSource, /from ['"]@react-native-vector-icons\/icomoon['"]/)
