@@ -103,6 +103,14 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
+    "@babel/plugin-proposal-async-generator-functions": "npm:@babel/plugin-transform-async-generator-functions@7.29.0",
+    "@babel/plugin-proposal-class-properties": "npm:@babel/plugin-transform-class-properties@7.28.6",
+    "@babel/plugin-proposal-logical-assignment-operators": "npm:@babel/plugin-transform-logical-assignment-operators@7.28.6",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "npm:@babel/plugin-transform-nullish-coalescing-operator@7.28.6",
+    "@babel/plugin-proposal-numeric-separator": "npm:@babel/plugin-transform-numeric-separator@7.28.6",
+    "@babel/plugin-proposal-object-rest-spread": "npm:@babel/plugin-transform-object-rest-spread@7.28.6",
+    "@babel/plugin-proposal-optional-catch-binding": "npm:@babel/plugin-transform-optional-catch-binding@7.28.6",
+    "@babel/plugin-proposal-optional-chaining": "npm:@babel/plugin-transform-optional-chaining@7.28.6",
     "@react-native-community/cli-platform-android": {
       "fast-xml-parser": "^5.3.4"
     },

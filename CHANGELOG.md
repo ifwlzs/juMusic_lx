@@ -76,6 +76,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 优化
 
 - 将自定义 IcoMoon 图标从已弃用的 `react-native-vector-icons` 总包迁移到 `@react-native-vector-icons/icomoon` 独立包，按新版包约定调整字体目录，锁定兼容当前 React Native 的独立包版本，并同步 Node 基线到 v22
+- 将 React Native / jscodeshift 传递引入的已标准化 Babel proposal 插件通过 npm alias 解析到对应 transform 包，减少依赖安装阶段的弃用警告
 - 将 Babel 导出命名空间插件从已弃用的 proposal 包迁移到 transform 包，并让发版脚本同步 `package-lock.json` 根版本
 - 升级 GitHub Actions 依赖到 Node 24 runtime 兼容版本，消除 Node 20 action runtime 弃用预警
 - 清理第一批源码 TODO 技术债，移除歌词请求的 `any` 类型兜底，并将仍需语义确认的缓存、同步状态与自动播放策略收口到待办文档
