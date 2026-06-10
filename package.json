@@ -57,7 +57,7 @@
     "@react-native-clipboard/clipboard": "^1.14.3",
     "@react-native-community/slider": "^4.5.7",
     "@react-native-vector-icons/icomoon": "13.0.0",
-    "fast-xml-parser": "^5.3.4",
+    "fast-xml-parser": "^5.8.0",
     "he": "^1.2.0",
     "iconv-lite": "^0.7.2",
     "lrc-file-parser": "^2.4.1",
@@ -111,14 +111,16 @@
     "@babel/plugin-proposal-object-rest-spread": "npm:@babel/plugin-transform-object-rest-spread@7.28.6",
     "@babel/plugin-proposal-optional-catch-binding": "npm:@babel/plugin-transform-optional-catch-binding@7.28.6",
     "@babel/plugin-proposal-optional-chaining": "npm:@babel/plugin-transform-optional-chaining@7.28.6",
+    "@babel/plugin-transform-modules-systemjs": "7.29.7",
     "@react-native-community/cli-platform-android": {
-      "fast-xml-parser": "^5.3.4"
+      "fast-xml-parser": "^5.8.0"
     },
     "@react-native-community/cli-platform-ios": {
-      "fast-xml-parser": "^5.3.4"
+      "fast-xml-parser": "^5.8.0"
     },
     "@typescript-eslint/typescript-estree": {
-      "minimatch": "^9"
-    }
+      "minimatch": "^9.0.9"
+    },
+    "shell-quote": "1.8.4"
   }
 }
