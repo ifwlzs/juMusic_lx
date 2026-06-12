@@ -1,4 +1,7 @@
 const ARTIST_PAGE_TEMP_LIST_ID = 'artist_page_temp'
+const PLAYER_TEMP_LIST_ID = 'temp'
+
+const { toMediaLibraryMusicInfo } = require('./sourceLists.js')
 
 // 统一维护歌手联名分隔符，保证播放页入口和媒体库查询使用同一套拆分口径。
 const ARTIST_SPLIT_PATTERN = /\s*(?:、|\/|;|；|,|，|&|\bfeat\.?\s*|\bft\.?\s*|\bwith\s*)/i
@@ -40,6 +43,20 @@ function buildArtistPageTempListId(artistName = '') {
   return `${ARTIST_PAGE_TEMP_LIST_ID}__${normalizeArtistName(artistName)}`
 }
 
+async function loadArtistSongs({ repository, artistName = '', matchMode = 'token' } = {}) {
+  if (!repository || typeof repository.getAggregateSongs !== 'function') return []
+  const aggregateSongs = await repository.getAggregateSongs()
+  // 歌手页第一版使用聚合后的总曲库视图，保证查询范围覆盖本地和远端媒体库。
+  return findArtistSongs((aggregateSongs || []).map(item => toMediaLibraryMusicInfo(item)), { artistName, matchMode })
+}
+
+async function playArtistSongs({ artistName = '', songs = [], index = 0, setTempList, playList } = {}) {
+  const listId = buildArtistPageTempListId(artistName)
+  // 播放器已有临时列表模型，歌手页复用它来形成独立播放队列，不污染默认收藏等用户列表。
+  await setTempList(listId, [...songs])
+  await playList(PLAYER_TEMP_LIST_ID, index, { entrySource: 'media_library_artist_page' })
+}
+
 module.exports = {
   ARTIST_PAGE_TEMP_LIST_ID,
   normalizeArtistName,
@@ -47,6 +64,6 @@ module.exports = {
   isArtistMatch,
   findArtistSongs,
   buildArtistPageTempListId,
+  loadArtistSongs,
+  playArtistSongs,
 }
-
-
