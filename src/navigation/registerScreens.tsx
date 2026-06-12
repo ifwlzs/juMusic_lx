@@ -5,6 +5,7 @@ import { Navigation } from 'react-native-navigation'
 import {
   Home,
   PlayDetail,
+  ArtistPage,
   SonglistDetail,
   Comment,
   // Setting,
@@ -14,6 +15,7 @@ import { Provider } from '@/store/Provider'
 import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
+  ARTIST_PAGE_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
   VERSION_MODAL,
@@ -42,6 +44,7 @@ function WrappedComponent(Component: any) {
 export default () => {
   Navigation.registerComponent(HOME_SCREEN, () => WrappedComponent(Home))
   Navigation.registerComponent(PLAY_DETAIL_SCREEN, () => WrappedComponent(PlayDetail))
+  Navigation.registerComponent(ARTIST_PAGE_SCREEN, () => WrappedComponent(ArtistPage))
   Navigation.registerComponent(SONGLIST_DETAIL_SCREEN, () => WrappedComponent(SonglistDetail))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
@@ -51,3 +54,4 @@ export default () => {
 
   console.info('All screens have been registered...')
 }
+
