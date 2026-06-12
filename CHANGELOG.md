@@ -10,6 +10,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 新增
 
+- 新增媒体库歌手页，可从播放页点击歌手进入，支持联名歌手选择、媒体库范围查询、播放全部与按歌手页队列播放
 - 年报预览补齐 P22 / P26 / P27 / P28 / P29 / P30 / P31 / L01 / L02 / L03 / L04A / L04B / P32 页面链路与真实数据契约，恢复移动端年报完整预览
 - 新增年报导出与预览的页面压缩样式，确保 Top10 榜单页在 844px 视口内稳定单屏展示
 - 新增基础歌曲听歌记录的 Emby Playback Reporting 补录脚本与播放来源字段，支持 juMusic / Emby 双来源
