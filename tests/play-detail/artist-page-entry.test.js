@@ -22,3 +22,17 @@ test('歌手页包含标题、歌曲数量、播放全部和临时队列播放�
   assert.match(file, /playArtistSongs/)
   assert.match(file, /FlatList/)
 })
+
+test('播放页竖屏和横屏 Header 都接入 ArtistEntry', () => {
+  assert.match(read('src/screens/PlayDetail/Vertical/components/Header.tsx'), /ArtistEntry/)
+  assert.match(read('src/screens/PlayDetail/Horizontal/components/Header.tsx'), /ArtistEntry/)
+})
+
+test('ArtistEntry 负责联名歌手选择、无命中 toast 和进入歌手页', () => {
+  const file = read('src/screens/PlayDetail/components/ArtistEntry.tsx')
+  assert.match(file, /splitArtistNames/)
+  assert.match(file, /artist_page_choose_artist_title/)
+  assert.match(file, /artist_page_empty_in_library/)
+  assert.match(file, /pushArtistPageScreen/)
+  assert.match(file, /loadArtistSongs/)
+})

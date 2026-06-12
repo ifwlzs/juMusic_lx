@@ -6,6 +6,7 @@ import { pop } from '@/navigation'
 import StatusBar from '@/components/common/StatusBar'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import Text from '@/components/common/Text'
+import ArtistEntry from '../../components/ArtistEntry'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT as _HEADER_HEIGHT, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import commonState from '@/store/common/state'
@@ -25,7 +26,7 @@ const Title = () => {
   return (
     <View style={styles.titleContent}>
       <Text numberOfLines={1} style={styles.title} color={playDetailPalette.PRIMARY_TEXT}>{musicInfo.name}</Text>
-      <Text numberOfLines={1} style={styles.title} size={12} color={playDetailPalette.SECONDARY_TEXT}>{musicInfo.singer}</Text>
+      <ArtistEntry singer={musicInfo.singer} textStyle={styles.title} size={12} textColor={playDetailPalette.SECONDARY_TEXT} />
     </View>
   )
 }
@@ -77,3 +78,4 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
 })
+
