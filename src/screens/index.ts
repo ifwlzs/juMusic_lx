@@ -8,4 +8,3 @@ export { default as Comment } from './Comment'
 // export { default as Tab1Screen } from './Tab1Screen/Tab1Screen'
 // export { default as Tab2Screen } from './Tab2Screen/Tab2Screen'
 export { default as ArtistPage } from './ArtistPage'
-

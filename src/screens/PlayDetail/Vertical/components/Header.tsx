@@ -78,4 +78,3 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
 })
-

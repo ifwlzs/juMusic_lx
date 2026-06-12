@@ -54,4 +54,3 @@ export default () => {
 
   console.info('All screens have been registered...')
 }
-
