@@ -87,6 +87,63 @@ export async function pushHomeScreen() {
     },
   })
 }
+export function pushArtistPageScreen(componentId: string, params: {
+  artistName: string
+  matchMode: 'token' | 'exact'
+  sourceSinger?: string
+}) {
+  requestAnimationFrame(() => {
+    const theme = themeState.theme
+
+    void Navigation.push(componentId, {
+      component: {
+        name: ARTIST_PAGE_SCREEN,
+        passProps: params,
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+          animations: {
+            push: {
+              content: {
+                translationX: {
+                  from: windowSizeTools.getSize().width,
+                  to: 0,
+                  duration: 300,
+                },
+              },
+            },
+            pop: {
+              content: {
+                translationX: {
+                  from: 0,
+                  to: windowSizeTools.getSize().width,
+                  duration: 300,
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+  })
+}
+
+
 export function pushPlayDetailScreen(componentId: string, skipAnimation = false) {
   /*
     Navigation.setDefaultOptions({
@@ -185,61 +242,6 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
               //     duration: 300,
               //   },
               // },
-            },
-            pop: {
-              content: {
-                translationX: {
-                  from: 0,
-                  to: windowSizeTools.getSize().width,
-                  duration: 300,
-                },
-              },
-            },
-          },
-        },
-      },
-    })
-  })
-}
-export function pushArtistPageScreen(componentId: string, params: {
-  artistName: string
-  matchMode: 'token' | 'exact'
-  sourceSinger?: string
-}) {
-  requestAnimationFrame(() => {
-    const theme = themeState.theme
-
-    void Navigation.push(componentId, {
-      component: {
-        name: ARTIST_PAGE_SCREEN,
-        passProps: params,
-        options: {
-          topBar: {
-            visible: false,
-            height: 0,
-            drawBehind: false,
-          },
-          statusBar: {
-            drawBehind: true,
-            visible: true,
-            style: getStatusBarStyle(theme.isDark),
-            backgroundColor: 'transparent',
-          },
-          navigationBar: {
-            backgroundColor: theme['c-content-background'],
-          },
-          layout: {
-            componentBackgroundColor: theme['c-content-background'],
-          },
-          animations: {
-            push: {
-              content: {
-                translationX: {
-                  from: windowSizeTools.getSize().width,
-                  to: 0,
-                  duration: 300,
-                },
-              },
             },
             pop: {
               content: {
@@ -649,4 +651,5 @@ export function pushTabBasedApp() {
   })
 }
  */
+
 
