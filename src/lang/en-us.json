@@ -719,5 +719,12 @@
   "music_detail_copy_name": "Copy Name",
   "music_detail_copy_name_with_artist": "Copy Artist - Name",
   "music_detail_copy_full": "Copy Full Info",
-  "music_detail_copy_path": "Copy Path"
+  "music_detail_copy_path": "Copy Path",
+  "artist_page_song_count": "{count} songs",
+  "artist_page_play_all": "Play all",
+  "artist_page_choose_artist_title": "Which artist do you want to view?",
+  "artist_page_exact_match_option": "{name} (exact match)",
+  "artist_page_empty_in_library": "No songs by this artist were found in your media library",
+  "artist_page_no_artist_info": "This song has no artist information",
+  "artist_page_load_failed": "Failed to load artist songs"
 }

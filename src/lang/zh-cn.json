@@ -719,5 +719,12 @@
   "music_detail_copy_name": "复制歌名",
   "music_detail_copy_name_with_artist": "复制歌手 - 歌名",
   "music_detail_copy_full": "复制完整信息",
-  "music_detail_copy_path": "复制路径"
+  "music_detail_copy_path": "复制路径",
+  "artist_page_song_count": "共 {count} 首歌曲",
+  "artist_page_play_all": "播放全部",
+  "artist_page_choose_artist_title": "查看哪个歌手？",
+  "artist_page_exact_match_option": "{name}（完整匹配）",
+  "artist_page_empty_in_library": "媒体库中未找到该歌手的歌曲",
+  "artist_page_no_artist_info": "当前歌曲没有歌手信息",
+  "artist_page_load_failed": "歌手歌曲加载失败"
 }

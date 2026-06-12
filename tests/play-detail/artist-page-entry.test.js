@@ -36,3 +36,20 @@ test('ArtistEntry 负责联名歌手选择、无命中 toast 和进入歌手页'
   assert.match(file, /pushArtistPageScreen/)
   assert.match(file, /loadArtistSongs/)
 })
+
+test('歌手页文案 key 覆盖三种语言', () => {
+  for (const lang of ['zh-cn', 'zh-tw', 'en-us']) {
+    const json = JSON.parse(read(`src/lang/${lang}.json`))
+    for (const key of [
+      'artist_page_song_count',
+      'artist_page_play_all',
+      'artist_page_choose_artist_title',
+      'artist_page_exact_match_option',
+      'artist_page_empty_in_library',
+      'artist_page_no_artist_info',
+      'artist_page_load_failed',
+    ]) {
+      assert.ok(json[key], `${lang} missing ${key}`)
+    }
+  }
+})
