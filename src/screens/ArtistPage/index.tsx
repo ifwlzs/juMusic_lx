@@ -12,10 +12,14 @@ import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { loadArtistSongs, playArtistSongs } from '@/core/mediaLibrary/artistPage'
 import { setTempList } from '@/core/list'
 import { playList } from '@/core/player/player'
+import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { toast } from '@/utils/tools'
 
 type ArtistMatchMode = 'token' | 'exact'
+
+// 歌手页顶部栏内容区高度，状态栏安全区会在运行时额外叠加，避免异形屏遮挡。
+const HEADER_HEIGHT = 56
 
 export interface ArtistPageProps {
   componentId: string
@@ -27,6 +31,7 @@ export interface ArtistPageProps {
 export default ({ componentId, artistName, matchMode }: ArtistPageProps) => {
   const t = useI18n()
   const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
   const [songs, setSongs] = useState<LX.Music.MusicInfo[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -65,7 +70,7 @@ export default ({ componentId, artistName, matchMode }: ArtistPageProps) => {
     <PageContent>
       <StatusBar />
       <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }}>
-        <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
+        <View style={{ ...styles.header, height: HEADER_HEIGHT + statusBarHeight, paddingTop: statusBarHeight, borderBottomColor: theme['c-border-background'] }}>
           <Button style={styles.backButton} onPress={handleBack}>
             <Icon name="chevron-left" size={18} color={theme['c-font']} />
           </Button>
@@ -111,7 +116,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
