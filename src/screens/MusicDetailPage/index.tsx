@@ -6,6 +6,7 @@ import StatusBar from '@/components/common/StatusBar'
 import Button from '@/components/common/Button'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
+import ArtistEntry from '@/screens/PlayDetail/components/ArtistEntry'
 import { useI18n } from '@/lang'
 import { pop } from '@/navigation'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -47,7 +48,7 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title} color={theme['c-font']}>{musicInfo.name}</Text>
-          <Text color={theme['c-font-label']}>{musicInfo.singer || '-'}</Text>
+          <ArtistEntry componentId={componentId} singer={musicInfo.singer} size={13} textColor={theme['c-font-label']} />
           <View style={styles.copyActionList}>
             {copyActions.map(action => (
               <Button key={action.key} disabled={action.disabled} style={{ ...styles.copyActionButton, backgroundColor: theme['c-button-background'] }}>
