@@ -43,6 +43,8 @@ test('ArtistEntry 负责联名歌手选择、无命中 toast 和进入歌手页'
   assert.match(file, /artist_page_empty_in_library/)
   assert.match(file, /pushArtistPageScreen/)
   assert.match(file, /loadArtistSongs/)
+  assert.match(file, /componentId\?:\s*string/)
+  assert.match(file, /componentId\s*\?\?\s*commonState\.componentIds\.playDetail/)
 })
 
 test('歌手页文案 key 覆盖三种语言', () => {

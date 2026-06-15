@@ -23,6 +23,7 @@ interface ArtistOption {
 
 export interface ArtistEntryProps {
   singer: string
+  componentId?: string
   size?: number
   textStyle?: ComponentProps<typeof Text>['style']
   textColor?: ComponentProps<typeof Text>['color']
@@ -45,7 +46,7 @@ const buildArtistOptions = (singer: string, exactLabelBuilder: (name: string) =>
   ]
 }
 
-export default memo(({ singer, size = 12, textStyle, textColor }: ArtistEntryProps) => {
+export default memo(({ singer, componentId, size = 12, textStyle, textColor }: ArtistEntryProps) => {
   const t = useI18n()
   const theme = useTheme()
   const modalRef = useRef<ModalType>(null)
@@ -58,9 +59,10 @@ export default memo(({ singer, size = 12, textStyle, textColor }: ArtistEntryPro
         toast(t('artist_page_empty_in_library'))
         return
       }
-      const componentId = commonState.componentIds.playDetail
-      if (!componentId) return
-      navigations.pushArtistPageScreen(componentId, {
+      // 默认继续使用播放页组件 ID；详情页等其他入口可显式传入当前页面 componentId。
+      const targetComponentId = componentId ?? commonState.componentIds.playDetail
+      if (!targetComponentId) return
+      navigations.pushArtistPageScreen(targetComponentId, {
         artistName: option.artistName,
         matchMode: option.matchMode,
         sourceSinger: singer,
@@ -70,7 +72,7 @@ export default memo(({ singer, size = 12, textStyle, textColor }: ArtistEntryPro
       console.warn('open artist page failed', error)
       toast(t('artist_page_load_failed'))
     }
-  }, [singer, t])
+  }, [componentId, singer, t])
 
   const handlePress = useCallback(() => {
     const normalizedSinger = singer.trim()

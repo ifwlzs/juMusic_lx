@@ -80,3 +80,5 @@ __pycache__/
 
 # local analysis artifacts
 tmp/
+# Codex / Superpowers 本地视觉伴侣与会话产物不入库。
+.superpowers/

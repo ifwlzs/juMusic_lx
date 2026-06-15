@@ -6,6 +6,7 @@ import {
   Home,
   PlayDetail,
   ArtistPage,
+  MusicDetailPage,
   SonglistDetail,
   Comment,
   // Setting,
@@ -16,6 +17,7 @@ import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
   ARTIST_PAGE_SCREEN,
+  MUSIC_DETAIL_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
   VERSION_MODAL,
@@ -45,6 +47,7 @@ export default () => {
   Navigation.registerComponent(HOME_SCREEN, () => WrappedComponent(Home))
   Navigation.registerComponent(PLAY_DETAIL_SCREEN, () => WrappedComponent(PlayDetail))
   Navigation.registerComponent(ARTIST_PAGE_SCREEN, () => WrappedComponent(ArtistPage))
+  Navigation.registerComponent(MUSIC_DETAIL_SCREEN, () => WrappedComponent(MusicDetailPage))
   Navigation.registerComponent(SONGLIST_DETAIL_SCREEN, () => WrappedComponent(SonglistDetail))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
