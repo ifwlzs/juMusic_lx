@@ -7,7 +7,7 @@ import Button from '@/components/common/Button'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import ArtistEntry from '@/screens/PlayDetail/components/ArtistEntry'
-import { useI18n } from '@/lang'
+import { useI18n, type Message } from '@/lang'
 import { pop } from '@/navigation'
 import { clipboardWriteText, toast } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -27,7 +27,7 @@ export interface MusicDetailPageProps {
 // 歌曲详情页顶部内容区高度，运行时叠加状态栏高度来适配异形屏。
 const HEADER_HEIGHT = 56
 
-const isTranslateValueKey = (value: string) => {
+const isTranslateValueKey = (value: string): value is keyof Message => {
   // 详情模型中的来源和状态值可能是 i18n key，页面层负责转成用户可读文案。
   return value.startsWith('music_detail_') || value.startsWith('source_real_')
 }
@@ -68,16 +68,16 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
           <View style={styles.copyActionList}>
             {copyActions.map(action => (
               <Button key={action.key} disabled={action.disabled} style={{ ...styles.copyActionButton, backgroundColor: theme['c-button-background'] }} onPress={() => { handleCopy(action) }}>
-                <Text color={theme['c-button-font']}>{t(action.label)}</Text>
+                <Text color={theme['c-button-font']}>{t(action.label as keyof Message)}</Text>
               </Button>
             ))}
           </View>
           {sections.map(section => (
             <View key={section.key} style={styles.section}>
-              <Text style={styles.sectionTitle} color={theme['c-font']}>{t(`music_detail_section_${section.key}`)}</Text>
+              <Text style={styles.sectionTitle} color={theme['c-font']}>{t(`music_detail_section_${section.key}` as keyof Message)}</Text>
               {section.items.map(item => (
                 <View key={`${section.key}_${item.key}`} style={styles.itemRow}>
-                  <Text style={styles.itemLabel} color={theme['c-font-label']}>{t(item.label)}</Text>
+                  <Text style={styles.itemLabel} color={theme['c-font-label']}>{t(item.label as keyof Message)}</Text>
                   <Text style={styles.itemValue} color={theme['c-font']}>
                     {isTranslateValueKey(item.value) ? t(item.value) : item.value}
                   </Text>
