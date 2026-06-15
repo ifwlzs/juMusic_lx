@@ -16,7 +16,8 @@ import ListMusicSearch, { type ListMusicSearchType } from './ListMusicSearch'
 import MusicPositionModal, { type MusicPositionModalType } from './MusicPositionModal'
 import MetadataEditModal, { type MetadataEditType, type MetadataEditProps } from '@/components/MetadataEditModal'
 import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
-import MusicDetailModal, { type MusicDetailModalType } from '@/components/MusicDetailModal'
+import { navigations } from '@/navigation'
+import commonState from '@/store/common/state'
 
 
 export default ({ onOpenMediaSourceManager }: {
@@ -34,7 +35,6 @@ export default ({ onOpenMediaSourceManager }: {
   const metadataEditTypeRef = useRef<MetadataEditType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const musicToggleModalRef = useRef<MusicToggleModalType>(null)
-  const musicDetailModalRef = useRef<MusicDetailModalType>(null)
   const layoutHeightRef = useRef<number>(0)
   const isShowMultipleModeBar = useRef(false)
   const isShowSearchBarModeBar = useRef(false)
@@ -169,9 +169,14 @@ export default ({ onOpenMediaSourceManager }: {
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
         onCopyName={info => { handleShare(info.musicInfo) }}
         onMusicSourceDetail={info => {
-          // 本地歌曲与媒体库歌曲优先走应用内详情弹窗，避免再次跳回外部链接。
+          // 本地歌曲与媒体库歌曲进入应用内详情独立页，避免继续受弹窗空间限制。
           if (isInternalMusicDetailTarget(info.musicInfo)) {
-            musicDetailModalRef.current?.show(info.musicInfo)
+            const componentId = commonState.componentIds.home
+            if (!componentId) return
+            navigations.pushMusicDetailScreen(componentId, {
+              musicInfo: info.musicInfo,
+              sourceListId: info.listId,
+            })
             return
           }
           // 在线音源仍然保留外链详情行为，保证既有入口不受这次任务 1 修复影响。
@@ -188,13 +193,6 @@ export default ({ onOpenMediaSourceManager }: {
         onUpdate={handleUpdateMetadata}
       />
       <MusicToggleModal ref={musicToggleModalRef} />
-      <MusicDetailModal
-        ref={musicDetailModalRef}
-        onPressArtist={({ artist }) => {
-          // 歌手点击只在当前列表内展开相关歌曲结果，避免这期需求扩散成跨列表或独立歌手页跳转。
-          listMusicSearchRef.current?.showArtistRelatedSongs(artist, layoutHeightRef.current)
-        }}
-      />
     </View>
   )
 }
