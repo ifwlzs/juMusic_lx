@@ -9,9 +9,11 @@ import Text from '@/components/common/Text'
 import ArtistEntry from '@/screens/PlayDetail/components/ArtistEntry'
 import { useI18n } from '@/lang'
 import { pop } from '@/navigation'
+import { clipboardWriteText, toast } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import {
+  buildMusicDetailCopyText,
   buildMusicDetailSections,
   getMusicDetailCopyActions,
 } from '@/components/MusicDetailModal/buildDetailSections'
@@ -25,6 +27,11 @@ export interface MusicDetailPageProps {
 // 歌曲详情页顶部内容区高度，运行时叠加状态栏高度来适配异形屏。
 const HEADER_HEIGHT = 56
 
+const isTranslateValueKey = (value: string) => {
+  // 详情模型中的来源和状态值可能是 i18n key，页面层负责转成用户可读文案。
+  return value.startsWith('music_detail_') || value.startsWith('source_real_')
+}
+
 export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
   const t = useI18n()
   const theme = useTheme()
@@ -35,6 +42,15 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
   const handleBack = useCallback(() => {
     void pop(componentId)
   }, [componentId])
+
+  const handleCopy = useCallback((action: ReturnType<typeof getMusicDetailCopyActions>[number]) => {
+    // 页面复制动作复用详情纯函数，保证独立页与旧弹窗复制内容一致。
+    const rawText = buildMusicDetailCopyText(action.key, musicInfo)
+    const text = typeof rawText == 'string' ? rawText : ''
+    if (!text) return
+    clipboardWriteText(text)
+    toast(t('copy_name_tip'))
+  }, [musicInfo, t])
 
   return (
     <PageContent>
@@ -51,7 +67,7 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
           <ArtistEntry componentId={componentId} singer={musicInfo.singer} size={13} textColor={theme['c-font-label']} />
           <View style={styles.copyActionList}>
             {copyActions.map(action => (
-              <Button key={action.key} disabled={action.disabled} style={{ ...styles.copyActionButton, backgroundColor: theme['c-button-background'] }}>
+              <Button key={action.key} disabled={action.disabled} style={{ ...styles.copyActionButton, backgroundColor: theme['c-button-background'] }} onPress={() => { handleCopy(action) }}>
                 <Text color={theme['c-button-font']}>{t(action.label)}</Text>
               </Button>
             ))}
@@ -62,7 +78,9 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
               {section.items.map(item => (
                 <View key={`${section.key}_${item.key}`} style={styles.itemRow}>
                   <Text style={styles.itemLabel} color={theme['c-font-label']}>{t(item.label)}</Text>
-                  <Text style={styles.itemValue} color={theme['c-font']}>{item.value}</Text>
+                  <Text style={styles.itemValue} color={theme['c-font']}>
+                    {isTranslateValueKey(item.value) ? t(item.value) : item.value}
+                  </Text>
                 </View>
               ))}
             </View>
