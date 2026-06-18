@@ -4,7 +4,7 @@ import { usePlayerMusicInfo } from '@/store/player/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
-import { LIST_IDS, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
+import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import Image from '@/components/common/Image'
 import { useCallback } from 'react'
 import { setLoadErrorPicUrl, setMusicInfo } from '@/core/player/playInfo'
@@ -32,10 +32,15 @@ export default ({ isHome }: { isHome: boolean }) => {
   }
 
   const handleLongPress = () => {
-    if (!isHome) return
-    const listId = playerState.playMusicInfo.listId
-    if (!listId || listId == LIST_IDS.DOWNLOAD) return
-    global.app_event.jumpListPosition()
+    const playMusicInfo = playerState.playMusicInfo.musicInfo
+    const fullMusicInfo = playMusicInfo && 'progress' in playMusicInfo ? playMusicInfo.metadata.musicInfo : playMusicInfo
+    const targetComponentId = isHome ? commonState.componentIds.home : commonState.componentIds.songlistDetail
+    // 歌曲详情页需要标准歌曲对象；下载列表项要先还原到 metadata.musicInfo，展示态 musicInfo 只保留封面、歌名等字段。
+    if (!musicInfo.id || !fullMusicInfo || !targetComponentId) return
+    navigations.pushMusicDetailScreen(targetComponentId, {
+      musicInfo: fullMusicInfo,
+      sourceListId: playerState.playMusicInfo.listId,
+    })
   }
 
   const handleError = useCallback((url: string | number) => {
