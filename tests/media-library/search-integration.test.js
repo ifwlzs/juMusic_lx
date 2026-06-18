@@ -122,3 +122,27 @@ test('搜索页存在个人曲库结果列表组件文件', () => {
   const filePath = path.resolve(__dirname, '../../src/screens/Home/Views/Search/LibraryMusicList.tsx')
   assert.equal(fs.existsSync(filePath), true)
 })
+
+test('搜索页 LibraryMusicList 接入同款歌曲详情入口', () => {
+  const searchList = fs.readFileSync(path.resolve(__dirname, '../../src/screens/Home/Views/Search/LibraryMusicList.tsx'), 'utf8')
+  const libraryList = fs.readFileSync(path.resolve(__dirname, '../../src/components/LibraryMusicList/index.tsx'), 'utf8')
+
+  assert.match(searchList, /commonState/)
+  assert.match(searchList, /componentId=\{commonState\.componentIds\.home\}/)
+  assert.match(searchList, /enableDetail/)
+
+  assert.match(libraryList, /enableDetail/)
+  assert.match(libraryList, /pushMusicDetailScreen/)
+  assert.match(libraryList, /isInternalMusicDetailTarget\(musicInfo\)/)
+  assert.match(libraryList, /handleShowMusicSourceDetail\(musicInfo\)/)
+  assert.match(libraryList, /sourceListId/)
+})
+
+test('changelog 和 todolist 记录搜索页歌曲详情入口落地状态', () => {
+  const changelog = fs.readFileSync(path.resolve(__dirname, '../../CHANGELOG.md'), 'utf8')
+  const todolist = fs.readFileSync(path.resolve(__dirname, '../../docs/todo/todolist.md'), 'utf8')
+
+  assert.match(changelog, /搜索页.*LibraryMusicList.*详情入口/)
+  assert.match(todolist, /- \[x\] 将媒体库歌曲详情弹窗升级为独立详情页/)
+  assert.match(todolist, /- \[x\] 在搜索页 `LibraryMusicList` 中接入同款详情入口/)
+})
