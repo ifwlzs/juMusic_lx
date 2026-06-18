@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { search } from '@/core/search/music'
 import LibraryMusicListView from '@/components/LibraryMusicList'
 import searchMusicState, { type Source } from '@/store/search/music/state'
+import commonState from '@/store/common/state'
 
 export interface LibraryMusicListType {
   loadList: (text: string, source: Source) => void
@@ -38,6 +39,8 @@ export default forwardRef<LibraryMusicListType, {}>((_, ref) => {
     <LibraryMusicListView
       list={list.length ? list : searchMusicState.listInfos[searchInfoRef.current.source]!.list}
       entrySource='search'
+      componentId={commonState.componentIds.home}
+      enableDetail
     />
   )
 })
