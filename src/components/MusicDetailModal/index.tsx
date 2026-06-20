@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native'
 import Button from '@/components/common/Button'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import Text from '@/components/common/Text'
-import { useI18n } from '@/lang'
+import { useI18n, type Message } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { clipboardWriteText, createStyle, toast } from '@/utils/tools'
 import {
@@ -23,7 +23,7 @@ interface MusicDetailModalProps {
   }) => void
 }
 
-const isTranslateValueKey = (value: string) => {
+const isTranslateValueKey = (value: string): value is keyof Message => {
   // 详情分组里的 value 可能仍是 i18n key，UI 层需要在这里兜底翻译，避免把内部 key 直接展示给用户。
   return value.startsWith('music_detail_') || value.startsWith('source_real_')
 }
@@ -116,18 +116,18 @@ export default forwardRef<MusicDetailModalType, MusicDetailModalProps>(({ onPres
                 onPress={() => { handleCopy(action.key) }}
               >
                 {/* 复制动作文案直接消费纯函数返回的 label，保证 UI 与任务 2 的动作契约保持单一事实来源。 */}
-                <Text color={theme['c-button-font']} size={13}>{t(action.label)}</Text>
+                <Text color={theme['c-button-font']} size={13}>{t(action.label as keyof Message)}</Text>
               </Button>
             ))}
           </View>
 
           {sections.map(section => (
             <View key={section.key} style={styles.section}>
-              <Text style={styles.sectionTitle} size={14}>{t(`music_detail_section_${section.key}`)}</Text>
+              <Text style={styles.sectionTitle} size={14}>{t(`music_detail_section_${section.key}` as keyof Message)}</Text>
               <View style={styles.sectionBody}>
                 {section.items.map(item => (
                   <View key={`${section.key}_${item.key}`} style={styles.itemRow}>
-                    <Text style={styles.itemLabel} size={13}>{t(item.label)}</Text>
+                    <Text style={styles.itemLabel} size={13}>{t(item.label as keyof Message)}</Text>
                     {canPressArtist && section.key == 'basic' && item.key == 'artist' ? (
                       <Button style={styles.artistButton} onPress={handlePressArtist}>
                         <Text style={styles.itemValue} size={13}>{t('music_detail_artist')}：{artistValue}</Text>

@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
 import PageContent from '@/components/PageContent'
@@ -12,6 +12,8 @@ import { pop } from '@/navigation'
 import { clipboardWriteText, toast } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
+import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { buildMusicDetailCacheSection } from '@/components/MusicDetailModal/buildCacheStatusSection'
 import {
   buildMusicDetailCopyText,
   buildMusicDetailSections,
@@ -27,8 +29,13 @@ export interface MusicDetailPageProps {
 // 歌曲详情页顶部内容区高度，运行时叠加状态栏高度来适配异形屏。
 const HEADER_HEIGHT = 56
 
+const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
+  // 页面层只需要源条目 ID 来读缓存索引，非媒体库歌曲直接跳过查询。
+  return 'mediaLibrary' in musicInfo.meta ? musicInfo.meta.mediaLibrary : undefined
+}
+
 const isTranslateValueKey = (value: string): value is keyof Message => {
-  // 详情模型中的来源和状态值可能是 i18n key，页面层负责转成用户可读文案。
+  // 详情模型中的来源、状态和缓存值可能是 i18n key，页面层负责转成用户可读文案。
   return value.startsWith('music_detail_') || value.startsWith('source_real_')
 }
 
@@ -36,8 +43,35 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
   const t = useI18n()
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
-  const sections = buildMusicDetailSections(musicInfo)
+  const [cacheEntry, setCacheEntry] = useState<LX.MediaLibrary.MediaCache | null>(null)
+  const sections = useMemo(() => {
+    const baseSections = buildMusicDetailSections(musicInfo)
+    const cacheSection = buildMusicDetailCacheSection(musicInfo, cacheEntry)
+    return cacheSection ? [...baseSections, cacheSection] : baseSections
+  }, [cacheEntry, musicInfo])
   const copyActions = getMusicDetailCopyActions(musicInfo)
+
+  useEffect(() => {
+    const mediaLibrary = getMediaLibraryInfo(musicInfo)
+    if (!mediaLibrary?.sourceItemId) {
+      setCacheEntry(null)
+      return
+    }
+
+    let cancelled = false
+    // 详情页只读查询本地缓存索引，不触发保存、清理、目录校验或远端访问，避免打开页面产生副作用。
+    void mediaLibraryRepository.findCacheBySourceItemId(mediaLibrary.sourceItemId)
+      .then((entry: LX.MediaLibrary.MediaCache | null | undefined) => {
+        if (!cancelled) setCacheEntry(entry ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setCacheEntry(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [musicInfo])
 
   const handleBack = useCallback(() => {
     void pop(componentId)
