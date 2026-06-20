@@ -9,7 +9,7 @@ export interface MusicDetailSectionItem {
 }
 
 export interface MusicDetailSection {
-  key: 'basic' | 'file' | 'media_library' | 'status'
+  key: 'basic' | 'file' | 'media_library' | 'status' | 'cache'
   items: MusicDetailSectionItem[]
 }
 
@@ -18,6 +18,8 @@ export interface MusicDetailCopyActionItem {
   label: string
   disabled: boolean
 }
+
+type MediaLibraryInfo = NonNullable<(LX.Music.MusicInfoLocal | LX.Music.MusicInfoRemoteFile)['meta']['mediaLibrary']>
 
 const LABELS = {
   name: 'music_detail_name',
@@ -38,7 +40,7 @@ const LABELS = {
   unavailableReason: 'music_detail_unavailable_reason',
 } as const
 
-const STATUS_LABELS: Record<NonNullable<LX.Music.MusicInfo['meta']['mediaLibrary']>['unavailableReason'], string> = {
+const STATUS_LABELS: Record<NonNullable<MediaLibraryInfo['unavailableReason']>, string> = {
   connection_removed: 'music_detail_unavailable_connection_removed',
   rule_removed: 'music_detail_unavailable_rule_removed',
 }
@@ -62,7 +64,7 @@ const COPY_TEXT_LABELS = {
   unavailableReason: '状态',
 } as const
 
-const COPY_TEXT_STATUS_VALUES: Record<NonNullable<LX.Music.MusicInfo['meta']['mediaLibrary']>['unavailableReason'], string> = {
+const COPY_TEXT_STATUS_VALUES: Record<NonNullable<MediaLibraryInfo['unavailableReason']>, string> = {
   connection_removed: '连接已移除',
   rule_removed: '规则已移除',
 }
@@ -74,7 +76,8 @@ const COPY_TEXT_SOURCE_VALUES: Record<string, string> = {
   source_real_onedrive: 'OneDrive',
 }
 
-const hasMediaLibrary = (musicInfo: LX.Music.MusicInfo) => {
+const hasMediaLibrary = (musicInfo: LX.Music.MusicInfo): musicInfo is (LX.Music.MusicInfoLocal | LX.Music.MusicInfoRemoteFile) & { meta: { mediaLibrary: MediaLibraryInfo } } => {
+  // 媒体库字段只存在于本地/远端文件歌曲，类型守卫让后续读取保持显式收窄。
   return 'mediaLibrary' in musicInfo.meta && !!musicInfo.meta.mediaLibrary
 }
 
