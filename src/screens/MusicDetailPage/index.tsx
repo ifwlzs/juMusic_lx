@@ -12,7 +12,10 @@ import { pop } from '@/navigation'
 import { clipboardWriteText, toast } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
+import { useMyList } from '@/store/list/hook'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { enqueueImportRuleSyncJob } from '@/core/mediaLibrary/jobQueue'
+import { findMusicDetailRescanRule } from '@/core/mediaLibrary/musicDetailRescan'
 import { buildMusicDetailCacheSection } from '@/components/MusicDetailModal/buildCacheStatusSection'
 import {
   buildMusicDetailCopyText,
@@ -39,11 +42,14 @@ const isTranslateValueKey = (value: string): value is keyof Message => {
   return value.startsWith('music_detail_') || value.startsWith('source_real_')
 }
 
-export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
+export default ({ componentId, musicInfo, sourceListId }: MusicDetailPageProps) => {
   const t = useI18n()
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+  const userLists = useMyList()
+  const mediaLibrary = getMediaLibraryInfo(musicInfo)
   const [cacheEntry, setCacheEntry] = useState<LX.MediaLibrary.MediaCache | null>(null)
+  const [isRescanSubmitting, setRescanSubmitting] = useState(false)
   const sections = useMemo(() => {
     const baseSections = buildMusicDetailSections(musicInfo)
     const cacheSection = buildMusicDetailCacheSection(musicInfo, cacheEntry)
@@ -52,7 +58,6 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
   const copyActions = getMusicDetailCopyActions(musicInfo)
 
   useEffect(() => {
-    const mediaLibrary = getMediaLibraryInfo(musicInfo)
     if (!mediaLibrary?.sourceItemId) {
       setCacheEntry(null)
       return
@@ -71,7 +76,7 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
     return () => {
       cancelled = true
     }
-  }, [musicInfo])
+  }, [mediaLibrary?.sourceItemId])
 
   const handleBack = useCallback(() => {
     void pop(componentId)
@@ -85,6 +90,40 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
     clipboardWriteText(text)
     toast(t('copy_name_tip'))
   }, [musicInfo, t])
+
+  const handleRescanCurrentMusic = useCallback(() => {
+    if (!mediaLibrary || isRescanSubmitting) return
+    setRescanSubmitting(true)
+    void (async() => {
+      try {
+        const rules = await mediaLibraryRepository.getImportRules() as LX.MediaLibrary.ImportRule[]
+        const rule = findMusicDetailRescanRule({
+          mediaLibrary,
+          sourceListId,
+          lists: userLists,
+          rules,
+        })
+        if (!rule) {
+          toast(t('music_detail_rescan_current_song_no_rule'))
+          return
+        }
+
+        // 详情页只提交后台增量任务，不直接扫描远端、不做删除校验，也不清理缓存。
+        await enqueueImportRuleSyncJob({
+          connectionId: rule.connectionId,
+          ruleId: rule.ruleId,
+          previousRule: rule,
+          triggerSource: 'manual',
+          syncMode: 'incremental',
+        })
+        toast(t('music_detail_rescan_current_song_queued'))
+      } catch {
+        toast(t('music_detail_rescan_current_song_failed'))
+      } finally {
+        setRescanSubmitting(false)
+      }
+    })()
+  }, [isRescanSubmitting, mediaLibrary, sourceListId, t, userLists])
 
   return (
     <PageContent>
@@ -106,6 +145,13 @@ export default ({ componentId, musicInfo }: MusicDetailPageProps) => {
               </Button>
             ))}
           </View>
+          {mediaLibrary ? (
+            <Button disabled={isRescanSubmitting} style={{ ...styles.rescanButton, backgroundColor: theme['c-button-background'] }} onPress={handleRescanCurrentMusic}>
+              <Text color={theme['c-button-font']}>
+                {t(isRescanSubmitting ? 'music_detail_rescan_current_song_submitting' : 'music_detail_rescan_current_song')}
+              </Text>
+            </Button>
+          ) : null}
           {sections.map(section => (
             <View key={section.key} style={styles.section}>
               <Text style={styles.sectionTitle} color={theme['c-font']}>{t(`music_detail_section_${section.key}` as keyof Message)}</Text>
@@ -164,6 +210,12 @@ const styles = StyleSheet.create({
   copyActionButton: {
     paddingHorizontal: 10,
     paddingVertical: 8,
+    borderRadius: 6,
+  },
+  rescanButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: 6,
   },
   section: {

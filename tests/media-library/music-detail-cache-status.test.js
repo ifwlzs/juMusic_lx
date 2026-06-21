@@ -130,7 +130,7 @@ test('歌曲详情页只读查询缓存并追加缓存分组', () => {
   assert.match(source, /buildMusicDetailCacheSection/)
   assert.match(source, /const\s+cacheSection\s*=\s*buildMusicDetailCacheSection\(musicInfo,\s*cacheEntry\)/)
   assert.match(source, /cacheSection \? \[\.\.\.baseSections, cacheSection\] : baseSections/)
-  assert.doesNotMatch(source, /removeCaches|saveCaches|rescan|重新扫描|来源切换/)
+  assert.doesNotMatch(source, /removeCaches|saveCaches|来源切换/)
 })
 
 test('三种语言补齐缓存状态详情文案', () => {
@@ -163,12 +163,12 @@ test('三种语言补齐缓存状态详情文案', () => {
   }
 })
 
-test('待办和 changelog 记录只读缓存状态已落地且写操作仍待确认', () => {
+test('待办和 changelog 记录只读缓存状态已落地且来源切换仍待确认', () => {
   const todolist = read('docs/todo/todolist.md')
   const changelog = read('CHANGELOG.md')
 
   assert.match(todolist, /\[x\] 先展示只读缓存状态/)
   assert.match(todolist, /\[ \] 来源切换/)
-  assert.match(todolist, /\[ \] 重新扫描/)
+  assert.match(todolist, /\[x\] 重新扫描/)
   assert.match(changelog, /歌曲详情页.*缓存状态展示/)
 })
