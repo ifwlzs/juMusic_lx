@@ -145,6 +145,9 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
   await TrackPlayer.add(tracks).then(() => list.push(...tracks))
   const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
   await TrackPlayer.skip(queue.findIndex(t => t.id == track.id))
+  // WebDAV/SMB/OneDrive 等远端媒体会先停播再解析缓存文件，底层在 stop/skip 后可能回到 1.0 倍速。
+  // 这里在真实资源切入队列后重新套用当前设置，确保远端缓存歌曲和普通歌曲的倍速语义一致。
+  await TrackPlayer.setRate(settingState.setting['player.playbackRate'])
 
   if (currentTrackIndex == null) {
     if (!isTempTrack(track.id as string)) {

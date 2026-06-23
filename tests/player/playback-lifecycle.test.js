@@ -32,3 +32,20 @@ test('player stop does not advance to the next track after stopping playback', (
   assert.doesNotMatch(setStopBlock, /skipToNext\(\)/)
   assert.match(playerCoreFile, /export const stop = async\(\) => \{\s*[\s\S]*await setStop\(\)/)
 })
+
+test('player reapplies configured playback rate after loading a concrete track', () => {
+  const playListFile = readFile('src/plugins/player/playList.ts')
+  const handlePlayMusicBlock = playListFile.slice(
+    playListFile.indexOf('const handlePlayMusic = async'),
+    playListFile.indexOf('let playPromise = Promise.resolve()'),
+  )
+
+  assert.match(playListFile, /settingState\.setting\['player\.playbackRate'\]/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.skip\(/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.setRate\(\s*settingState\.setting\['player\.playbackRate'\]\s*\)/)
+  assert.ok(
+    handlePlayMusicBlock.indexOf("TrackPlayer.setRate(settingState.setting['player.playbackRate'])") >
+      handlePlayMusicBlock.indexOf('TrackPlayer.skip('),
+    '倍速应在切到真实资源后重新应用，避免 stop/skip 或远端缓存加载把底层 rate 重置为 1',
+  )
+})
