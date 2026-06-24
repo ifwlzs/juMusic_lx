@@ -22,6 +22,7 @@
     "clear:full": "git clean -fdx -e android/keystore.properties -e android/app/*.keystore",
     "build:theme": "node src/theme/themes/createThemes.js",
     "publish": "node publish",
+    "postinstall": "node dependencies-patch.js",
     "release:prepare": "node scripts/release/prepare-release.js",
     "preview:play-detail-bg": "node tools/play-detail-bg-preview/server.js",
     "test:release": "node --test tests/release/versioning.test.js tests/release/windows-shortcuts.test.js",
