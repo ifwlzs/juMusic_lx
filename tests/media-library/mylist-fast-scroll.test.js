@@ -133,6 +133,9 @@ test('我的列表快速滚动由容器在移动阶段接管且可视层不遮�
   assert.match(listFile, /shouldActivateFastScroll/)
   assert.match(listFile, /onStartShouldSetPanResponder:\s*\(\)\s*=>\s*false/)
   assert.match(listFile, /onMoveShouldSetPanResponderCapture/)
+  // PanResponder 在授予 responder 前不会初始化 x0，必须用当前坐标减累计位移还原触摸起点。
+  assert.match(listFile, /startX:\s*gestureState\.moveX\s*-\s*gestureState\.dx/)
+  assert.doesNotMatch(listFile, /startX:\s*gestureState\.x0/)
   assert.match(listFile, /pointerEvents="none"/)
 })
 
