@@ -26,6 +26,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 修复
 
+- 修复「我的列表」快速滚动手势误用尚未初始化的触摸起点坐标，导致右侧滚动条按钮无法拖动的问题
 - 修复「我的列表」右侧快速滚动条会抢占歌曲“三个点”菜单点击、且拖动手势偶发无法正确接管的问题
 - 修复 WebDAV / SMB / OneDrive 媒体库歌曲切歌或首次缓存播放后，底层播放速率可能回退到 1.0，导致倍速设置不生效的问题
 - 修复 Android 音频卸载路径不支持变速时，WebDAV / SMB / OneDrive 缓存歌曲可能倍速不生效但媒体时间提前结束，导致未播完就切下一首的问题

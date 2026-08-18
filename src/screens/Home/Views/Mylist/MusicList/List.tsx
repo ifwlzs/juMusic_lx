@@ -248,9 +248,10 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
 
   const fastScrollPanResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
+    // 捕获阶段 x0 尚未初始化，使用当前坐标减累计位移还原触摸起点。
     onMoveShouldSetPanResponderCapture: (event, gestureState) => shouldActivateFastScroll({
       isVisible: isFastScrollVisible,
-      startX: gestureState.x0,
+      startX: gestureState.moveX - gestureState.dx,
       containerPageX: fastScrollContainerPageXRef.current,
       containerWidth: fastScrollContainerWidthRef.current,
       dx: gestureState.dx,
