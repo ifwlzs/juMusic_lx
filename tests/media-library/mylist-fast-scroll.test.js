@@ -72,25 +72,6 @@ test('我的列表快速滚动拖动坐标使用屏幕绝对坐标避免把手�
   assert.equal(getFastScrollLocalY({ pageY: 80, containerPageY: 120 }), -40)
 })
 
-test('我的列表快速滚动只在右侧热区发生明确纵向移动后接管手势', () => {
-  const { shouldActivateFastScroll } = loadFastScrollModule()
-  const baseOptions = {
-    isVisible: true,
-    startX: 350,
-    containerPageX: 0,
-    containerWidth: 360,
-    dx: 1,
-    dy: 8,
-  }
-
-  // 右侧纵向拖动应接管，普通点击、横向移动、热区外移动和隐藏状态都不应接管。
-  assert.equal(shouldActivateFastScroll(baseOptions), true)
-  assert.equal(shouldActivateFastScroll({ ...baseOptions, dy: 2 }), false)
-  assert.equal(shouldActivateFastScroll({ ...baseOptions, dx: 10, dy: 8 }), false)
-  assert.equal(shouldActivateFastScroll({ ...baseOptions, startX: 300 }), false)
-  assert.equal(shouldActivateFastScroll({ ...baseOptions, isVisible: false }), false)
-})
-
 test('我的列表组件接入右侧快速滚动热区并保留中文注释', () => {
   const listFile = fs.readFileSync(listPath, 'utf8')
 
@@ -126,17 +107,16 @@ test('我的列表快速滚动拖动期间不使用 locationY 且不会被 onScr
   assert.doesNotMatch(listFile, /nativeEvent\.locationY/)
 })
 
-test('我的列表快速滚动由容器在移动阶段接管且可视层不遮挡三个点按钮', () => {
+test('我的列表快速滚动由可见把手直接接管且透明区域不遮挡三个点按钮', () => {
   const listFile = fs.readFileSync(listPath, 'utf8')
 
-  // 点击先交给行内按钮，只有移动满足快速滚动条件后才由列表容器捕获。
-  assert.match(listFile, /shouldActivateFastScroll/)
-  assert.match(listFile, /onStartShouldSetPanResponder:\s*\(\)\s*=>\s*false/)
-  assert.match(listFile, /onMoveShouldSetPanResponderCapture/)
-  // PanResponder 在授予 responder 前不会初始化 x0，必须用当前坐标减累计位移还原触摸起点。
-  assert.match(listFile, /startX:\s*gestureState\.moveX\s*-\s*gestureState\.dx/)
-  assert.doesNotMatch(listFile, /startX:\s*gestureState\.x0/)
-  assert.match(listFile, /pointerEvents="none"/)
+  // 可见把手按下即接管；把手之外继续穿透到歌曲行按钮。
+  assert.match(listFile, /onStartShouldSetPanResponder:\s*\(\)\s*=>\s*isFastScrollVisible/)
+  assert.match(listFile, /onMoveShouldSetPanResponder:\s*\(\)\s*=>\s*isFastScrollVisible/)
+  assert.match(listFile, /pointerEvents="box-none"/)
+  assert.match(listFile, /fastScrollHandleTop/)
+  assert.match(listFile, /fastScrollGrabOffsetRef/)
+  assert.doesNotMatch(listFile, /onMoveShouldSetPanResponderCapture/)
 })
 
 test('changelog notes mylist side fast scroll', () => {

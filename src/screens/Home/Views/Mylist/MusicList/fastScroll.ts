@@ -1,8 +1,6 @@
 export const FAST_SCROLL_MIN_ROWS = 36
 // 右侧快速滚动热区宽度，需与列表右侧视觉轨道保持一致。
 export const FAST_SCROLL_TOUCH_WIDTH = 34
-// 超过该位移阈值且以纵向为主时，才从点击手势切换为拖动手势。
-export const FAST_SCROLL_ACTIVATION_DISTANCE = 6
 
 export interface FastScrollTargetOptions {
   y: number
@@ -33,18 +31,6 @@ export interface FastScrollHandleTopByOffsetOptions {
 export interface FastScrollLocalYOptions {
   pageY: number
   containerPageY: number
-}
-
-// 快速滚动手势仲裁所需的屏幕坐标与移动距离参数。
-export interface FastScrollActivationOptions {
-  isVisible: boolean
-  startX: number
-  containerPageX: number
-  containerWidth: number
-  dx: number
-  dy: number
-  touchWidth?: number
-  activationDistance?: number
 }
 
 const clamp = (value: number, min: number, max: number): number => {
@@ -96,27 +82,4 @@ export const getFastScrollHandleTopByOffset = ({ offset, contentHeight, height, 
 export const getFastScrollLocalY = ({ pageY, containerPageY }: FastScrollLocalYOptions): number => {
   // 拖动事件使用屏幕绝对坐标，减去热区屏幕顶部后得到稳定的本地 Y，避免移动中的把手反过来改变 locationY。
   return pageY - containerPageY
-}
-
-export const shouldActivateFastScroll = ({
-  isVisible,
-  startX,
-  containerPageX,
-  containerWidth,
-  dx,
-  dy,
-  touchWidth = FAST_SCROLL_TOUCH_WIDTH,
-  activationDistance = FAST_SCROLL_ACTIVATION_DISTANCE,
-}: FastScrollActivationOptions): boolean => {
-  if (!isVisible || containerWidth <= 0 || touchWidth <= 0 || activationDistance < 0) return false
-
-  const localStartX = startX - containerPageX
-  const touchAreaStartX = Math.max(0, containerWidth - touchWidth)
-  const verticalDistance = Math.abs(dy)
-
-  // 点击优先交给歌曲行内按钮；仅右侧热区内发生明确纵向拖动后才接管快速滚动。
-  return localStartX >= touchAreaStartX &&
-    localStartX <= containerWidth &&
-    verticalDistance >= activationDistance &&
-    verticalDistance > Math.abs(dx)
 }
