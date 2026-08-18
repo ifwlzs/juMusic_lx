@@ -65,11 +65,14 @@ test('我的列表快速滚动把手位置会跟随拖动与列表滚动并保�
   assert.equal(getFastScrollHandleTopByOffset({ offset: 9999, contentHeight: 2000, height: 500, handleHeight: 50 }), 450)
 })
 
-test('我的列表快速滚动拖动坐标使用屏幕绝对坐标避免把手移动反馈抖动', () => {
-  const { getFastScrollLocalY } = loadFastScrollModule()
+test('我的列表快速滚动把手完整行程可覆盖列表首尾', () => {
+  const { getFastScrollTarget } = loadFastScrollModule()
+  const listHeight = 480
+  const handleHeight = 60
+  const maxTop = listHeight - handleHeight
 
-  assert.equal(getFastScrollLocalY({ pageY: 360, containerPageY: 120 }), 240)
-  assert.equal(getFastScrollLocalY({ pageY: 80, containerPageY: 120 }), -40)
+  assert.equal(getFastScrollTarget({ y: 0, height: maxTop, itemCount: 100, rowNum: 1 }), 0)
+  assert.equal(getFastScrollTarget({ y: maxTop, height: maxTop, itemCount: 100, rowNum: 1 }), 99)
 })
 
 test('我的列表组件接入右侧快速滚动热区并保留中文注释', () => {
@@ -97,13 +100,14 @@ test('我的列表快速滚动显示明确的可拖动按钮并避免深色主�
   assert.doesNotMatch(listFile, /backgroundColor: 'rgba\(0,0,0,0\.28\)'/)
 })
 
-test('我的列表快速滚动拖动期间不使用 locationY 且不会被 onScroll 反向改把手', () => {
+test('我的列表快速滚动以按下位置和累计 dy 连续拖动且不会被 onScroll 反向改把手', () => {
   const listFile = fs.readFileSync(listPath, 'utf8')
 
-  assert.match(listFile, /measureInWindow/)
-  assert.match(listFile, /gestureState\.moveY/)
-  assert.match(listFile, /nativeEvent\.pageY/)
+  assert.match(listFile, /fastScrollDragStartTopRef\.current\s*=\s*fastScrollHandleTopRef\.current/)
+  assert.match(listFile, /fastScrollDragStartTopRef\.current\s*\+\s*gestureState\.dy/)
   assert.match(listFile, /isFastScrollDraggingRef/)
+  assert.doesNotMatch(listFile, /gestureState\.moveY/)
+  assert.doesNotMatch(listFile, /nativeEvent\.pageY/)
   assert.doesNotMatch(listFile, /nativeEvent\.locationY/)
 })
 
@@ -115,7 +119,7 @@ test('我的列表快速滚动由可见把手直接接管且透明区域不遮�
   assert.match(listFile, /onMoveShouldSetPanResponder:\s*\(\)\s*=>\s*isFastScrollVisible/)
   assert.match(listFile, /pointerEvents="box-none"/)
   assert.match(listFile, /fastScrollHandleTop/)
-  assert.match(listFile, /fastScrollGrabOffsetRef/)
+  assert.match(listFile, /fastScrollDragStartTopRef/)
   assert.doesNotMatch(listFile, /onMoveShouldSetPanResponderCapture/)
 })
 

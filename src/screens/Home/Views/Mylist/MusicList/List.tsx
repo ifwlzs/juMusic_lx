@@ -16,7 +16,7 @@ import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { isUnavailableMediaLibraryMusic, showUnavailableMusicToast } from './listAction'
-import { FAST_SCROLL_TOUCH_WIDTH, getFastScrollHandleTop, getFastScrollHandleTopByOffset, getFastScrollLocalY, getFastScrollTarget, shouldShowFastScroll } from './fastScroll'
+import { FAST_SCROLL_TOUCH_WIDTH, getFastScrollHandleTop, getFastScrollHandleTopByOffset, getFastScrollTarget, shouldShowFastScroll } from './fastScroll'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 const FAST_SCROLL_HANDLE_HEIGHT = ITEM_HEIGHT
@@ -60,9 +60,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const [listHeight, setListHeight] = useState(0)
   const [fastScrollHandleTop, setFastScrollHandleTop] = useState(0)
   const fastScrollHandleTopRef = useRef(0)
-  const fastScrollContainerRef = useRef<View>(null)
-  const fastScrollContainerPageYRef = useRef(0)
-  const fastScrollGrabOffsetRef = useRef(FAST_SCROLL_HANDLE_HEIGHT / 2)
+  const fastScrollDragStartTopRef = useRef(0)
   const isFastScrollDraggingRef = useRef(false)
   const selectedListRef = useRef<LX.List.ListMusics>([])
   const currentListIdRef = useRef('')
@@ -197,52 +195,24 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
     rowNum: rowInfo.current.rowNum,
   })
 
-  const updateFastScrollContainerPageY = useCallback(() => {
-    fastScrollContainerRef.current?.measureInWindow((x, y) => {
-      // x 仅用于确认原生测量结果有效；拖动位置换算只需要列表顶部的屏幕 Y 坐标。
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return
-      fastScrollContainerPageYRef.current = y
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!isFastScrollVisible) return
-
-    // 快速滚动条显示后异步测一次容器位置，避免首次拖动仍使用未初始化的屏幕坐标。
-    requestAnimationFrame(updateFastScrollContainerPageY)
-  }, [isFastScrollVisible, updateFastScrollContainerPageY])
-
   const handleListLayout = useCallback((event: LayoutChangeEvent) => {
     setListHeight(event.nativeEvent.layout.height)
-    updateFastScrollContainerPageY()
-  }, [updateFastScrollContainerPageY])
-
-  const getFastScrollGestureY = useCallback((pageY: number) => {
-    const touchY = getFastScrollLocalY({
-      pageY,
-      containerPageY: fastScrollContainerPageYRef.current,
-    })
-
-    // 保留按下时手指在把手内的位置，使把手移动时不跳到手指中心。
-    return touchY - fastScrollGrabOffsetRef.current + FAST_SCROLL_HANDLE_HEIGHT / 2
   }, [])
 
-  const handleFastScrollGesture = useCallback((pageY: number) => {
-    const y = getFastScrollGestureY(pageY)
-
-    // 右侧拖动把手要同步跟随手指，避免只有透明热区响应而看不到“正在拉”的反馈。
+  const handleFastScrollGesture = useCallback((dragTop: number) => {
+    // 按下时冻结把手起点，移动阶段只叠加累计 dy，避免移动中的子视图坐标限制拖动距离。
     const handleTop = getFastScrollHandleTop({
-      y,
+      y: dragTop + FAST_SCROLL_HANDLE_HEIGHT / 2,
       height: listHeight,
       handleHeight: FAST_SCROLL_HANDLE_HEIGHT,
     })
     fastScrollHandleTopRef.current = handleTop
     setFastScrollHandleTop(handleTop)
 
-    // 右侧热区把手指位置换算成 FlatList 行号，实际滚动位置仍交给 onScroll 持久化。
+    // 右侧热区按把手完整可移动距离换算 FlatList 行号，实际滚动位置可覆盖列表首尾。
     const index = getFastScrollTarget({
-      y,
-      height: listHeight,
+      y: handleTop,
+      height: Math.max(0, listHeight - FAST_SCROLL_HANDLE_HEIGHT),
       itemCount: currentList.length,
       rowNum: rowInfo.current.rowNum,
     })
@@ -250,43 +220,28 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
     try {
       flatListRef.current?.scrollToIndex({ index, animated: false })
     } catch {}
-  }, [currentList.length, getFastScrollGestureY, listHeight])
+  }, [currentList.length, listHeight])
 
   const fastScrollPanResponder = useMemo(() => PanResponder.create({
     // 手势只挂在可见把手上，按下即接管，避免 FlatList 或行内按钮先获得 responder。
     onStartShouldSetPanResponder: () => isFastScrollVisible,
     onMoveShouldSetPanResponder: () => isFastScrollVisible,
-    onPanResponderGrant: event => {
+    onPanResponderGrant: () => {
       isFastScrollDraggingRef.current = true
-      updateFastScrollContainerPageY()
-      const pageY = event.nativeEvent.pageY
-      const touchY = getFastScrollLocalY({
-        pageY,
-        containerPageY: fastScrollContainerPageYRef.current,
-      })
-      fastScrollGrabOffsetRef.current = Math.min(
-        FAST_SCROLL_HANDLE_HEIGHT,
-        Math.max(0, touchY - fastScrollHandleTopRef.current),
-      )
-      handleFastScrollGesture(pageY)
+      fastScrollDragStartTopRef.current = fastScrollHandleTopRef.current
     },
     onPanResponderMove: (event, gestureState) => {
-      const pageY = Number.isFinite(gestureState.moveY) && gestureState.moveY != 0
-        ? gestureState.moveY
-        : event.nativeEvent.pageY
-      handleFastScrollGesture(pageY)
+      handleFastScrollGesture(fastScrollDragStartTopRef.current + gestureState.dy)
     },
     onPanResponderRelease: () => {
       isFastScrollDraggingRef.current = false
-      updateFastScrollContainerPageY()
     },
     onPanResponderTerminate: () => {
       isFastScrollDraggingRef.current = false
-      updateFastScrollContainerPageY()
     },
     // 已开始的快速滚动不再交还给行内按钮或 FlatList，避免拖动中途被打断。
     onPanResponderTerminationRequest: () => false,
-  }), [handleFastScrollGesture, isFastScrollVisible, updateFastScrollContainerPageY])
+  }), [handleFastScrollGesture, isFastScrollVisible])
 
   const handlePlay = (index: number) => {
     void playList(activeListId, index)
@@ -394,7 +349,6 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
 
   return (
     <View
-      ref={fastScrollContainerRef}
       style={styles.container}
       onLayout={handleListLayout}
     >
