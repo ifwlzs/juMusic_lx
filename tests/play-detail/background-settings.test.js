@@ -10,6 +10,10 @@ test('play detail background settings define dedicated schema keys and approved 
   const defaultSettingFile = readFile('src/config/defaultSetting.ts')
 
   assert.match(appSettingFile, /'theme\.playDetail\.background\.variant': 'blur' \| 'ambientDark'/)
+  assert.match(appSettingFile, /'theme\.playDetail\.background\.ambientBrightness': number/)
+  assert.match(appSettingFile, /'theme\.playDetail\.background\.ambientSaturation': number/)
+  assert.match(appSettingFile, /'theme\.playDetail\.background\.ambientOverlayOpacity': number/)
+  assert.match(appSettingFile, /'theme\.playDetail\.background\.ambientHueSpread': number/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.stretchScale': number/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.blurRadius': number/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.imageBrightness': number/)
@@ -23,6 +27,10 @@ test('play detail background settings define dedicated schema keys and approved 
   assert.match(appSettingFile, /'theme\.playDetail\.background\.vignetteSize': number/)
 
   assert.match(defaultSettingFile, /'theme\.playDetail\.background\.variant': 'blur'/)
+  assert.match(defaultSettingFile, /'theme\.playDetail\.background\.ambientBrightness': 1\.18/)
+  assert.match(defaultSettingFile, /'theme\.playDetail\.background\.ambientSaturation': 1\.12/)
+  assert.match(defaultSettingFile, /'theme\.playDetail\.background\.ambientOverlayOpacity': 0\.26/)
+  assert.match(defaultSettingFile, /'theme\.playDetail\.background\.ambientHueSpread': 42/)
   for (const key of ['stretchScale', 'blurRadius', 'maskColor', 'vignetteSize']) {
     assert.match(defaultSettingFile, new RegExp(`'theme\\.playDetail\\.background\\.${key}'`))
   }

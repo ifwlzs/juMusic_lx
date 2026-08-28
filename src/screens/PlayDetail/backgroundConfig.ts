@@ -119,29 +119,47 @@ export const playDetailBackgroundDefaults = {
 
 export type AmbientDarkPalette = readonly [string, string, string]
 export const ambientDarkFallbackPalette: AmbientDarkPalette = ['#241a26', '#13241f', '#10151c']
-// 为 RGB 量化预留余量，确保最终十六进制颜色的实际明度不超过 0.24。
-const AMBIENT_MAX_LIGHTNESS = 0.235
+export interface AmbientDarkPaletteOptions {
+  brightness?: number
+  saturation?: number
+  hueSpread?: number
+}
+
+export const ambientDarkPaletteDefaults: Required<AmbientDarkPaletteOptions> = {
+  brightness: 1.18,
+  saturation: 1.12,
+  hueSpread: 42,
+}
+// 保持暗色阅读基线，同时给封面主色留出足够明度显示色彩层次。
+const AMBIENT_MAX_LIGHTNESS = 0.32
 const AMBIENT_MIN_LIGHTNESS = 0.1
 const AMBIENT_MIN_SATURATION = 0.24
 const AMBIENT_MAX_SATURATION = 0.52
 const HEX_COLOR_RXP = /^#[0-9a-f]{6}$/i
 
 // 将封面原色限制在暗色阅读范围，同时保留可区分的色相关系。
-const normalizeAmbientColor = (hex: string) => {
+const normalizeAmbientColor = (hex: string, options: Required<AmbientDarkPaletteOptions>) => {
   const hsl = rgbToHsl(hexToRgb(hex))
   return rgbToHex(hslToRgb(
     hsl.hue,
-    clamp(hsl.saturation, AMBIENT_MIN_SATURATION, AMBIENT_MAX_SATURATION),
-    clamp(hsl.lightness * 0.42, AMBIENT_MIN_LIGHTNESS, AMBIENT_MAX_LIGHTNESS),
+    clamp(hsl.saturation * options.saturation, AMBIENT_MIN_SATURATION, AMBIENT_MAX_SATURATION),
+    clamp(hsl.lightness * 0.42 * options.brightness, AMBIENT_MIN_LIGHTNESS, AMBIENT_MAX_LIGHTNESS),
   ))
 }
 
 // 颜色不足时围绕已有色相派生邻近色，完全失败时回退到中性暗色组。
-export const resolveAmbientDarkPalette = (colors: string[], fallbackHue?: number | null): AmbientDarkPalette => {
+export const resolveAmbientDarkPalette = (colors: string[], fallbackHue?: number | null, options: AmbientDarkPaletteOptions = {}): AmbientDarkPalette => {
+  const resolvedOptions = {
+    ...ambientDarkPaletteDefaults,
+    ...options,
+    brightness: clamp(options.brightness ?? ambientDarkPaletteDefaults.brightness, 0.6, 1.8),
+    saturation: clamp(options.saturation ?? ambientDarkPaletteDefaults.saturation, 0.4, 1.8),
+    hueSpread: clamp(options.hueSpread ?? ambientDarkPaletteDefaults.hueSpread, 12, 120),
+  }
   const normalized = colors
     .map(color => color.trim().toLowerCase())
     .filter(color => HEX_COLOR_RXP.test(color))
-    .map(normalizeAmbientColor)
+    .map(color => normalizeAmbientColor(color, resolvedOptions))
     .filter((color, index, list) => list.indexOf(color) == index)
 
   const seedHue = normalized.length
@@ -149,9 +167,13 @@ export const resolveAmbientDarkPalette = (colors: string[], fallbackHue?: number
     : typeof fallbackHue == 'number' && Number.isFinite(fallbackHue) ? fallbackHue : null
   if (!normalized.length && seedHue == null) return ambientDarkFallbackPalette
 
-  for (const offset of [42, -48, 86]) {
+  for (const offset of [resolvedOptions.hueSpread, -resolvedOptions.hueSpread - 6, resolvedOptions.hueSpread * 2 + 2]) {
     if (normalized.length >= 3) break
-    normalized.push(rgbToHex(hslToRgb((seedHue! + offset + 360) % 360, 0.34, 0.16 + normalized.length * 0.02)))
+    normalized.push(rgbToHex(hslToRgb(
+      (seedHue! + offset + 360) % 360,
+      clamp(0.34 * resolvedOptions.saturation, AMBIENT_MIN_SATURATION, AMBIENT_MAX_SATURATION),
+      clamp((0.16 + normalized.length * 0.04) * resolvedOptions.brightness, AMBIENT_MIN_LIGHTNESS, AMBIENT_MAX_LIGHTNESS),
+    )))
   }
   return normalized.slice(0, 3) as unknown as AmbientDarkPalette
 }
