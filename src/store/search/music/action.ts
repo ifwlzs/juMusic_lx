@@ -14,7 +14,7 @@ export interface SearchResult {
 
 
 // 同一命中层级内继续保留个人曲库来源顺序，严格标题命中层级则始终拥有更高优先级。
-const getSourcePriority = (source: LX.Music.MusicInfo['source']) => {
+const getSourcePriority = (source: string) => {
   switch (source) {
     case 'local': return 0
     case 'webdav': return 1
@@ -25,7 +25,7 @@ const getSourcePriority = (source: LX.Music.MusicInfo['source']) => {
 }
 
 const normalizeSearchItem = (item: LX.Music.MusicInfo) => {
-  if (item.source == 'local' || item.source == 'webdav' || item.source == 'smb' || item.source == 'onedrive') return item
+  if (['local', 'webdav', 'smb', 'onedrive'].includes(item.source as string)) return item
   return toNewMusicInfo(item)
 }
 
