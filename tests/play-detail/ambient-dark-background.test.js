@@ -28,7 +28,31 @@ test('ambient palette keeps three cover relationships inside dark lightness ceil
   assert.equal(new Set(palette).size, 3)
   for (const color of palette) {
     assert.match(color, /^#[0-9a-f]{6}$/)
-    assert.ok(rgbLightness(color) <= 0.24, `${color} is not dark enough`)
+    assert.ok(rgbLightness(color) <= 0.34, `${color} is not dark enough`)
+  }
+})
+
+test('ambient palette options increase visible color brightness and hue separation', () => {
+  const { resolveAmbientDarkPalette } = loadBackgroundConfig()
+  const palette = resolveAmbientDarkPalette(['#ffffff', '#ff0000', '#00ff66'], null, {
+    brightness: 1.18,
+    saturation: 1.12,
+    hueSpread: 42,
+  })
+  assert.equal(palette.length, 3)
+  assert.ok(palette.some(color => rgbLightness(color) >= 0.25))
+  assert.ok(new Set(palette).size >= 3)
+})
+
+test('ambient brightness controls have independent defaults', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../../src/config/defaultSetting.ts'), 'utf8')
+  for (const [key, value] of [
+    ['ambientBrightness', '1.18'],
+    ['ambientSaturation', '1.12'],
+    ['ambientOverlayOpacity', '0.26'],
+    ['ambientHueSpread', '42'],
+  ]) {
+    assert.match(source, new RegExp(`theme\\.playDetail\\.background\\.${key}.*${value}`))
   }
 })
 
@@ -44,7 +68,8 @@ test('ambient renderer is static and independent from legacy blur config', () =>
   const source = fs.readFileSync(path.resolve(__dirname, '../../src/screens/PlayDetail/AmbientDarkBackgroundLayer.tsx'), 'utf8')
   assert.match(source, /react-native-linear-gradient/)
   assert.match(source, /colors=\{\[colors\[0\], colors\[1\], colors\[2\]\]\}/)
-  assert.match(source, /backgroundColor: 'rgba\(0, 0, 0, 0\.38\)'/)
+  assert.match(source, /overlayOpacity\?: number/)
+  assert.match(source, /rgba\(0, 0, 0, \$\{overlayOpacity\.toFixed\(2\)\}\)/)
   assert.doesNotMatch(source, /Animated|setInterval|useEffect|blurRadius|ResolvedPlayDetailBackgroundConfig/)
 })
 
@@ -73,6 +98,13 @@ test('production page and settings select ambient renderer without adding varian
   assert.match(dialogFile, /setting_theme_play_detail_background_variant_ambient_dark/)
   assert.match(dialogFile, /variant == 'blur'/)
   assert.match(dialogFile, /<AmbientDarkBackgroundLayer/)
+  for (const key of ['ambientBrightness', 'ambientSaturation', 'ambientOverlayOpacity', 'ambientHueSpread']) {
+    assert.match(pageContentFile, new RegExp(`theme\\.playDetail\\.background\\.${key}`))
+    assert.match(dialogFile, new RegExp(`theme\\.playDetail\\.background\\.${key}`))
+  }
+  for (const key of ['ambient_brightness', 'ambient_saturation', 'ambient_hue_spread', 'ambient_overlay']) {
+    assert.match(dialogFile, new RegExp(`setting_theme_play_detail_background_${key}`))
+  }
   const legacyMap = dialogFile.match(/const backgroundSettingKeyMap[\s\S]*?\n\}/)?.[0] ?? ''
   assert.doesNotMatch(legacyMap, /variant/)
 })
@@ -101,10 +133,12 @@ const loadPalette = (setting, theme) => {
     if (request === '@/store/setting/state') return { default: { setting } }
     if (request === '@/store/theme/state') return { default: { theme } }
     if (request === '@react-native/normalize-colors') {
-      return { default: color => {
-        if (!/^#[0-9a-f]{6}$/i.test(color)) return null
-        return (Number.parseInt(color.slice(1), 16) * 256 + 255) >>> 0
-      } }
+      return {
+        default: color => {
+          if (!/^#[0-9a-f]{6}$/i.test(color)) return null
+          return (Number.parseInt(color.slice(1), 16) * 256 + 255) >>> 0
+        },
+      }
     }
     throw new Error(`Unexpected dependency: ${request}`)
   }

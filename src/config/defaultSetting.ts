@@ -91,6 +91,11 @@ const defaultSetting: LX.AppSetting = {
   'theme.dynamicBg': false,
   // 默认沿用现有模糊背景，避免升级后改变用户当前观感。
   'theme.playDetail.background.variant': 'blur',
+  // ambientDark 独立参数只影响新方案，保留更明亮且有色彩层次的初始观感。
+  'theme.playDetail.background.ambientBrightness': 1.18,
+  'theme.playDetail.background.ambientSaturation': 1.12,
+  'theme.playDetail.background.ambientOverlayOpacity': 0.26,
+  'theme.playDetail.background.ambientHueSpread': 42,
   'theme.playDetail.background.stretchScale': 1,
   'theme.playDetail.background.blurRadius': 200,
   'theme.playDetail.background.imageBrightness': 1,

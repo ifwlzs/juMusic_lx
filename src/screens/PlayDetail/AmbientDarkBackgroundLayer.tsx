@@ -4,11 +4,12 @@ import type { AmbientDarkPalette } from './backgroundConfig'
 
 interface Props {
   colors: AmbientDarkPalette
+  overlayOpacity?: number
   children?: React.ReactNode
 }
 
 // 静态环境层只绘制暗色多段渐变与可读性遮罩，不读取旧模糊方案参数。
-export default function AmbientDarkBackgroundLayer({ colors, children }: Props) {
+export default function AmbientDarkBackgroundLayer({ colors, overlayOpacity = 0.26, children }: Props) {
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -18,7 +19,7 @@ export default function AmbientDarkBackgroundLayer({ colors, children }: Props) 
         end={{ x: 1, y: 0.85 }}
         style={styles.absoluteFill}
       />
-      <View pointerEvents="none" style={[styles.absoluteFill, styles.readabilityOverlay]} />
+      <View pointerEvents="none" style={[styles.absoluteFill, { backgroundColor: `rgba(0, 0, 0, ${overlayOpacity.toFixed(2)})` }]} />
       <View style={styles.content}>{children}</View>
     </View>
   )
@@ -27,6 +28,5 @@ export default function AmbientDarkBackgroundLayer({ colors, children }: Props) 
 const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden', backgroundColor: '#0b0f13' },
   absoluteFill: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
-  readabilityOverlay: { backgroundColor: 'rgba(0, 0, 0, 0.38)' },
   content: { flex: 1, flexDirection: 'column' },
 })
