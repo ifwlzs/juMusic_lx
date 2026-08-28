@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, type ViewStyle } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
-import { useSetting } from '@/store/setting/hook'
+import { useSetting, useSettingValue } from '@/store/setting/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import PlayDetailBackgroundLayer from '@/screens/PlayDetail/BackgroundLayer'
+import AmbientDarkBackgroundLayer from '@/screens/PlayDetail/AmbientDarkBackgroundLayer'
+import { useAmbientDarkPalette } from '@/screens/PlayDetail/useAmbientDarkPalette'
 import {
   createGrayBiasedMaskColor,
   playDetailBackgroundDefaults,
@@ -42,8 +44,10 @@ const defaultBackgroundConfig: DefaultBackgroundConfig = {
 export default ({ children, backgroundVariant = 'default' }: Props) => {
   const theme = useTheme()
   const setting = useSetting()
+  const variant = useSettingValue('theme.playDetail.background.variant')
   const windowSize = useWindowSize()
   const pic = useBgPic()
+  const ambientDarkPalette = useAmbientDarkPalette(backgroundVariant == 'playDetailEmby' ? pic : null)
   const lastSuccessfulRecommendedMaskColorRef = useRef<string | null>(null)
   const [recommendedMaskColor, setRecommendedMaskColor] = useState<string | null>(playDetailBackgroundDefaults.maskColor)
   const playDetailBackgroundSetting = readPlayDetailBackgroundSetting(setting)
@@ -107,6 +111,13 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
   ), [children, defaultOverlayStyle, theme, windowSize.height, windowSize.width])
 
   const playDetailComponent = useMemo(() => {
+    if (variant == 'ambientDark') {
+      return (
+        <AmbientDarkBackgroundLayer colors={ambientDarkPalette}>
+          <View style={{ flex: 1, flexDirection: 'column' }}>{children}</View>
+        </AmbientDarkBackgroundLayer>
+      )
+    }
     if (!playDetailBackgroundSource) return defaultThemeComponent
 
     return (
@@ -117,7 +128,7 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
         <View style={{ flex: 1, flexDirection: 'column' }}>{children}</View>
       </PlayDetailBackgroundLayer>
     )
-  }, [children, defaultThemeComponent, playDetailBackgroundSource, resolvedPlayDetailBackgroundConfig])
+  }, [ambientDarkPalette, children, defaultThemeComponent, playDetailBackgroundSource, resolvedPlayDetailBackgroundConfig, variant])
 
   return (
     <>

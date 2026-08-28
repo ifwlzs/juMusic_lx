@@ -47,6 +47,24 @@ const hslToRgb = (hue: number, saturation: number, lightness: number) => {
   }
 }
 
+// 将 RGB 转为 HSL，供暗色环境方案按色相保留封面风格并统一压低明度。
+const rgbToHsl = ({ red, green, blue }: { red: number, green: number, blue: number }) => {
+  const redNorm = red / 255
+  const greenNorm = green / 255
+  const blueNorm = blue / 255
+  const max = Math.max(redNorm, greenNorm, blueNorm)
+  const min = Math.min(redNorm, greenNorm, blueNorm)
+  const lightness = (max + min) / 2
+  const delta = max - min
+  if (!delta) return { hue: 0, saturation: 0, lightness }
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min)
+  let hue = 0
+  if (max == redNorm) hue = (greenNorm - blueNorm) / delta + (greenNorm < blueNorm ? 6 : 0)
+  else if (max == greenNorm) hue = (blueNorm - redNorm) / delta + 2
+  else hue = (redNorm - greenNorm) / delta + 4
+  return { hue: hue * 60, saturation, lightness }
+}
+
 const buildRgba = (hex: string, alpha: number) => {
   const { red, green, blue } = hexToRgb(hex)
   return `rgba(${red}, ${green}, ${blue}, ${clamp(alpha, 0, 1).toFixed(2)})`
@@ -97,6 +115,45 @@ export const playDetailBackgroundDefaults = {
   maskLightness: 0.433,
   vignetteColor: '#898685',
   vignetteSize: 250,
+} satisfies PlayDetailBackgroundSettingValues
+
+export type AmbientDarkPalette = readonly [string, string, string]
+export const ambientDarkFallbackPalette: AmbientDarkPalette = ['#241a26', '#13241f', '#10151c']
+// 为 RGB 量化预留余量，确保最终十六进制颜色的实际明度不超过 0.24。
+const AMBIENT_MAX_LIGHTNESS = 0.235
+const AMBIENT_MIN_LIGHTNESS = 0.1
+const AMBIENT_MIN_SATURATION = 0.24
+const AMBIENT_MAX_SATURATION = 0.52
+const HEX_COLOR_RXP = /^#[0-9a-f]{6}$/i
+
+// 将封面原色限制在暗色阅读范围，同时保留可区分的色相关系。
+const normalizeAmbientColor = (hex: string) => {
+  const hsl = rgbToHsl(hexToRgb(hex))
+  return rgbToHex(hslToRgb(
+    hsl.hue,
+    clamp(hsl.saturation, AMBIENT_MIN_SATURATION, AMBIENT_MAX_SATURATION),
+    clamp(hsl.lightness * 0.42, AMBIENT_MIN_LIGHTNESS, AMBIENT_MAX_LIGHTNESS),
+  ))
+}
+
+// 颜色不足时围绕已有色相派生邻近色，完全失败时回退到中性暗色组。
+export const resolveAmbientDarkPalette = (colors: string[], fallbackHue?: number | null): AmbientDarkPalette => {
+  const normalized = colors
+    .map(color => color.trim().toLowerCase())
+    .filter(color => HEX_COLOR_RXP.test(color))
+    .map(normalizeAmbientColor)
+    .filter((color, index, list) => list.indexOf(color) == index)
+
+  const seedHue = normalized.length
+    ? rgbToHsl(hexToRgb(normalized[0])).hue
+    : typeof fallbackHue == 'number' && Number.isFinite(fallbackHue) ? fallbackHue : null
+  if (!normalized.length && seedHue == null) return ambientDarkFallbackPalette
+
+  for (const offset of [42, -48, 86]) {
+    if (normalized.length >= 3) break
+    normalized.push(rgbToHex(hslToRgb((seedHue! + offset + 360) % 360, 0.34, 0.16 + normalized.length * 0.02)))
+  }
+  return normalized.slice(0, 3) as unknown as AmbientDarkPalette
 }
 
 export const snapHue = (hue: number, step = 15) => Math.round(hue / step) * step

@@ -17,6 +17,8 @@ export default ({ componentId }: { componentId: string }) => {
   const theme = useTheme()
   const paletteVersion = [
     theme.isDark ? 'dark' : 'light',
+    // 背景方案切换后重挂载前景组件，使渲染期读取的白色层级立即生效。
+    setting['theme.playDetail.background.variant'],
     setting['theme.playDetail.light.primary'],
     setting['theme.playDetail.dark.primary'],
     setting['theme.playDetail.light.lyricActive'],

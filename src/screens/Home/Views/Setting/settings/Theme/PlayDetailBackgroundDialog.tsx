@@ -15,6 +15,8 @@ import type { InputItemProps } from '../../components/InputItem'
 import InputItem from '../../components/InputItem'
 import Slider, { type SliderProps } from '../../components/Slider'
 import PlayDetailBackgroundLayer from '@/screens/PlayDetail/BackgroundLayer'
+import AmbientDarkBackgroundLayer from '@/screens/PlayDetail/AmbientDarkBackgroundLayer'
+import { useAmbientDarkPalette } from '@/screens/PlayDetail/useAmbientDarkPalette'
 import {
   createGrayBiasedMaskColor,
   playDetailBackgroundDefaults,
@@ -124,6 +126,7 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
   const innerDialogRef = useRef<DialogType>(null)
   const [visible, setVisible] = useState(false)
   const [draft, setDraft] = useState(() => readPlayDetailBackgroundSetting(setting))
+  const [variant, setVariant] = useState<LX.AppSetting['theme.playDetail.background.variant']>(setting['theme.playDetail.background.variant'])
   const [maskColorInput, setMaskColorInput] = useState(draft.maskColor)
   const [vignetteColorInput, setVignetteColorInput] = useState(draft.vignetteColor)
   const [maskColorInvalid, setMaskColorInvalid] = useState(false)
@@ -138,6 +141,14 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
     setVignetteColorInput(nextDraft.vignetteColor)
     setMaskColorInvalid(false)
     setVignetteColorInvalid(false)
+    setVariant(nextSetting['theme.playDetail.background.variant'])
+  }, [])
+
+  const ambientPalette = useAmbientDarkPalette(musicInfo.pic)
+  // 方案切换只持久化 variant，确保旧模糊参数与当前草稿均保持不变。
+  const handleVariantChange = useCallback((nextVariant: LX.AppSetting['theme.playDetail.background.variant']) => {
+    setVariant(nextVariant)
+    updateSetting({ 'theme.playDetail.background.variant': nextVariant })
   }, [])
 
   useEffect(() => {
@@ -206,6 +217,9 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
       ? 'setting_theme_play_detail_background_mask_mode_manual'
       : 'setting_theme_play_detail_background_mask_mode_auto',
   ), [draft.maskMode, t])
+  const previewVariantLabel = t(variant == 'ambientDark'
+    ? 'setting_theme_play_detail_background_variant_ambient_dark'
+    : 'setting_theme_play_detail_background_variant_blur')
 
   const handleHide = useCallback(() => {
     setVisible(false)
@@ -273,29 +287,38 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
     >
       <View style={styles.dialogContent}>
         <View style={styles.previewSection}>
+          <SectionTitle title={t('setting_theme_play_detail_background_variant')} />
+          <View style={styles.toggleRow}>
+            <Button style={{ ...styles.toggleButton, backgroundColor: variant == 'blur' ? theme['c-button-background-selected'] : theme['c-button-background'] }} onPress={() => { handleVariantChange('blur') }}>
+              <Text color={variant == 'blur' ? theme['c-button-font-selected'] : theme['c-button-font']}>{t('setting_theme_play_detail_background_variant_blur')}</Text>
+            </Button>
+            <Button style={{ ...styles.toggleButton, backgroundColor: variant == 'ambientDark' ? theme['c-button-background-selected'] : theme['c-button-background'] }} onPress={() => { handleVariantChange('ambientDark') }}>
+              <Text color={variant == 'ambientDark' ? theme['c-button-font-selected'] : theme['c-button-font']}>{t('setting_theme_play_detail_background_variant_ambient_dark')}</Text>
+            </Button>
+          </View>
           <View style={styles.previewActionRow}>
             <View style={styles.previewSummary}>
-              <Text color={theme['c-primary-font']}>{previewMaskLabel}</Text>
+              <Text color={theme['c-primary-font']}>{previewVariantLabel}</Text>
               <Text size={12} color={theme['c-font-label']}>
-                {t('setting_theme_play_detail_background_summary', {
+                {variant == 'ambientDark' ? t('setting_theme_play_detail_background_ambient_dark_desc') : t('setting_theme_play_detail_background_summary', {
                   maskMode: previewMaskLabel,
                   blurRadius: Math.round(draft.blurRadius),
                   opacity: Math.round(draft.colorMaskOpacity * 100),
                 })}
               </Text>
             </View>
-            <Button style={{ ...styles.actionButton, backgroundColor: theme['c-button-background'] }} onPress={handleRestoreDefault}>
+            {variant == 'blur' ? <Button style={{ ...styles.actionButton, backgroundColor: theme['c-button-background'] }} onPress={handleRestoreDefault}>
               <Text color={theme['c-button-font']}>{t('setting_theme_play_detail_background_restore_default')}</Text>
-            </Button>
+            </Button> : null}
           </View>
           <View style={{ ...styles.previewCard, backgroundColor: theme['c-main-background'] }}>
-            <PlayDetailBackgroundLayer source={previewSource} resolvedConfig={resolvedConfig}>
-              <PreviewPlaceholder hasCover={!!musicInfo.pic} />
-            </PlayDetailBackgroundLayer>
+            {variant == 'ambientDark'
+              ? <AmbientDarkBackgroundLayer colors={ambientPalette}><PreviewPlaceholder hasCover={!!musicInfo.pic} /></AmbientDarkBackgroundLayer>
+              : <PlayDetailBackgroundLayer source={previewSource} resolvedConfig={resolvedConfig}><PreviewPlaceholder hasCover={!!musicInfo.pic} /></PlayDetailBackgroundLayer>}
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {variant == 'blur' ? <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <SectionTitle title={t('setting_theme_play_detail_background_group_base')} />
           <SliderField
             label={t('setting_theme_play_detail_background_stretch_scale')}
@@ -463,7 +486,7 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
             onValueChange={value => { applyDraftPatch({ vignetteSize: value }) }}
             onSlidingComplete={value => { applyDraftPatch({ vignetteSize: value }, true) }}
           />
-        </ScrollView>
+        </ScrollView> : <Text style={styles.ambientDescription}>{t('setting_theme_play_detail_background_ambient_dark_desc')}</Text>}
       </View>
     </Dialog>
   )
@@ -540,6 +563,10 @@ const styles = createStyle({
   scrollContent: {
     paddingHorizontal: 12,
     paddingBottom: 18,
+  },
+  ambientDescription: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   sectionTitle: {
     marginTop: 8,

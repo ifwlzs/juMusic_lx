@@ -14,6 +14,7 @@ export default memo(() => {
   const dialogRef = useRef<DialogType>(null)
   const t = useI18n()
   const isDynamicBg = useSettingValue('theme.dynamicBg')
+  const variant = useSettingValue('theme.playDetail.background.variant')
   const maskMode = useSettingValue('theme.playDetail.background.maskMode')
   const blurRadius = useSettingValue('theme.playDetail.background.blurRadius')
   const colorMaskOpacity = useSettingValue('theme.playDetail.background.colorMaskOpacity')
@@ -23,12 +24,15 @@ export default memo(() => {
       ? 'setting_theme_play_detail_background_mask_mode_manual'
       : 'setting_theme_play_detail_background_mask_mode_auto',
   ), [maskMode, t])
+  const variantLabel = t(variant == 'ambientDark'
+    ? 'setting_theme_play_detail_background_variant_ambient_dark'
+    : 'setting_theme_play_detail_background_variant_blur')
 
   return (
     <SubTitle title={t('setting_theme_play_detail_background')}>
       <Text size={12}>{t('setting_theme_play_detail_background_desc')}</Text>
       <Text size={12} style={styles.summary}>
-        {t('setting_theme_play_detail_background_summary', {
+        {variant == 'ambientDark' ? variantLabel : t('setting_theme_play_detail_background_summary', {
           maskMode: maskModeLabel,
           blurRadius,
           opacity: Math.round(colorMaskOpacity * 100),

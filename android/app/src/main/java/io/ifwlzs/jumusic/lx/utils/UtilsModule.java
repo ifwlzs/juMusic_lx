@@ -364,6 +364,26 @@ public class UtilsModule extends ReactContextBaseJavaModule {
     }).start();
   }
 
+  @ReactMethod
+  public void extractDominantColorsFromImage(String imageUri, Promise promise) {
+    new Thread(() -> {
+      Bitmap bitmap = null;
+      try {
+        bitmap = decodeBitmap(imageUri);
+        if (bitmap == null) {
+          promise.resolve(Arguments.createArray());
+          return;
+        }
+        // 将封面像素按色相聚类，过滤近白、近黑与低饱和噪声，再选取互相分离的前三组代表色。
+        promise.resolve(calculateDominantColors(bitmap));
+      } catch (Exception error) {
+        promise.resolve(Arguments.createArray());
+      } finally {
+        if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+      }
+    }).start();
+  }
+
   private Bitmap decodeBitmap(String imageUri) throws Exception {
     if (imageUri == null || imageUri.isEmpty()) return null;
 
@@ -438,6 +458,71 @@ public class UtilsModule extends ReactContextBaseJavaModule {
     }
 
     return new double[] { x, y, totalWeight };
+  }
+
+  private WritableArray calculateDominantColors(Bitmap bitmap) {
+    final int bucketCount = 24;
+    double[] weights = new double[bucketCount];
+    double[] redSums = new double[bucketCount];
+    double[] greenSums = new double[bucketCount];
+    double[] blueSums = new double[bucketCount];
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    // 采样步长限制总工作量约为 6400 个像素，避免大封面阻塞原生线程。
+    int stride = Math.max(1, (int) Math.ceil(Math.sqrt((width * (double) height) / 6400d)));
+
+    for (int px = 0; px < width; px += stride) {
+      for (int py = 0; py < height; py += stride) {
+        int color = bitmap.getPixel(px, py);
+        if (Color.alpha(color) < 128) continue;
+        int red = Color.red(color);
+        int green = Color.green(color);
+        int blue = Color.blue(color);
+        double[] hsl = rgbToHsl(red, green, blue);
+        double saturation = hsl[1];
+        double lightness = hsl[2];
+        if (lightness < 0.08d || lightness > 0.92d || saturation < 0.12d) continue;
+
+        int bucket = Math.min(bucketCount - 1, (int) Math.floor(hsl[0] / (360d / bucketCount)));
+        double midrangeWeight = 1d - Math.abs(lightness - 0.5d) * 2d;
+        double weight = saturation * (0.35d + Math.max(0d, midrangeWeight));
+        weights[bucket] += weight;
+        redSums[bucket] += red * weight;
+        greenSums[bucket] += green * weight;
+        blueSums[bucket] += blue * weight;
+      }
+    }
+
+    WritableArray result = Arguments.createArray();
+    boolean[] consumed = new boolean[bucketCount];
+    int[] selected = new int[3];
+    int selectedCount = 0;
+    while (selectedCount < selected.length) {
+      int candidate = -1;
+      double candidateWeight = 0d;
+      for (int bucket = 0; bucket < bucketCount; bucket++) {
+        if (consumed[bucket] || weights[bucket] <= candidateWeight) continue;
+        boolean separated = true;
+        for (int index = 0; index < selectedCount; index++) {
+          int distance = Math.abs(bucket - selected[index]);
+          if (Math.min(distance, bucketCount - distance) < 2) {
+            separated = false;
+            break;
+          }
+        }
+        if (!separated) continue;
+        candidate = bucket;
+        candidateWeight = weights[bucket];
+      }
+      if (candidate < 0 || candidateWeight <= 0d) break;
+      consumed[candidate] = true;
+      selected[selectedCount++] = candidate;
+      int red = (int) Math.round(redSums[candidate] / candidateWeight);
+      int green = (int) Math.round(greenSums[candidate] / candidateWeight);
+      int blue = (int) Math.round(blueSums[candidate] / candidateWeight);
+      result.pushString(String.format(Locale.US, "#%02x%02x%02x", red, green, blue));
+    }
+    return result;
   }
 
   private double[] rgbToHsl(int red, int green, int blue) {

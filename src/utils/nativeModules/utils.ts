@@ -74,6 +74,13 @@ export const extractDominantHueFromImage = (imageUri: string): Promise<number | 
   return UtilsModule.extractDominantHueFromImage(imageUri) as Promise<number | null>
 }
 
+// iOS 或旧原生包缺少多色接口时返回空数组，由共享 hook 继续执行主色相回退。
+// eslint-disable-next-line @typescript-eslint/promise-function-async
+export const extractDominantColorsFromImage = (imageUri: string): Promise<string[]> => {
+  if (!UtilsModule?.extractDominantColorsFromImage) return Promise.resolve([])
+  return UtilsModule.extractDominantColorsFromImage(imageUri) as Promise<string[]>
+}
+
 export const onWindowSizeChange = (handler: (size: { width: number, height: number }) => void): () => void => {
   UtilsModule.listenWindowSizeChanged()
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

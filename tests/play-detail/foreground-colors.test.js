@@ -136,3 +136,8 @@ test('mini player title uses deep body text instead of gray helper text', () => 
   assert.match(playerBarTitle, /<Text color=\{theme\['c-font'\]\} numberOfLines=\{1\}>\{title\}<\/Text>/)
   assert.doesNotMatch(playerBarTitle, /theme\['c-font-label'\]/)
 })
+
+test('play detail palette remount key includes the background variant', () => {
+  const playDetailFile = readFile('src/screens/PlayDetail/index.tsx')
+  assert.match(playDetailFile, /setting\['theme\.playDetail\.background\.variant'\]/)
+})
