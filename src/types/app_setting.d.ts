@@ -166,6 +166,18 @@ declare global {
        */
       'theme.playDetail.background.variant': 'blur' | 'ambientDark'
 
+      /** 播放页暗色环境整体亮度，仅 ambientDark 方案使用 */
+      'theme.playDetail.background.ambientBrightness': number
+
+      /** 播放页暗色环境颜色强度，仅 ambientDark 方案使用 */
+      'theme.playDetail.background.ambientSaturation': number
+
+      /** 播放页暗色环境黑色可读性遮罩透明度，仅 ambientDark 方案使用 */
+      'theme.playDetail.background.ambientOverlayOpacity': number
+
+      /** 播放页暗色环境渐变节点的色相间隔，仅 ambientDark 方案使用 */
+      'theme.playDetail.background.ambientHueSpread': number
+
       /**
        * 播放页背景拉伸缩放比例
        */

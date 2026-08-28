@@ -22,6 +22,8 @@ import {
   playDetailBackgroundDefaults,
   readPlayDetailBackgroundSetting,
   resolvePlayDetailBackgroundConfig,
+  ambientDarkPaletteDefaults,
+  type AmbientDarkPaletteOptions,
   type PlayDetailBackgroundSettingValues,
 } from '@/screens/PlayDetail/backgroundConfig'
 
@@ -127,6 +129,12 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
   const [visible, setVisible] = useState(false)
   const [draft, setDraft] = useState(() => readPlayDetailBackgroundSetting(setting))
   const [variant, setVariant] = useState<LX.AppSetting['theme.playDetail.background.variant']>(setting['theme.playDetail.background.variant'])
+  const [ambientDraft, setAmbientDraft] = useState<Required<AmbientDarkPaletteOptions> & { overlayOpacity: number }>(() => ({
+    brightness: setting['theme.playDetail.background.ambientBrightness'] ?? ambientDarkPaletteDefaults.brightness,
+    saturation: setting['theme.playDetail.background.ambientSaturation'] ?? ambientDarkPaletteDefaults.saturation,
+    overlayOpacity: setting['theme.playDetail.background.ambientOverlayOpacity'] ?? 0.26,
+    hueSpread: setting['theme.playDetail.background.ambientHueSpread'] ?? ambientDarkPaletteDefaults.hueSpread,
+  }))
   const [maskColorInput, setMaskColorInput] = useState(draft.maskColor)
   const [vignetteColorInput, setVignetteColorInput] = useState(draft.vignetteColor)
   const [maskColorInvalid, setMaskColorInvalid] = useState(false)
@@ -142,13 +150,53 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
     setMaskColorInvalid(false)
     setVignetteColorInvalid(false)
     setVariant(nextSetting['theme.playDetail.background.variant'])
+    setAmbientDraft({
+      brightness: nextSetting['theme.playDetail.background.ambientBrightness'] ?? ambientDarkPaletteDefaults.brightness,
+      saturation: nextSetting['theme.playDetail.background.ambientSaturation'] ?? ambientDarkPaletteDefaults.saturation,
+      overlayOpacity: nextSetting['theme.playDetail.background.ambientOverlayOpacity'] ?? 0.26,
+      hueSpread: nextSetting['theme.playDetail.background.ambientHueSpread'] ?? ambientDarkPaletteDefaults.hueSpread,
+    })
   }, [])
 
-  const ambientPalette = useAmbientDarkPalette(musicInfo.pic)
+  const ambientOptions = useMemo(() => ({
+    brightness: ambientDraft.brightness,
+    saturation: ambientDraft.saturation,
+    hueSpread: ambientDraft.hueSpread,
+  }), [ambientDraft.brightness, ambientDraft.hueSpread, ambientDraft.saturation])
+  const ambientPalette = useAmbientDarkPalette(musicInfo.pic, ambientOptions)
   // 方案切换只持久化 variant，确保旧模糊参数与当前草稿均保持不变。
   const handleVariantChange = useCallback((nextVariant: LX.AppSetting['theme.playDetail.background.variant']) => {
     setVariant(nextVariant)
     updateSetting({ 'theme.playDetail.background.variant': nextVariant })
+  }, [])
+
+  const handleAmbientValueChange = useCallback((key: keyof typeof ambientDraft, value: number, persist: boolean) => {
+    setAmbientDraft(prev => ({ ...prev, [key]: value }))
+    if (!persist) return
+    const settingKey = {
+      brightness: 'theme.playDetail.background.ambientBrightness',
+      saturation: 'theme.playDetail.background.ambientSaturation',
+      overlayOpacity: 'theme.playDetail.background.ambientOverlayOpacity',
+      hueSpread: 'theme.playDetail.background.ambientHueSpread',
+    }[key]
+    const patch: Partial<LX.AppSetting> = { [settingKey]: value }
+    updateSetting(patch)
+  }, [])
+
+  const handleAmbientRestoreDefault = useCallback(() => {
+    const defaults = {
+      brightness: ambientDarkPaletteDefaults.brightness,
+      saturation: ambientDarkPaletteDefaults.saturation,
+      overlayOpacity: 0.26,
+      hueSpread: ambientDarkPaletteDefaults.hueSpread,
+    }
+    setAmbientDraft(defaults)
+    updateSetting({
+      'theme.playDetail.background.ambientBrightness': defaults.brightness,
+      'theme.playDetail.background.ambientSaturation': defaults.saturation,
+      'theme.playDetail.background.ambientOverlayOpacity': defaults.overlayOpacity,
+      'theme.playDetail.background.ambientHueSpread': defaults.hueSpread,
+    })
   }, [])
 
   useEffect(() => {
@@ -318,7 +366,51 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
           </View>
         </View>
 
-        {variant == 'blur' ? <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {variant == 'ambientDark' ? <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          <SectionTitle title={t('setting_theme_play_detail_background_ambient_controls')} desc={t('setting_theme_play_detail_background_ambient_controls_desc')} />
+          <SliderField
+            label={t('setting_theme_play_detail_background_ambient_brightness')}
+            value={ambientDraft.brightness}
+            minimumValue={0.85}
+            maximumValue={1.45}
+            step={0.01}
+            formatValue={formatDecimal}
+            onValueChange={value => { handleAmbientValueChange('brightness', value, false) }}
+            onSlidingComplete={value => { handleAmbientValueChange('brightness', value, true) }}
+          />
+          <SliderField
+            label={t('setting_theme_play_detail_background_ambient_saturation')}
+            value={ambientDraft.saturation}
+            minimumValue={0.7}
+            maximumValue={1.45}
+            step={0.01}
+            formatValue={formatDecimal}
+            onValueChange={value => { handleAmbientValueChange('saturation', value, false) }}
+            onSlidingComplete={value => { handleAmbientValueChange('saturation', value, true) }}
+          />
+          <SliderField
+            label={t('setting_theme_play_detail_background_ambient_hue_spread')}
+            value={ambientDraft.hueSpread}
+            minimumValue={18}
+            maximumValue={90}
+            step={1}
+            onValueChange={value => { handleAmbientValueChange('hueSpread', value, false) }}
+            onSlidingComplete={value => { handleAmbientValueChange('hueSpread', value, true) }}
+          />
+          <SliderField
+            label={t('setting_theme_play_detail_background_ambient_overlay')}
+            value={ambientDraft.overlayOpacity}
+            minimumValue={0.12}
+            maximumValue={0.38}
+            step={0.01}
+            formatValue={formatPercent}
+            onValueChange={value => { handleAmbientValueChange('overlayOpacity', value, false) }}
+            onSlidingComplete={value => { handleAmbientValueChange('overlayOpacity', value, true) }}
+          />
+          <Button style={{ ...styles.actionButton, backgroundColor: theme['c-button-background'] }} onPress={handleAmbientRestoreDefault}>
+            <Text color={theme['c-button-font']}>{t('setting_theme_play_detail_background_ambient_restore_default')}</Text>
+          </Button>
+        </ScrollView> : <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <SectionTitle title={t('setting_theme_play_detail_background_group_base')} />
           <SliderField
             label={t('setting_theme_play_detail_background_stretch_scale')}
@@ -486,7 +578,7 @@ export default forwardRef<DialogType, {}>((_props, ref) => {
             onValueChange={value => { applyDraftPatch({ vignetteSize: value }) }}
             onSlidingComplete={value => { applyDraftPatch({ vignetteSize: value }, true) }}
           />
-        </ScrollView> : <Text style={styles.ambientDescription}>{t('setting_theme_play_detail_background_ambient_dark_desc')}</Text>}
+        </ScrollView>}
       </View>
     </Dialog>
   )

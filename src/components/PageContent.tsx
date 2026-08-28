@@ -45,9 +45,14 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
   const theme = useTheme()
   const setting = useSetting()
   const variant = useSettingValue('theme.playDetail.background.variant')
+  const ambientBrightness = useSettingValue('theme.playDetail.background.ambientBrightness')
+  const ambientSaturation = useSettingValue('theme.playDetail.background.ambientSaturation')
+  const ambientOverlayOpacity = useSettingValue('theme.playDetail.background.ambientOverlayOpacity')
+  const ambientHueSpread = useSettingValue('theme.playDetail.background.ambientHueSpread')
   const windowSize = useWindowSize()
   const pic = useBgPic()
-  const ambientDarkPalette = useAmbientDarkPalette(backgroundVariant == 'playDetailEmby' ? pic : null)
+  const ambientOptions = useMemo(() => ({ brightness: ambientBrightness, saturation: ambientSaturation, hueSpread: ambientHueSpread }), [ambientBrightness, ambientHueSpread, ambientSaturation])
+  const ambientDarkPalette = useAmbientDarkPalette(backgroundVariant == 'playDetailEmby' ? pic : null, ambientOptions)
   const lastSuccessfulRecommendedMaskColorRef = useRef<string | null>(null)
   const [recommendedMaskColor, setRecommendedMaskColor] = useState<string | null>(playDetailBackgroundDefaults.maskColor)
   const playDetailBackgroundSetting = readPlayDetailBackgroundSetting(setting)
@@ -113,7 +118,7 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
   const playDetailComponent = useMemo(() => {
     if (variant == 'ambientDark') {
       return (
-        <AmbientDarkBackgroundLayer colors={ambientDarkPalette}>
+        <AmbientDarkBackgroundLayer colors={ambientDarkPalette} overlayOpacity={ambientOverlayOpacity}>
           <View style={{ flex: 1, flexDirection: 'column' }}>{children}</View>
         </AmbientDarkBackgroundLayer>
       )
@@ -128,7 +133,7 @@ export default ({ children, backgroundVariant = 'default' }: Props) => {
         <View style={{ flex: 1, flexDirection: 'column' }}>{children}</View>
       </PlayDetailBackgroundLayer>
     )
-  }, [ambientDarkPalette, children, defaultThemeComponent, playDetailBackgroundSource, resolvedPlayDetailBackgroundConfig, variant])
+  }, [ambientDarkPalette, ambientOverlayOpacity, children, defaultThemeComponent, playDetailBackgroundSource, resolvedPlayDetailBackgroundConfig, variant])
 
   return (
     <>
