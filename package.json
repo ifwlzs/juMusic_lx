@@ -1,7 +1,7 @@
 {
   "name": "lx-music-mobile",
-  "version": "0.26.08181354",
-  "versionCode": 1304090650,
+  "version": "0.26.08281546",
+  "versionCode": 1304140750,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
