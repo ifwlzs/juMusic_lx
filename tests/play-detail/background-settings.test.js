@@ -9,6 +9,7 @@ test('play detail background settings define dedicated schema keys and approved 
   const appSettingFile = readFile('src/types/app_setting.d.ts')
   const defaultSettingFile = readFile('src/config/defaultSetting.ts')
 
+  assert.match(appSettingFile, /'theme\.playDetail\.background\.variant': 'blur' \| 'ambientDark'/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.stretchScale': number/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.blurRadius': number/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.imageBrightness': number/)
@@ -21,6 +22,10 @@ test('play detail background settings define dedicated schema keys and approved 
   assert.match(appSettingFile, /'theme\.playDetail\.background\.vignetteColor': string/)
   assert.match(appSettingFile, /'theme\.playDetail\.background\.vignetteSize': number/)
 
+  assert.match(defaultSettingFile, /'theme\.playDetail\.background\.variant': 'blur'/)
+  for (const key of ['stretchScale', 'blurRadius', 'maskColor', 'vignetteSize']) {
+    assert.match(defaultSettingFile, new RegExp(`'theme\\.playDetail\\.background\\.${key}'`))
+  }
   assert.match(defaultSettingFile, /'theme\.playDetail\.background\.stretchScale': 1/)
   assert.match(defaultSettingFile, /'theme\.playDetail\.background\.blurRadius': 200/)
   assert.match(defaultSettingFile, /'theme\.playDetail\.background\.imageBrightness': 1/)

@@ -89,6 +89,8 @@ const defaultSetting: LX.AppSetting = {
   'theme.playDetail.dark.lyricRoma': '',
   'theme.hideBgDark': false,
   'theme.dynamicBg': false,
+  // 默认沿用现有模糊背景，避免升级后改变用户当前观感。
+  'theme.playDetail.background.variant': 'blur',
   'theme.playDetail.background.stretchScale': 1,
   'theme.playDetail.background.blurRadius': 200,
   'theme.playDetail.background.imageBrightness': 1,

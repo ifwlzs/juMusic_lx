@@ -162,6 +162,11 @@ declare global {
       'theme.dynamicBg': boolean
 
       /**
+       * 播放页背景渲染方案；切换方案时不改写旧模糊参数
+       */
+      'theme.playDetail.background.variant': 'blur' | 'ambientDark'
+
+      /**
        * 播放页背景拉伸缩放比例
        */
       'theme.playDetail.background.stretchScale': number
