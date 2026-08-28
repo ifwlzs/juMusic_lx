@@ -1,6 +1,7 @@
 import state, { type InitState, type Source } from './state'
-import { similar, arrPush } from '@/utils/common'
+import { arrPush } from '@/utils/common'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
+import { rankMusicSearchResults } from '@/utils/musicSearchRanking'
 
 
 export interface SearchResult {
@@ -12,12 +13,7 @@ export interface SearchResult {
 }
 
 
-/**
- * 按搜索关键词重新排序列表
- * @param list 歌曲列表
- * @param keyword 搜索关键词
- * @returns 排序后的列表
- */
+// 同一命中层级内继续保留个人曲库来源顺序，严格标题命中层级则始终拥有更高优先级。
 const getSourcePriority = (source: LX.Music.MusicInfo['source']) => {
   switch (source) {
     case 'local': return 0
@@ -33,15 +29,11 @@ const normalizeSearchItem = (item: LX.Music.MusicInfo) => {
   return toNewMusicInfo(item)
 }
 
+// 严格命中层级先于来源优先级，避免本地模糊结果压过其他来源的精确标题。
 const handleSortList = (list: LX.Music.MusicInfo[], keyword: string) => {
-  return [...list]
-    .map(item => ({
-      priority: getSourcePriority(item.source),
-      score: similar(keyword, `${item.name} ${item.singer}`),
-      item,
-    }))
-    .sort((left, right) => left.priority - right.priority || right.score - left.score)
-    .map(item => item.item)
+  return rankMusicSearchResults(list, keyword, {
+    getSourcePriority: item => getSourcePriority(item.source),
+  })
 }
 
 const setLists = (results: SearchResult[], page: number, text: string): LX.Music.MusicInfo[] => {
@@ -57,7 +49,6 @@ const setLists = (results: SearchResult[], page: number, text: string): LX.Music
     pages.push(source.allPage)
     totals.push(source.total)
   }
-  list = handleSortList(list.map(normalizeSearchItem), text)
   let listInfo = state.listInfos.all
   listInfo.maxPage = Math.max(0, ...pages)
   const total = Math.max(0, ...totals)
@@ -65,17 +56,22 @@ const setLists = (results: SearchResult[], page: number, text: string): LX.Music
   else listInfo.total = limit * page
   // listInfo.limit = limit
   listInfo.page = page
-  listInfo.list = deduplicationList(page > 1 ? [...listInfo.list, ...list] : list)
+  const normalizedList = list.map(normalizeSearchItem)
+  // 后续页必须与已加载结果一起重新分层，确保新到达的严格命中能够移动到模糊结果之前。
+  const mergedList = deduplicationList(page > 1 ? [...listInfo.list, ...normalizedList] : normalizedList)
+  listInfo.list = handleSortList(mergedList, text)
   state.source = 'all'
 
   return listInfo.list
 }
 
-const setList = (datas: SearchResult, page: number): LX.Music.MusicInfo[] => {
+const setList = (datas: SearchResult, page: number, text: string): LX.Music.MusicInfo[] => {
   // console.log(datas.source, datas.list)
   let listInfo = state.listInfos[datas.source]!
   const list = datas.list.map(normalizeSearchItem)
-  listInfo.list = deduplicationList(page == 1 ? list : [...listInfo.list, ...list])
+  // 单来源同样对累计分页整体重排，不依赖远端接口返回的原始相关性顺序。
+  const mergedList = deduplicationList(page == 1 ? list : [...listInfo.list, ...list])
+  listInfo.list = handleSortList(mergedList, text)
   if (page == 1 || (datas.total && datas.list.length)) listInfo.total = datas.total
   else listInfo.total = datas.limit * page
   listInfo.maxPage = datas.allPage

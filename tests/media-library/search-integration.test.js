@@ -116,6 +116,11 @@ test('搜索列表页为文件源和 all 使用 LibraryMusicList 组件', () => 
   assert.match(content, /all/)
   assert.match(actionContent, /case 'onedrive': return 3/)
   assert.match(actionContent, /item\.source == 'onedrive'/)
+  // 综合搜索和单来源分页必须共用字段感知排序，避免严格标题命中被来源优先级压低。
+  assert.match(actionContent, /import \{ rankMusicSearchResults \} from '@\/utils\/musicSearchRanking'/)
+  assert.match(actionContent, /const handleSortList[\s\S]*rankMusicSearchResults/)
+  assert.match(actionContent, /const setLists[\s\S]*listInfo\.list = handleSortList\(mergedList, text\)/)
+  assert.match(actionContent, /const setList = [\s\S]*listInfo\.list = handleSortList\(mergedList, text\)/)
 })
 
 test('搜索页存在个人曲库结果列表组件文件', () => {

@@ -10,6 +10,33 @@ const listMusicSearchPath = path.resolve(__dirname, '../../src/screens/Home/View
 const zhCnPath = path.resolve(__dirname, '../../src/lang/zh-cn.json')
 const zhTwPath = path.resolve(__dirname, '../../src/lang/zh-tw.json')
 const enUsPath = path.resolve(__dirname, '../../src/lang/en-us.json')
+const musicSearchRankingPath = path.resolve(__dirname, '../../src/utils/musicSearchRanking.ts')
+
+// 测试排序层级时复用一个可预测的字段相似度实现，确保断言只受硬分层规则影响。
+const similarity = (left, right) => {
+  const a = String(left).toLowerCase()
+  const b = String(right).toLowerCase()
+  if (a === b) return 1
+  if (b.includes(a)) return a.length / b.length
+  return 0
+}
+
+const loadMusicSearchRankingModule = () => {
+  const source = fs.readFileSync(musicSearchRankingPath, 'utf8')
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    fileName: musicSearchRankingPath,
+  }).outputText
+  const mod = new Module(musicSearchRankingPath, module)
+  mod.filename = musicSearchRankingPath
+  mod.paths = Module._nodeModulePaths(path.dirname(musicSearchRankingPath))
+  mod.require = request => {
+    if (request === '@/utils/common') return { similar: similarity }
+    throw new Error(`Unexpected dependency: ${request}`)
+  }
+  mod._compile(transpiled, musicSearchRankingPath)
+  return mod.exports
+}
 
 // 继续直接执行任务 1 已交付的纯函数，避免相关歌曲匹配规则被 UI 层测试掩盖。
 const loadListActionModule = () => {
@@ -88,6 +115,8 @@ const loadListActionModule = () => {
         return {
           getListMusicSync: () => [],
         }
+      case '@/utils/musicSearchRanking':
+        return loadMusicSearchRankingModule()
       default:
         throw new Error(`Unexpected dependency: ${request}`)
     }
@@ -510,6 +539,29 @@ test('findArtistRelatedSongsInList 会对列表项 singer 做首尾空白裁剪'
 
   // 列表项的 singer 也必须先裁剪，再参与完整字符串全等匹配。
   assert.deepEqual(findArtistRelatedSongsInList(list, 'Beyond').map(item => item.id), ['song_5'])
+})
+
+test('searchListMusic 保留模糊结果并将严格 sing 命中排在 sign 前面', () => {
+  const { searchListMusic } = loadListActionModule()
+  const list = [
+    { id: 'sign', name: 'Sign', singer: 'A', meta: { albumName: '' } },
+    { id: 'album', name: 'Anthem', singer: 'A', meta: { albumName: 'Sing Collection' } },
+    { id: 'contains', name: 'Why We Sing', singer: 'A', meta: { albumName: '' } },
+    { id: 'exact', name: 'Sing', singer: 'Pentatonix', meta: { albumName: 'Pentatonix' } },
+  ]
+
+  assert.deepEqual(searchListMusic(list, 'sing').map(item => item.id), [
+    'exact', 'contains', 'album', 'sign',
+  ])
+})
+
+test('searchListMusic 忽略大小写和首尾空格，并在完全同分时保持输入顺序', () => {
+  const { searchListMusic } = loadListActionModule()
+  const list = [
+    { id: 'first', name: 'SING', singer: 'A', meta: {} },
+    { id: 'second', name: 'Sing', singer: 'B', meta: {} },
+  ]
+  assert.deepEqual(searchListMusic(list, ' Sing ').map(item => item.id), ['first', 'second'])
 })
 
 test('ListMusicSearch 的 artist 模式初次无结果时只 toast 一次并清理旧查询状态', async() => {

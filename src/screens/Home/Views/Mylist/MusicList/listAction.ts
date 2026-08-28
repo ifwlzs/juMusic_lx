@@ -2,7 +2,7 @@ import { addListMusics, removeListMusics, updateListMusicPosition, updateListMus
 import { playList, playListById, playNext } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import settingState from '@/store/setting/state'
-import { similar, sortInsert, toOldMusicInfo } from '@/utils'
+import { toOldMusicInfo } from '@/utils'
 import { confirmDialog, openUrl, shareMusic, toast } from '@/utils/tools'
 import { addDislikeInfo, hasDislike } from '@/core/dislikeList'
 import playerState from '@/store/player/state'
@@ -12,6 +12,7 @@ import type { SelectInfo } from './ListMenu'
 import { type Metadata } from '@/components/MetadataEditModal'
 import musicSdk from '@/utils/musicSdk'
 import { getListMusicSync } from '@/utils/listManage'
+import { isLooseMusicSearchMatch, rankMusicSearchResults } from '@/utils/musicSearchRanking'
 
 // 统一读取媒体库附加信息，供菜单可用性与详情入口分流复用。
 const getMediaLibraryInfo = (musicInfo: LX.Music.MusicInfo) => {
@@ -156,22 +157,9 @@ export const handleShare = (musicInfo: SelectInfo['musicInfo']) => {
 
 
 export const searchListMusic = (list: LX.Music.MusicInfo[], text: string) => {
-  let result: LX.Music.MusicInfo[] = []
-  let rxp = new RegExp(text.split('').map(s => s.replace(/[.*+?^${}()|[\]\\]/, '\\$&')).join('.*') + '.*', 'i')
-  for (const mInfo of list) {
-    const str = `${mInfo.name}${mInfo.singer}${mInfo.meta.albumName ? mInfo.meta.albumName : ''}`
-    if (rxp.test(str)) result.push(mInfo)
-  }
-
-  const sortedList: Array<{ num: number, data: LX.Music.MusicInfo }> = []
-
-  for (const mInfo of result) {
-    sortInsert(sortedList, {
-      num: similar(text, `${mInfo.name}${mInfo.singer}${mInfo.meta.albumName ? mInfo.meta.albumName : ''}`),
-      data: mInfo,
-    })
-  }
-  return sortedList.map(item => item.data).reverse()
+  // 保留原有字符穿插和低置信度模糊召回，再用共享硬分层确保严格标题命中稳定置顶。
+  const candidates = list.filter(item => isLooseMusicSearchMatch(item, text))
+  return rankMusicSearchResults(candidates, text)
 }
 
 // 仅处理在线音源的详情外链打开；应用内详情弹窗由页面层分流后直接触发。
