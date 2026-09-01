@@ -294,6 +294,12 @@ dependencies {
     implementation 'wang.harlon.quickjs:wrapper-android:2.4.0'
     implementation 'com.hierynomus:smbj:0.13.0'
 
+    // 中文注释：音频可视化的 PCM 抽头需要在编译期引用 media3 的 AudioProcessor / TeeAudioProcessor。
+    // 运行时这两个库由 react-native-track-player 打包提供，所以用 compileOnly 保持单一版本来源，
+    // 版本号必须与 node_modules/react-native-track-player/android/build.gradle 中的 media3Version 一致。
+    compileOnly "androidx.media3:media3-common:1.8.0"
+    compileOnly "androidx.media3:media3-exoplayer:1.8.0"
+
   if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

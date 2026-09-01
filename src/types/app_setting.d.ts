@@ -359,6 +359,46 @@ declare global {
       'playDetail.isShowLyricProgressSetting': boolean
 
       /**
+       * 播放详情页-是否启用音频可视化
+       */
+      'playDetail.audioVisualization.enable': boolean
+
+      /**
+       * 播放详情页-音频可视化样式：频谱柱 / 封面外圈环形波纹
+       */
+      'playDetail.audioVisualization.style': 'bars' | 'ring'
+
+      /**
+       * 播放详情页-频谱柱数量
+       */
+      'playDetail.audioVisualization.barCount': number
+
+      /**
+       * 播放详情页-频谱柱是否以中线上下镜像生长
+       */
+      'playDetail.audioVisualization.barMirror': boolean
+
+      /**
+       * 播放详情页-频谱柱间距占比
+       */
+      'playDetail.audioVisualization.barGapRatio': number
+
+      /**
+       * 播放详情页-环形波纹起伏幅度
+       */
+      'playDetail.audioVisualization.ringAmplitude': number
+
+      /**
+       * 播放详情页-环形波纹是否显示外发光
+       */
+      'playDetail.audioVisualization.ringGlow': boolean
+
+      /**
+       * 播放详情页-音频可视化整体不透明度
+       */
+      'playDetail.audioVisualization.opacity': number
+
+      /**
        * 是否启用桌面歌词
        */
       'desktopLyric.enable': boolean

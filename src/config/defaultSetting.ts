@@ -42,6 +42,15 @@ const defaultSetting: LX.AppSetting = {
   'playDetail.vertical.style.lrcFontSize': 210,
   'playDetail.horizontal.style.lrcFontSize': 220,
   'playDetail.isShowLyricProgressSetting': false,
+  // 音频可视化默认关闭：需要禁用音频卸载才能取样，让用户主动权衡耗电后再开启。
+  'playDetail.audioVisualization.enable': false,
+  'playDetail.audioVisualization.style': 'bars',
+  'playDetail.audioVisualization.barCount': 32,
+  'playDetail.audioVisualization.barMirror': false,
+  'playDetail.audioVisualization.barGapRatio': 0.32,
+  'playDetail.audioVisualization.ringAmplitude': 0.16,
+  'playDetail.audioVisualization.ringGlow': true,
+  'playDetail.audioVisualization.opacity': 0.85,
 
   'desktopLyric.enable': false,
   'desktopLyric.isLock': false,

@@ -18,6 +18,7 @@ import io.ifwlzs.jumusic.lx.onedrive.OneDriveAuthPackage;
 import io.ifwlzs.jumusic.lx.smb.SmbPackage;
 import io.ifwlzs.jumusic.lx.userApi.UserApiPackage;
 import io.ifwlzs.jumusic.lx.utils.UtilsPackage;
+import io.ifwlzs.jumusic.lx.visualizer.VisualizerPackage;
 
 public class MainApplication extends NavigationApplication {
 
@@ -43,6 +44,7 @@ public class MainApplication extends NavigationApplication {
           packages.add(new SmbPackage());
           packages.add(new OneDriveAuthPackage());
           packages.add(new MediaLibrarySyncNotificationPackage());
+          packages.add(new VisualizerPackage());
           return packages;
         }
 

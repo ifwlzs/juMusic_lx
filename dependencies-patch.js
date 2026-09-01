@@ -20,6 +20,44 @@ const patches = [
                 .setIsSpeedChangeSupportRequired(true)
                 .build())`,
   },
+  {
+    // 中文注释：音频可视化需要在 ExoPlayer 的音频链路上挂一个旁路 PCM 抽头。
+    // DefaultRenderersFactory 默认构建的 AudioSink 不带自定义处理器，
+    // 这里覆写 buildAudioSink，把抽头作为 AudioProcessor 注入。
+    // TeeAudioProcessor 原样透传音频，不改变听感，只复制一份数据用于 FFT。
+    filePath: path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicManager.java'),
+    marker: 'lxSpectrumAudioProcessors',
+    fromStr: `        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(service);`,
+    toStr: `        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(service) {
+            // 中文注释：抽头实现位于 app 模块（io.ifwlzs.jumusic.lx.visualizer.SpectrumTap）。
+            // track-player 是独立的 Gradle 模块且先于 app 编译，无法在编译期引用 app 的类，
+            // 因此这里用反射在运行时解析——两者最终打进同一个 APK，classpath 上一定存在。
+            // 任何异常都退回空处理器数组，即「没有可视化但播放完全正常」。
+            private androidx.media3.common.audio.AudioProcessor[] lxSpectrumAudioProcessors() {
+                try {
+                    Object result = Class.forName("io.ifwlzs.jumusic.lx.visualizer.SpectrumTap")
+                            .getMethod("createAudioProcessors")
+                            .invoke(null);
+                    if (result instanceof androidx.media3.common.audio.AudioProcessor[]) {
+                        return (androidx.media3.common.audio.AudioProcessor[]) result;
+                    }
+                } catch (Throwable ignored) {}
+                return new androidx.media3.common.audio.AudioProcessor[0];
+            }
+
+            @Override
+            protected androidx.media3.exoplayer.audio.AudioSink buildAudioSink(
+                    android.content.Context context,
+                    boolean enableFloatOutput,
+                    boolean enableAudioTrackPlaybackParams) {
+                return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setAudioProcessors(lxSpectrumAudioProcessors())
+                        .build();
+            }
+        };`,
+  },
 ]
 
 // 中文注释：对单个文本内容执行幂等补丁，供脚本入口和测试共同复用，确保补丁缺失时才替换。

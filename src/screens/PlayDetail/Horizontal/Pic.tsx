@@ -10,6 +10,7 @@ import { HEADER_HEIGHT } from './components/Header'
 import { BTN_WIDTH } from './MoreBtn/Btn'
 import { marginLeft } from './constant'
 import Image from '@/components/common/Image'
+import AudioVisualizer from '@/components/common/AudioVisualizer'
 import { useStatusbarHeight } from '@/store/common/hook'
 import commonState from '@/store/common/state'
 
@@ -36,6 +37,10 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <View style={{ ...styles.container, height: contentHeight }}>
+      {/* 中文注释：环形波纹覆盖在封面外圈，不参与布局也不吃触摸。 */}
+      <View pointerEvents="none" style={[styles.ringLayer, { width: imgWidth * 1.5, height: imgWidth * 1.5 }]}>
+        <AudioVisualizer variant="ring" />
+      </View>
       <View style={{ ...styles.content, elevation: animated ? 3 : 0 }}>
         <Image url={pic} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={{
           width: imgWidth,
@@ -60,5 +65,10 @@ const styles = createStyle({
     // elevation: 3,
     backgroundColor: 'rgba(0,0,0,0)',
     borderRadius: 4,
+  },
+  ringLayer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

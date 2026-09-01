@@ -56,3 +56,10 @@
 -dontwarn org.ietf.jgss.GSSManager
 -dontwarn org.ietf.jgss.GSSName
 -dontwarn org.ietf.jgss.Oid
+
+# 音频可视化：SpectrumTap 由 react-native-track-player 的补丁通过反射按类名调用
+# （两者是不同的 Gradle 模块，无法在编译期互相引用）。R8 看不到这条调用链，
+# 若不保留会把类名混淆或整个类剥离，导致 release 包里可视化静默失效。
+# 用 `*;` 通配全部成员：createAudioProcessors 返回数组类型，`**` 通配符匹配不到数组，
+# 写成具体签名会让 R8 认为该方法不可达并整个移除，反射随后抛 NoSuchMethodException。
+-keep class io.ifwlzs.jumusic.lx.visualizer.SpectrumTap { *; }
