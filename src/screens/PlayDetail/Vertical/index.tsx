@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useMemo, useEffect } from 'react'
+import { memo, useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { View, AppState } from 'react-native'
 
 import Header from './components/Header'
@@ -32,6 +32,12 @@ export default memo(({ componentId }: { componentId: string }) => {
   // const theme = useTheme()
   const [pageIndex, setPageIndex] = useState(0)
   const showLyricRef = useRef(false)
+  const pagerRef = useRef<PagerView>(null)
+
+  // 中文注释：点击封面页的单行歌词等价于右滑翻页，符合「点歌词看全文」的直觉。
+  const handleShowLyricPage = useCallback(() => {
+    pagerRef.current?.setPage(1)
+  }, [])
 
   const onPageSelected = ({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     setPageIndex(nativeEvent.position)
@@ -75,12 +81,13 @@ export default memo(({ componentId }: { componentId: string }) => {
       <Header />
       <View style={styles.container}>
         <PagerView
+          ref={pagerRef}
           onPageSelected={onPageSelected}
           // onPageScrollStateChanged={onPageScrollStateChanged}
           style={styles.pagerView}
         >
           <View collapsable={false}>
-            <Pic componentId={componentId} />
+            <Pic componentId={componentId} onPressLyric={handleShowLyricPage} />
           </View>
           <View collapsable={false}>
             <LyricPage activeIndex={pageIndex} />
