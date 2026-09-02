@@ -35,8 +35,18 @@ export default memo(({ onPress }: Props) => {
     lineHeight,
   }), [lineHeight])
 
-  // 中文注释：没有歌词（纯音乐、歌词未加载）时整体不占位，避免封面被凭空推上去。
-  if (!text) return null
+  // 中文注释：容器固定为两行高度，不随实际行数伸缩。
+  // 歌词在布局流里，行数从 1 变 2 会改变容器高度，外层 justifyContent: center
+  // 会重新居中全部内容，表现就是封面随每句歌词的长短上下跳动。
+  // 锁定高度后短句在两行空间内居中显示，封面位置始终不动。
+  const containerStyle = useMemo(() => ({
+    ...styles.container,
+    height: lineHeight * 2,
+  }), [lineHeight])
+
+  // 中文注释：没有歌词（纯音乐、歌词未加载）时也要保留占位，
+  // 否则歌词一出现就会把封面顶上去，等于换一种方式跳动。
+  if (!text) return <View style={containerStyle} />
 
   const content = (
     <AnimatedColorText
@@ -51,10 +61,10 @@ export default memo(({ onPress }: Props) => {
     </AnimatedColorText>
   )
 
-  if (!onPress) return <View style={styles.container}>{content}</View>
+  if (!onPress) return <View style={containerStyle}>{content}</View>
 
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={0.7} onPress={onPress}>
+    <TouchableOpacity style={containerStyle} activeOpacity={0.7} onPress={onPress}>
       {content}
     </TouchableOpacity>
   )

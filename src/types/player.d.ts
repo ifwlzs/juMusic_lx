@@ -89,6 +89,12 @@ declare global {
         maxTime: number
         listId: string
         index: number
+        /**
+         * 歌曲 id。仅靠 index 定位不可靠：媒体库同步会用 overwriteListMusics 整体重写列表，
+         * 顺序与长度都可能变化，同一个 index 就指向了另一首歌。恢复时优先按 id 查找，
+         * index 退化为兜底。旧版本存档没有这个字段，所以是可选的。
+         */
+        musicId?: string
       }
 
       interface Track extends RNTrack {

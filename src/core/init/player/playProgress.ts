@@ -21,6 +21,7 @@ const delaySavePlayInfo = throttleBackgroundTimer(() => {
     maxTime: playerState.progress.maxPlayTime,
     listId: playerState.playMusicInfo.listId!,
     index: playerState.playInfo.playIndex,
+    musicId: playerState.playMusicInfo.musicInfo?.id,
   })
 }, 2000)
 
@@ -267,6 +268,7 @@ export default () => {
         maxTime: playerState.progress.maxPlayTime,
         listId: playerState.playMusicInfo.listId!,
         index: playerState.playInfo.playIndex,
+        musicId: playerState.playMusicInfo.musicInfo?.id,
       })
     }
   }

@@ -175,9 +175,14 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
 
   void initTrackInfo(musicInfo, playerState.musicInfo)
 
+  // 中文注释：守卫必须实时读 playerState.playMusicInfo，不能用上面捕获的 playMusicInfo 快照。
+  // setPlayMusicInfo 是整体替换 state.playMusicInfo 对象，所以快照的 .musicInfo 永远指向
+  // 恢复时那一首，`musicInfo.id != playMusicInfo.musicInfo?.id` 两边同源、恒为 false，
+  // 等于没有守卫。webdav/smb/onedrive 的封面与歌词要先把整首歌下载到本地才能读内嵌数据，
+  // 网络慢时耗时数秒，期间用户切歌就会被旧回调把封面歌词覆盖成上一首的。
   void getPicPath({ musicInfo, listId: playMusicInfo.listId }).then((url: string) => {
     if (
-      musicInfo.id != playMusicInfo.musicInfo?.id ||
+      musicInfo.id != playerState.playMusicInfo.musicInfo?.id ||
       playerState.musicInfo.pic == url ||
       playerState.loadErrorPicUrl == url
     ) return
@@ -186,7 +191,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
   })
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setMusicInfo({
       lrc: lyricInfo.lyric,
       tlrc: lyricInfo.tlyric,
@@ -197,7 +202,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
     global.app_event.lyricUpdated()
   }).catch((err) => {
     console.log(err)
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setStatusText(global.i18n.t('lyric__load_error'))
   })
 

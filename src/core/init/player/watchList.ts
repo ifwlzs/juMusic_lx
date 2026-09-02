@@ -19,7 +19,12 @@ export default () => {
       //     setPlayMusicInfo(null, null)
       //   })
       // } else
-      if (!playerState.playMusicInfo.isTempPlay) {
+      // 中文注释：正在播放时不要因为「在列表里找不到」就切歌。
+      // 媒体库的 aggregateSongId 由标题+艺术家+时长派生，webdav 等远程源首次扫描
+      // 若读不到元数据会先写入 degraded 记录（时长 0、艺术家空），后续补全转为 ready 时
+      // 这三个字段全变，id 随之变化，当前歌曲就会被误判为已移除。
+      // 此时音频仍在正常播放，切歌只会打断用户；真正被删除的歌曲播放会自行失败并走重试逻辑。
+      if (!playerState.playMusicInfo.isTempPlay && !playerState.isPlay) {
         // console.log('current music removed')
         void playNext(true)
       }
