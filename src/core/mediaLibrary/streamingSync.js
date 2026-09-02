@@ -3,6 +3,13 @@ const { createReadyBatchCommitter } = require('./batchCommitter.js')
 const { buildAggregateSongs } = require('./dedupe.js')
 const { classifyHydrationResult } = require('./hydrationPolicy.js')
 const { buildGeneratedListsForConnection } = require('./systemLists.js')
+const { mapWithConcurrency } = require('./providers/mapWithConcurrency.js')
+
+// 中文注释：hydrate 阶段的并发度。webdav/smb/onedrive 补元数据需要把整首歌下载到临时文件，
+// 串行执行时一次同步的耗时基本等于「所有歌曲下载时间之和」。
+// 取 3 与 providers 的 DEFAULT_CONCURRENCY 一致：家用 NAS 和手机内存都能稳定承受，
+// 同时最多只有 3 个临时文件并存。再高会在弱网或低配 NAS 上引发超时。
+const HYDRATE_CONCURRENCY = 3
 
 function dedupeSourceItems(items = []) {
   const map = new Map()
@@ -428,6 +435,13 @@ async function runRemoteStreamingSync({
         totalCount: discoveredCandidates.length + batch.length,
       })
 
+      // 中文注释：分两阶段处理。
+      // 第一阶段串行登记去重状态——candidateStates 的「是否已处理」检查依赖顺序，
+      // 并发执行会让同一首歌被重复登记。这一阶段没有网络 IO，很快。
+      // 第二阶段才是耗时的 hydrate（webdav 需要下载整首歌读内嵌元数据），
+      // 放到 mapWithConcurrency 里并发执行。
+      const pendingHydrate = []
+
       for (const candidate of batch) {
         const candidateKey = buildCandidateResumeKey(candidate)
         if (!candidateKey || candidateStates.has(candidateKey)) continue
@@ -467,6 +481,37 @@ async function runRemoteStreamingSync({
           continue
         }
 
+        pendingHydrate.push({ candidate, candidateKey })
+      }
+
+      // 中文注释：并发 hydrate，但每首歌一完成就立即提交，不等整批结束。
+      // 流式同步的核心价值就是「边扫边出」——已经就绪的歌曲要马上出现在列表里，
+      // 不能被某一首卡住的歌曲拖住。所以这里不能先收集全部结果再统一提交。
+      // 提交本身用一条串行链（commitChain）串起来，保证 committer.push 不会并发调用：
+      // push 会写检查点和工作区快照，并发进入会让 committedItems 顺序错乱、
+      // 断点续传的恢复顺序也跟着不稳定。
+      let commitChain = Promise.resolve()
+      let commitChainAborted = false
+      const enqueueCommit = (task) => {
+        commitChain = commitChain.then(async() => {
+          if (commitChainAborted) return
+          try {
+            await task()
+          } catch (error) {
+            // 中文注释：暂停错误(MEDIA_IMPORT_JOB_PAUSED)立即终止链并向上传播，
+            // 让整个 mapWithConcurrency 失败;其它错误(单首歌的临时故障)吞掉,
+            // 不影响后续歌曲提交。
+            if (error?.code === 'MEDIA_IMPORT_JOB_PAUSED') {
+              commitChainAborted = true
+              throw error
+            }
+            // 其它错误静默,继续后续提交
+          }
+        })
+        return commitChain
+      }
+
+      await mapWithConcurrency(pendingHydrate, HYDRATE_CONCURRENCY, async({ candidate, candidateKey }) => {
         let classification = { state: 'hydrating' }
         let lastError = ''
         let lastMetadata = null
@@ -502,11 +547,24 @@ async function runRemoteStreamingSync({
           if (classification.state !== 'hydrating') break
         }
 
-        if (classification.state === 'ready') readyCount += 1
-        if (classification.state === 'degraded') degradedCount += 1
-        if (lastError) failedCount += 1
+        // 中文注释：并发时,多首歌同时越过 hydrate 循环开头的检查点。
+        // 若某一首完成后暂停信号到达,其它还在飞的歌曲会继续完成 hydrate。
+        // 在入队提交前再检查一次:若此时已暂停,则这首歌的提交任务不入队,
+        // 同时抛出暂停错误让 mapWithConcurrency 失败、终止整个同步。
+        await assertJobCanContinue()
 
-        if (classification.state === 'ready' || classification.state === 'degraded') {
+        // 中文注释：这一首刚 hydrate 完就立刻排进提交链，不等同批其它歌曲。
+        // 注意：不在提交任务里再调用 assertJobCanContinue，因为并发时它会在
+        // 「其它歌曲已完成 hydrate」之后才执行，此时 isPauseRequested 可能
+        // 已为 true，但这首歌既然已完成 hydrate 就应该让它提交。
+        // 暂停检查只在 hydrate 循环开头(第 521 行)，决定是否启动新的 hydrate 尝试。
+        await enqueueCommit(async() => {
+          if (classification.state === 'ready') readyCount += 1
+          if (classification.state === 'degraded') degradedCount += 1
+          if (lastError) failedCount += 1
+
+          if (classification.state !== 'ready' && classification.state !== 'degraded') return
+
           const sourceItem = buildSourceItemFromCandidate({
             connection,
             candidate: {
@@ -525,8 +583,8 @@ async function runRemoteStreamingSync({
             await committer.flush()
             flushedEarlyInBatch = true
           }
-        }
-      }
+        })
+      })
 
       await persistSyncWorkspace('hydrate')
       if (flushAfterBatch) await committer.flush()
