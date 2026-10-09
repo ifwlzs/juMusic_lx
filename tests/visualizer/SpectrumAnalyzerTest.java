@@ -22,6 +22,9 @@ public class SpectrumAnalyzerTest {
     testBandsStayNormalized();
     testFrameReadyCadence();
     testBusPublishAndReset();
+    testPlaybackDelayHoldsUntilDue();
+    testPlaybackDelayEmitsInOrderAfterDelay();
+    testPlaybackDelayResetDropsPendingFrames();
     System.out.println("\nAll " + passed + " spectrum checks passed.");
   }
 
@@ -165,5 +168,51 @@ public class SpectrumAnalyzerTest {
 
     bus.removeListener(listener);
     check("listener removed", !bus.hasListeners(), "listener still attached");
+  }
+
+  /**
+   * 中文注释：TeeAudioProcessor 抽到的是尚未进入 AudioTrack 的 PCM，
+   * 可视化必须晚于抽头时刻发布，才能和喇叭出声对齐。
+   */
+  private static void testPlaybackDelayHoldsUntilDue() {
+    SpectrumPlaybackDelay delay = new SpectrumPlaybackDelay(100, AudioSpectrumBus.BAND_COUNT);
+    float[] bands = new float[AudioSpectrumBus.BAND_COUNT];
+    bands[3] = 0.8f;
+    delay.submit(bands, 1000L);
+    bands[3] = 0f;
+    final float[] emittedValue = { -1f };
+    final int[] emitted = { 0 };
+    delay.drain(1099L, ignored -> emitted[0]++);
+    check("frame stays queued before delay elapses", emitted[0] == 0, "emitted too early");
+    delay.drain(1100L, frame -> {
+      emitted[0]++;
+      emittedValue[0] = frame[3];
+    });
+    check("frame emits once delay elapses", emitted[0] == 1, "emitted " + emitted[0]);
+    check("queued frame is copied away from the live analyzer buffer", emittedValue[0] == 0.8f, "got " + emittedValue[0]);
+  }
+
+  private static void testPlaybackDelayEmitsInOrderAfterDelay() {
+    SpectrumPlaybackDelay delay = new SpectrumPlaybackDelay(50, AudioSpectrumBus.BAND_COUNT);
+    float[] first = new float[AudioSpectrumBus.BAND_COUNT];
+    float[] second = new float[AudioSpectrumBus.BAND_COUNT];
+    first[1] = 0.2f;
+    second[1] = 0.9f;
+    delay.submit(first, 0L);
+    delay.submit(second, 10L);
+    java.util.ArrayList<Float> seen = new java.util.ArrayList<>();
+    delay.drain(1000L, bands -> seen.add(bands[1]));
+    check("delayed frames keep submit order", seen.size() == 2 && seen.get(0) == 0.2f && seen.get(1) == 0.9f, "order was " + seen);
+  }
+
+  private static void testPlaybackDelayResetDropsPendingFrames() {
+    SpectrumPlaybackDelay delay = new SpectrumPlaybackDelay(80, AudioSpectrumBus.BAND_COUNT);
+    float[] bands = new float[AudioSpectrumBus.BAND_COUNT];
+    bands[0] = 1f;
+    delay.submit(bands, 0L);
+    delay.reset();
+    final int[] emitted = { 0 };
+    delay.drain(1000L, ignored -> emitted[0]++);
+    check("reset drops unpublished frames", emitted[0] == 0, "reset still emitted " + emitted[0]);
   }
 }

@@ -1,6 +1,9 @@
 package io.ifwlzs.jumusic.lx.visualizer;
 
 import android.media.AudioFormat;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -16,13 +19,19 @@ import java.nio.ByteOrder;
  * 代价是走这条路必须禁用音频卸载（offload）：offload 时 PCM 直接交给硬件解码，
  * 软件链路上没有数据可抽。这个取舍在 VisualizerModule 的开关里对用户明示。
  *
- * 本类的回调运行在 ExoPlayer 音频处理线程，禁止阻塞、禁止分配对象。
+ * 抽头早于 AudioTrack 出声，所以 FFT 结果会先进入 {@link SpectrumPlaybackDelay}，
+ * 对齐后再交给总线，避免波纹比歌曲快一拍。
+ *
+ * 本类的回调运行在 ExoPlayer 音频处理线程，禁止阻塞。到期发布走主线程 Handler。
  */
 public final class SpectrumAudioBufferSink
   implements androidx.media3.exoplayer.audio.TeeAudioProcessor.AudioBufferSink {
 
   private final SpectrumAnalyzer analyzer = new SpectrumAnalyzer();
   private final AudioSpectrumBus bus = AudioSpectrumBus.getInstance();
+  private final SpectrumPlaybackDelay playbackDelay = new SpectrumPlaybackDelay();
+  private final Handler publishHandler = new Handler(Looper.getMainLooper());
+  private final Runnable publishDueFrames = this::publishDueFrames;
 
   private int channelCount = 2;
   private int encoding = AudioFormat.ENCODING_PCM_16BIT;
@@ -33,6 +42,8 @@ public final class SpectrumAudioBufferSink
     this.encoding = encoding;
     analyzer.configure(sampleRateHz);
     analyzer.reset();
+    publishHandler.removeCallbacks(publishDueFrames);
+    playbackDelay.reset();
     bus.reset();
   }
 
@@ -54,12 +65,25 @@ public final class SpectrumAudioBufferSink
         analyzer.pushSample(mixed / channelCount);
 
         if (analyzer.isFrameReady()) {
-          bus.publish(analyzer.analyze());
+          playbackDelay.submit(analyzer.analyze(), SystemClock.uptimeMillis());
+          schedulePublish();
         }
       }
     } finally {
       buffer.order(originalOrder);
     }
+  }
+
+  private void schedulePublish() {
+    Long nextPlayAtMs = playbackDelay.nextPlayAtMs();
+    if (nextPlayAtMs == null) return;
+    publishHandler.removeCallbacks(publishDueFrames);
+    publishHandler.postAtTime(publishDueFrames, nextPlayAtMs);
+  }
+
+  private void publishDueFrames() {
+    playbackDelay.drain(SystemClock.uptimeMillis(), bus::publish);
+    schedulePublish();
   }
 
   private boolean hasFullFrame(ByteBuffer buffer) {
