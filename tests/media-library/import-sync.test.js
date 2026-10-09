@@ -2611,3 +2611,264 @@ test('updateImportRule keeps scope-change removal semantics when local providers
   assert.deepEqual(placeholderCalls, [['placeholder', ['item_scope_removed']]])
 })
 
+
+test('syncImportRule incremental finished notification uses this-run counts instead of leftover library size', async() => {
+  const connection = createConnection({ providerType: 'webdav', displayName: 'Remote Disk' })
+  const rule = createRule()
+  const finishedCalls = []
+  const previousItem = createSourceItem({
+    sourceItemId: 'conn_1__/Albums/old.mp3',
+    pathOrUri: '/Albums/old.mp3',
+    versionToken: 'v_old',
+  })
+
+  await syncImportRule({
+    connection,
+    rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: rule.ruleId,
+          scannedAt: 100,
+          lastIncrementalSyncAt: 100,
+          items: [previousItem],
+        }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() { return [rule] },
+      async saveImportRules() {},
+      async getConnections() { return [connection] },
+      async saveSourceItems() {},
+      async getAllSourceItems() { return [] },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async streamEnumerateSelection(_connection, _selection, onBatch) {
+            const candidate = createCandidate({
+              providerType: 'webdav',
+              pathOrUri: '/Albums/new.mp3',
+              fileName: 'new.mp3',
+              versionToken: 'v_new',
+              modifiedTime: 180,
+            })
+            await onBatch([candidate])
+            return { complete: true, items: [candidate] }
+          },
+          async enumerateSelection() {
+            throw new Error('should stream')
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: { title: 'new', artist: 'artist', album: 'album', durationSec: 180 },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    notifications: {
+      async showSyncProgress() {},
+      async showSyncFinished(payload) {
+        finishedCalls.push(payload)
+      },
+    },
+    now: () => 200,
+  })
+
+  assert.deepEqual(finishedCalls, [{
+    connectionName: 'Remote Disk',
+    committedCount: 1,
+    removedCount: 0,
+    totalCount: 1,
+  }])
+})
+
+test('syncImportRule incremental passes shouldDescendDirectory using lastIncrementalCutoff', async() => {
+  const connection = createConnection({ providerType: 'webdav', displayName: 'Remote Disk' })
+  const rule = createRule()
+  let streamOptions = null
+
+  await syncImportRule({
+    connection,
+    rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: rule.ruleId,
+          scannedAt: 100,
+          lastIncrementalSyncAt: 150,
+          items: [],
+        }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() { return [rule] },
+      async saveImportRules() {},
+      async getConnections() { return [connection] },
+      async saveSourceItems() {},
+      async getAllSourceItems() { return [] },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async streamEnumerateSelection(_connection, _selection, onBatch, options = {}) {
+            streamOptions = options
+            await onBatch([])
+            return { complete: true, items: [] }
+          },
+          async enumerateSelection() {
+            throw new Error('should stream')
+          },
+          async hydrateCandidate() {
+            return { candidate: {}, metadata: { title: 'x', artist: 'a', durationSec: 1 } }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    now: () => 200,
+  })
+
+  assert.equal(typeof streamOptions.shouldDescendDirectory, 'function')
+  assert.equal(streamOptions.shouldDescendDirectory({ modifiedTime: 140 }), false)
+  assert.equal(streamOptions.shouldDescendDirectory({ modifiedTime: 180 }), true)
+  assert.equal(typeof streamOptions.onDirectory, 'function')
+})
+
+test('syncImportRule incremental checkpoints after streamed batches', async() => {
+  const connection = createConnection({ providerType: 'webdav', displayName: 'Remote Disk' })
+  const rule = createRule()
+  const snapshots = []
+  const candidate = createCandidate({
+    providerType: 'webdav',
+    pathOrUri: '/Albums/one.mp3',
+    fileName: 'one.mp3',
+    versionToken: 'v_one',
+    modifiedTime: 180,
+  })
+
+  await syncImportRule({
+    connection,
+    rule,
+    syncMode: 'incremental',
+    repository: {
+      async getImportSnapshot() {
+        return {
+          ruleId: rule.ruleId,
+          scannedAt: 100,
+          lastIncrementalSyncAt: 100,
+          items: [],
+        }
+      },
+      async saveImportSnapshot(_ruleId, snapshot) {
+        snapshots.push(snapshot)
+      },
+      async getImportRules() { return [rule] },
+      async saveImportRules() {},
+      async getConnections() { return [connection] },
+      async saveSourceItems() {},
+      async getAllSourceItems() { return [] },
+      async saveAggregateSongs() {},
+    },
+    registry: {
+      get() {
+        return {
+          async streamEnumerateSelection(_connection, _selection, onBatch) {
+            await onBatch([candidate])
+            return { complete: true, items: [candidate] }
+          },
+          async enumerateSelection() {
+            throw new Error('should stream')
+          },
+          async hydrateCandidate(_connection, current) {
+            return {
+              candidate: current,
+              metadata: { title: 'one', artist: 'artist', album: 'album', durationSec: 180 },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    now: () => 200,
+  })
+
+  assert.ok(snapshots.length >= 2)
+  assert.equal(snapshots[0].isComplete, false)
+  assert.equal(snapshots.at(-1).items.length, 1)
+})
+
+test('syncImportRule incremental stops on consecutive network hydration failures and notifies failure', async() => {
+  const connection = createConnection({ providerType: 'webdav', displayName: 'Remote Disk' })
+  const rule = createRule()
+  const failedCalls = []
+
+  await assert.rejects(async() => {
+    await syncImportRule({
+      connection,
+      rule,
+      syncMode: 'incremental',
+      consecutiveNetworkFailureLimit: 2,
+      repository: {
+        async getImportSnapshot() {
+          return { ruleId: rule.ruleId, scannedAt: 100, lastIncrementalSyncAt: 100, items: [] }
+        },
+        async saveImportSnapshot() {},
+        async getImportRules() { return [rule] },
+        async saveImportRules() {},
+        async getConnections() { return [connection] },
+        async saveSourceItems() {},
+        async getAllSourceItems() { return [] },
+        async saveAggregateSongs() {},
+      },
+      registry: {
+        get() {
+          return {
+            async streamEnumerateSelection(_connection, _selection, onBatch) {
+              await onBatch([
+                createCandidate({ providerType: 'webdav', pathOrUri: '/Albums/one.mp3', fileName: 'one.mp3', versionToken: 'v1', modifiedTime: 180 }),
+                createCandidate({ providerType: 'webdav', pathOrUri: '/Albums/two.mp3', fileName: 'two.mp3', versionToken: 'v2', modifiedTime: 180 }),
+              ])
+              return { complete: true, items: [] }
+            },
+            async enumerateSelection() {
+              throw new Error('should stream')
+            },
+            async hydrateCandidate() {
+              throw new Error('network request failed')
+            },
+          }
+        },
+      },
+      listApi: {
+        async reconcileGeneratedLists() {},
+        async removeMissingSongs() {},
+      },
+      notifications: {
+        async showSyncProgress() {},
+        async showSyncFailed(payload) {
+          failedCalls.push(payload)
+        },
+      },
+      now: () => 200,
+    })
+  }, error => error?.code === 'MEDIA_LIBRARY_NETWORK_UNAVAILABLE')
+
+  assert.equal(failedCalls.length, 1)
+})

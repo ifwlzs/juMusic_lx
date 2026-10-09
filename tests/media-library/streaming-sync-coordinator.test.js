@@ -696,6 +696,7 @@ test('runRemoteStreamingSync preserves flushed visible state when pause is reque
         },
         async heartbeat() {},
       },
+      hydrateConcurrency: 1,
       batchCommitterOptions: {
         maxBatchSize: 1,
       },
@@ -1144,3 +1145,187 @@ test('runRemoteStreamingSync reuses sibling-rule snapshots across checkpoint rec
   assert.equal(snapshotCalls.rule_2, 2)
 })
 
+
+test('runRemoteStreamingSync reuses previous ready metadata when hydration hits a network error', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  const previousItem = createSourceItem({
+    sourceItemId: 'conn_1__/Albums/song_1.mp3',
+    pathOrUri: '/Albums/song_1.mp3',
+    title: 'Keep Me',
+    versionToken: 'v_old',
+  })
+  previousItem.artist = 'artist'
+  previousItem.album = 'album'
+  previousItem.durationSec = 180
+  const failedCalls = []
+
+  const result = await runRemoteStreamingSync({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return { ruleId: 'rule_1', scannedAt: 1, items: [previousItem] }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() { return [rule] },
+      async saveImportRules() {},
+      async getConnections() { return [connection] },
+      async saveSourceItems() {},
+      async getAllSourceItems() { return [] },
+      async saveAggregateSongs() {},
+      async getSyncRuns() { return [] },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return {
+              complete: true,
+              items: [{
+                ...createCandidate(1),
+                versionToken: 'v_new',
+              }],
+            }
+          },
+          async hydrateCandidate() {
+            throw new Error('webdav metadata download timed out')
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    notifications: {
+      async showSyncFailed(payload) {
+        failedCalls.push(payload)
+      },
+    },
+    maxHydrateAttempts: 2,
+    batchCommitterOptions: { maxBatchSize: 1 },
+  })
+
+  assert.equal(result.nextItems[0].title, 'Keep Me')
+  assert.equal(result.nextItems[0].durationSec, 180)
+  assert.equal(failedCalls.length, 0)
+})
+
+test('runRemoteStreamingSync stops after consecutive network hydration failures', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  const failedCalls = []
+
+  await assert.rejects(async() => {
+    await runRemoteStreamingSync({
+      connection,
+      rule,
+      repository: {
+        async getImportSnapshot() {
+          return { ruleId: 'rule_1', scannedAt: 1, items: [] }
+        },
+        async saveImportSnapshot() {},
+        async getImportRules() { return [rule] },
+        async saveImportRules() {},
+        async getConnections() { return [connection] },
+        async saveSourceItems() {},
+        async getAllSourceItems() { return [] },
+        async saveAggregateSongs() {},
+        async getSyncRuns() { return [] },
+        async saveSyncRuns() {},
+        async saveSyncCandidates() {},
+        async saveSyncSnapshot() {},
+      },
+      registry: {
+        get() {
+          return {
+            async enumerateSelection() {
+              return {
+                complete: true,
+                items: [createCandidate(1), createCandidate(2), createCandidate(3)],
+              }
+            },
+            async hydrateCandidate() {
+              throw new Error('network request failed')
+            },
+          }
+        },
+      },
+      listApi: {
+        async reconcileGeneratedLists() {},
+        async removeMissingSongs() {},
+      },
+      notifications: {
+        async showSyncFailed(payload) {
+          failedCalls.push(payload)
+        },
+      },
+      maxHydrateAttempts: 1,
+      consecutiveNetworkFailureLimit: 2,
+      batchCommitterOptions: { maxBatchSize: 10 },
+    })
+  }, error => error?.code === 'MEDIA_LIBRARY_NETWORK_UNAVAILABLE')
+
+  assert.equal(failedCalls.length, 1)
+  assert.match(String(failedCalls[0].errorMessage), /network/i)
+})
+
+test('runRemoteStreamingSync progress includes the current file path', async() => {
+  const connection = createConnection()
+  const rule = createRule()
+  const progressCalls = []
+
+  await runRemoteStreamingSync({
+    connection,
+    rule,
+    repository: {
+      async getImportSnapshot() {
+        return { ruleId: 'rule_1', scannedAt: 1, items: [] }
+      },
+      async saveImportSnapshot() {},
+      async getImportRules() { return [rule] },
+      async saveImportRules() {},
+      async getConnections() { return [connection] },
+      async saveSourceItems() {},
+      async getAllSourceItems() { return [] },
+      async saveAggregateSongs() {},
+      async getSyncRuns() { return [] },
+      async saveSyncRuns() {},
+      async saveSyncCandidates() {},
+      async saveSyncSnapshot() {},
+    },
+    registry: {
+      get() {
+        return {
+          async enumerateSelection() {
+            return { complete: true, items: [createCandidate(1)] }
+          },
+          async hydrateCandidate(_connection, candidate) {
+            return {
+              candidate,
+              metadata: { title: 'song_1', artist: 'artist', album: 'album', durationSec: 180 },
+              metadataLevelReached: 1,
+            }
+          },
+        }
+      },
+    },
+    listApi: {
+      async reconcileGeneratedLists() {},
+      async removeMissingSongs() {},
+    },
+    notifications: {
+      async showSyncProgress(payload) {
+        progressCalls.push(payload)
+      },
+      async showSyncFinished() {},
+    },
+    batchCommitterOptions: { maxBatchSize: 1 },
+  })
+
+  assert.ok(progressCalls.some(call => String(call.currentPath || '').includes('song_1.mp3')))
+})

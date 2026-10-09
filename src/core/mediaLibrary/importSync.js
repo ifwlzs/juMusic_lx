@@ -5,8 +5,12 @@ const {
   scanImportSelection,
 } = require('./browse.js')
 const { buildAggregateSongs } = require('./dedupe.js')
-const { runRemoteStreamingSync } = require('./streamingSync.js')
+const { createMediaImportJobPausedError, runRemoteStreamingSync } = require('./streamingSync.js')
 const { buildGeneratedListsForConnection } = require('./systemLists.js')
+const {
+  createNetworkFailureGuard,
+  isNetworkLikeError,
+} = require('./syncResilience.js')
 
 function dedupeSourceItems(items = []) {
   const map = new Map()
@@ -463,6 +467,7 @@ async function runFullSync({
   notifications = null,
   jobControl = null,
   sharedReusableSourceItems = [],
+  consecutiveNetworkFailureLimit = 5,
 }) {
   const provider = registry?.get?.(connection.providerType)
   if (
@@ -481,6 +486,7 @@ async function runFullSync({
       jobControl,
       skipMissingRemoval,
       sharedReusableSourceItems,
+      consecutiveNetworkFailureLimit,
     })
   }
 
@@ -570,6 +576,12 @@ async function runFullSync({
   }
 }
 
+function shouldDescendUnchangedDirectory(directory, lastIncrementalCutoff) {
+  const modifiedTime = Number(directory?.modifiedTime) || 0
+  if (!modifiedTime || !lastIncrementalCutoff) return true
+  return modifiedTime > lastIncrementalCutoff
+}
+
 async function runIncrementalSync({
   connection,
   rule,
@@ -579,6 +591,8 @@ async function runIncrementalSync({
   listApi,
   now = () => Date.now(),
   notifications = null,
+  jobControl = null,
+  consecutiveNetworkFailureLimit = 5,
 }) {
   const provider = registry?.get?.(connection.providerType)
   if (!provider?.enumerateSelection || !provider?.hydrateCandidate) {
@@ -612,15 +626,53 @@ async function runIncrementalSync({
   let failedHydrationCount = 0
   let discoveredCount = 0
   let processedCount = 0
+  const networkGuard = createNetworkFailureGuard({ consecutiveFailureLimit: consecutiveNetworkFailureLimit })
+  const enumerateOptions = {
+    shouldDescendDirectory(directory) {
+      return shouldDescendUnchangedDirectory(directory, lastIncrementalCutoff)
+    },
+    async onDirectory(directory) {
+      await jobControl?.heartbeat?.()
+      if (await jobControl?.isPauseRequested?.()) throw createMediaImportJobPausedError()
+      await notifications?.showSyncProgress?.({
+        connectionName: connection.displayName,
+        phase: 'enumerate',
+        discoveredCount,
+        committedCount: processedCount,
+        totalCount: Math.max(discoveredCount, processedCount),
+        currentPath: directory?.pathOrUri || '',
+      })
+    },
+  }
 
-  const showProgress = async(phase = 'hydrate') => {
+  const showProgress = async(phase = 'hydrate', currentPath = '') => {
     await notifications?.showSyncProgress?.({
       connectionName: connection.displayName,
       phase,
       discoveredCount,
       committedCount: processedCount,
       totalCount: Math.max(discoveredCount, processedCount),
+      currentPath,
     })
+  }
+
+  const persistIncrementalCheckpoint = async() => {
+    if (typeof repository.saveImportSnapshot !== 'function') return
+    await repository.saveImportSnapshot(rule.ruleId, {
+      ruleId: rule.ruleId,
+      scannedAt: previousSnapshot.scannedAt ?? null,
+      isComplete: false,
+      lastIncrementalSyncAt: previousSnapshot.lastIncrementalSyncAt ?? previousSnapshot.scannedAt ?? null,
+      lastFullValidationAt: previousSnapshot.lastFullValidationAt ?? previousSnapshot.scannedAt ?? null,
+      pendingFullValidation: true,
+      selectionStats: previousSnapshot.selectionStats || [],
+      items: dedupeSourceItems([...nextItemsByKey.values()]),
+    })
+  }
+
+  const assertJobCanContinue = async() => {
+    await jobControl?.heartbeat?.()
+    if (await jobControl?.isPauseRequested?.()) throw createMediaImportJobPausedError()
   }
 
   const processCandidateBatch = async(candidates = []) => {
@@ -639,9 +691,10 @@ async function runIncrementalSync({
     if (!uniqueCandidates.length) return
 
     discoveredCount += uniqueCandidates.length
-    await showProgress('enumerate')
+    await showProgress('enumerate', uniqueCandidates[0]?.pathOrUri || '')
 
     for (const candidate of uniqueCandidates) {
+      await assertJobCanContinue()
       const candidateKey = buildCandidateResumeKey(candidate)
       const previousItem = previousItemsByKey.get(candidateKey)
       const versionChanged = previousItem
@@ -663,17 +716,31 @@ async function runIncrementalSync({
         continue
       }
 
+      await showProgress('hydrate', candidate.fileName || candidate.pathOrUri || '')
       let hydrated = null
+      let lastNetworkError = null
       for (let attempt = 1; attempt <= 3; attempt += 1) {
-        hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
-        if (didHydrationFail(hydrated)) {
+        await assertJobCanContinue()
+        try {
+          hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
+          lastNetworkError = null
+          if (didHydrationFail(hydrated)) {
+            hydrated = null
+            break
+          }
+          if (Number(hydrated?.metadata?.durationSec) > 0) {
+            networkGuard.recordSuccess()
+            break
+          }
+        } catch (error) {
           hydrated = null
-          break
+          lastNetworkError = error
+          if (!isNetworkLikeError(error)) break
         }
-        if (Number(hydrated?.metadata?.durationSec) > 0) break
       }
 
       if (didHydrationFail(hydrated) || Number(hydrated?.metadata?.durationSec) <= 0) {
+        if (lastNetworkError) networkGuard.recordFailure(lastNetworkError)
         failedHydrationCount += 1
         isComplete = false
         if (previousItem) {
@@ -697,8 +764,10 @@ async function runIncrementalSync({
     }
 
     await showProgress('hydrate')
+    await persistIncrementalCheckpoint()
   }
 
+  try {
   await showProgress('enumerate')
 
   for (const selection of orderedSelections) {
@@ -725,7 +794,7 @@ async function runIncrementalSync({
           streamedCandidateKeys.add(candidateKey)
         }
         await processCandidateBatch(batch)
-      })
+      }, enumerateOptions)
       const remainingCandidates = (enumerateResult?.items || []).filter(candidate => {
         const candidateKey = buildCandidateResumeKey(candidate)
         return !candidateKey || !streamedCandidateKeys.has(candidateKey)
@@ -812,7 +881,7 @@ async function runIncrementalSync({
 
   await notifications?.showSyncFinished?.({
     connectionName: connection.displayName,
-    committedCount: nextItems.length,
+    committedCount: processedCount,
     removedCount: 0,
     totalCount: discoveredCount,
   })
@@ -835,6 +904,15 @@ async function runIncrementalSync({
     previousSnapshot,
     nextItems,
   }
+  } catch (error) {
+    if (error?.code !== 'MEDIA_IMPORT_JOB_PAUSED') {
+      await notifications?.showSyncFailed?.({
+        connectionName: connection.displayName,
+        errorMessage: String(error?.message || error || '同步失败'),
+      })
+    }
+    throw error
+  }
 }
 
 // Prioritize incremental sync mode regardless of provider type.
@@ -852,6 +930,7 @@ async function syncImportRule({
   jobControl = null,
   syncMode = 'full_validation',
   sharedReusableSourceItems = [],
+  consecutiveNetworkFailureLimit = 5,
 }) {
   if (syncMode === 'incremental') {
     return runIncrementalSync({
@@ -863,6 +942,8 @@ async function syncImportRule({
       listApi,
       now,
       notifications,
+      jobControl,
+      consecutiveNetworkFailureLimit,
     })
   }
 
@@ -878,6 +959,7 @@ async function syncImportRule({
     notifications,
     jobControl,
     sharedReusableSourceItems,
+    consecutiveNetworkFailureLimit,
   })
 }
 

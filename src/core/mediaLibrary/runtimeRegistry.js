@@ -12,6 +12,12 @@ const { createSmbProvider } = require('./providers/smb.js')
 const { createWebdavProvider } = require('./providers/webdav.js')
 const { mediaLibraryRepository } = require('./storage.js')
 const { buildWebdavHeaders, buildWebdavUrl } = require('./webdav.js')
+const {
+  createTimeoutSignal,
+  DEFAULT_DOWNLOAD_CONNECTION_TIMEOUT_MS,
+  DEFAULT_DOWNLOAD_READ_TIMEOUT_MS,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+} = require('./syncResilience.js')
 
 async function createSmbConnectionInfo(connection, repository) {
   const credential = await resolveConnectionCredential(connection, repository)
@@ -94,6 +100,7 @@ function createMediaLibraryRuntimeRegistry(repository = mediaLibraryRepository) 
     async request(connection, { method = 'PROPFIND', depth = '1', pathOrUri }) {
       const credential = await resolveConnectionCredential(connection, repository)
       const requestUrl = buildWebdavUrl(connection.rootPathOrUri, pathOrUri)
+      const timeout = createTimeoutSignal(DEFAULT_REQUEST_TIMEOUT_MS)
       let response
       try {
         response = await fetch(requestUrl, {
@@ -103,9 +110,13 @@ function createMediaLibraryRuntimeRegistry(repository = mediaLibraryRepository) 
             'Content-Type': 'application/xml; charset=utf-8',
             ...buildWebdavHeaders(credential),
           },
+          signal: timeout.signal,
         })
       } catch (error) {
-        throw new Error(`webdav request ${method} ${requestUrl} failed: ${error?.message || error}`)
+        const reason = error?.name === 'AbortError' ? 'timed out' : 'failed'
+        throw new Error(`webdav request ${method} ${requestUrl} ${reason}: ${error?.message || error}`)
+      } finally {
+        timeout.clear()
       }
       const text = await response.text()
       if (!response.ok) throw new Error(text || `webdav request ${method} ${requestUrl} failed: ${response.status}`)
@@ -118,6 +129,8 @@ function createMediaLibraryRuntimeRegistry(repository = mediaLibraryRepository) 
         headers: {
           ...buildWebdavHeaders(credential),
         },
+        connectionTimeout: DEFAULT_DOWNLOAD_CONNECTION_TIMEOUT_MS,
+        readTimeout: DEFAULT_DOWNLOAD_READ_TIMEOUT_MS,
       })
     },
     readMetadata,

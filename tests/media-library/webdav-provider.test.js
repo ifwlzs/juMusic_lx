@@ -635,3 +635,89 @@ test('createWebdavProvider streamEnumerateSelection emits shallower directory ca
   ])
 })
 
+
+test('createWebdavProvider streamEnumerateSelection skips nested directories when shouldDescendDirectory returns false', async() => {
+  const requested = []
+  const directoriesSeen = []
+  const provider = createWebdavProvider({
+    async request(_connection, { pathOrUri }) {
+      requested.push(pathOrUri)
+      if (pathOrUri === '/music/') {
+        return `<?xml version="1.0"?>
+        <d:multistatus xmlns:d="DAV:">
+          <d:response>
+            <d:href>/music/</d:href>
+            <d:propstat><d:prop><d:getetag>"root"</d:getetag></d:prop></d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/music/test.mp3</d:href>
+            <d:propstat>
+              <d:prop>
+                <d:getetag>"abc"</d:getetag>
+                <d:getlastmodified>Sat, 05 Apr 2026 10:00:00 GMT</d:getlastmodified>
+                <d:getcontentlength>321</d:getcontentlength>
+              </d:prop>
+            </d:propstat>
+          </d:response>
+          <d:response>
+            <d:href>/music/deep/</d:href>
+            <d:propstat>
+              <d:prop>
+                <d:getetag>"dir"</d:getetag>
+                <d:getlastmodified>Sat, 05 Apr 2026 09:00:00 GMT</d:getlastmodified>
+              </d:prop>
+            </d:propstat>
+          </d:response>
+        </d:multistatus>`
+      }
+      throw new Error(`unexpected PROPFIND ${pathOrUri}`)
+    },
+    async downloadFile() {},
+    async readMetadata() { return null },
+  })
+
+  const result = await provider.streamEnumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'webdav',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music/', displayName: 'music' }],
+    tracks: [],
+  }, async() => {}, {
+    shouldDescendDirectory(directory) {
+      return Number(directory.modifiedTime) > Date.parse('Sat, 05 Apr 2026 09:30:00 GMT')
+    },
+    async onDirectory(directory) {
+      directoriesSeen.push(directory.pathOrUri)
+    },
+  })
+
+  assert.deepEqual(requested, ['/music/'])
+  assert.deepEqual(directoriesSeen, ['/music/'])
+  assert.deepEqual(result.items.map(item => item.pathOrUri), ['/music/test.mp3'])
+})
+
+test('createWebdavProvider hydrateCandidate rethrows network errors instead of degrading metadata', async() => {
+  const provider = createWebdavProvider({
+    async request() {
+      return '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" />'
+    },
+    async downloadFile() {
+      throw new Error('webdav metadata download timed out')
+    },
+    async readMetadata() { return null },
+    createTempFilePath() { return '/tmp/test.mp3' },
+    async removeTempFile() {},
+  })
+
+  await assert.rejects(
+    () => provider.hydrateCandidate({
+      connectionId: 'conn_1',
+      providerType: 'webdav',
+    }, {
+      sourceStableKey: '/music/test.mp3',
+      pathOrUri: '/music/test.mp3',
+      fileName: 'test.mp3',
+    }),
+    error => /timed out/.test(String(error?.message || error)),
+  )
+})
