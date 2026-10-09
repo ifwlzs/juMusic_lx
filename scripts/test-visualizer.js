@@ -14,6 +14,7 @@ const testFile = path.join(rootPath, 'tests/visualizer/SpectrumAnalyzerTest.java
 const sources = [
   path.join(nativeDir, 'SpectrumAnalyzer.java'),
   path.join(nativeDir, 'AudioSpectrumBus.java'),
+  path.join(nativeDir, 'SpectrumPlaybackDelay.java'),
   testFile,
 ]
 
