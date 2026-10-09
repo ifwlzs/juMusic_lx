@@ -362,3 +362,37 @@ test('createSmbProvider streamEnumerateSelection emits current-directory candida
   ])
 })
 
+
+test('createSmbProvider streamEnumerateSelection skips nested directories when shouldDescendDirectory returns false', async() => {
+  const requested = []
+  const { createSmbProvider } = require('../../src/core/mediaLibrary/providers/smb.js')
+  const provider = createSmbProvider({
+    async listDirectory(_connection, pathOrUri) {
+      requested.push(pathOrUri)
+      if (pathOrUri === '/music') {
+        return [
+          { path: '/music/a.mp3', name: 'a.mp3', isDirectory: false, size: 10, modifiedTime: 1700000000001 },
+          { path: '/music/nested', name: 'nested', isDirectory: true, modifiedTime: 90 },
+        ]
+      }
+      throw new Error(`unexpected list ${pathOrUri}`)
+    },
+    async readMetadata() { return null },
+    async downloadFile() { return null },
+  })
+
+  const result = await provider.streamEnumerateSelection({
+    connectionId: 'conn_1',
+    providerType: 'smb',
+  }, {
+    directories: [{ selectionId: 'dir_1', kind: 'directory', pathOrUri: '/music', displayName: 'music' }],
+    tracks: [],
+  }, async() => {}, {
+    shouldDescendDirectory(directory) {
+      return Number(directory.modifiedTime) > 100
+    },
+  })
+
+  assert.deepEqual(requested, ['/music'])
+  assert.deepEqual(result.items.map(item => item.pathOrUri), ['/music/a.mp3'])
+})

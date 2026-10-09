@@ -795,3 +795,72 @@ test('onedrive streamEnumerateSelection emits root-level candidates before neste
   ])
 })
 
+
+test('onedrive streamEnumerateSelection skips nested directories when shouldDescendDirectory returns false', async() => {
+  const requested = []
+  const provider = createOneDriveProvider({
+    async listChildren(_connection, pathOrUri) {
+      requested.push(pathOrUri)
+      if (pathOrUri === '/Albums') {
+        return {
+          items: [
+            {
+              id: 'nested_dir',
+              name: 'Disc 1',
+              folder: { childCount: 1 },
+              size: 0,
+              eTag: '"dir_nested"',
+              parentReference: { path: '/drive/root:/Albums' },
+              lastModifiedDateTime: '2026-04-06T08:00:00Z',
+            },
+            {
+              id: 'album_track',
+              name: 'intro.mp3',
+              file: { mimeType: 'audio/mpeg' },
+              size: 101,
+              eTag: '"track_intro"',
+              parentReference: { path: '/drive/root:/Albums' },
+              lastModifiedDateTime: '2026-04-06T10:00:00Z',
+            },
+          ],
+          nextLink: null,
+        }
+      }
+      throw new Error(`unexpected list ${pathOrUri}`)
+    },
+    async getItemByPath() { return null },
+    async downloadFile() {},
+    async readMetadata() { return null },
+  })
+
+  const result = await provider.streamEnumerateSelection(createConnection(), createSelection(), async() => {}, {
+    shouldDescendDirectory(directory) {
+      return Number(directory.modifiedTime) > Date.parse('2026-04-06T09:00:00Z')
+    },
+  })
+
+  assert.deepEqual(requested, ['/Albums'])
+  assert.deepEqual(result.items.map(item => item.pathOrUri), ['/Albums/intro.mp3'])
+})
+
+test('onedrive hydrateCandidate rethrows network errors instead of degrading metadata', async() => {
+  const provider = createOneDriveProvider({
+    async listChildren() { return { items: [], nextLink: null } },
+    async getItemByPath() { return null },
+    async downloadFile() {
+      throw new Error('onedrive metadata download timed out')
+    },
+    async readMetadata() { return null },
+    createTempFilePath() { return '/tmp/intro.mp3' },
+    async removeTempFile() {},
+  })
+
+  await assert.rejects(
+    () => provider.hydrateCandidate(createConnection(), {
+      sourceStableKey: '/Albums/intro.mp3',
+      pathOrUri: '/Albums/intro.mp3',
+      fileName: 'intro.mp3',
+    }),
+    error => /timed out/.test(String(error?.message || error)),
+  )
+})

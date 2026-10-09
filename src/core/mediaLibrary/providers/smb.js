@@ -116,7 +116,8 @@ async function resolveSmbFile(listDirectory, connection, pathOrUri) {
   return entries.find(entry => !entry.isDirectory && entry.path === pathOrUri) || null
 }
 
-async function streamSmbDirectoryCandidates(listDirectory, connection, pathOrUri, onBatch, seenPaths = new Set()) {
+async function streamSmbDirectoryCandidates(listDirectory, connection, pathOrUri, onBatch, seenPaths = new Set(), options = {}) {
+  await options.onDirectory?.({ pathOrUri })
   const entries = await listDirectory(connection, pathOrUri)
   const currentFiles = []
   const nestedDirectories = []
@@ -140,12 +141,17 @@ async function streamSmbDirectoryCandidates(listDirectory, connection, pathOrUri
 
   const items = [...currentCandidates]
   for (const directory of nestedDirectories) {
+    if (typeof options.shouldDescendDirectory === 'function' && options.shouldDescendDirectory({
+      pathOrUri: directory.path,
+      modifiedTime: directory.modifiedTime || 0,
+    }) === false) continue
     items.push(...await streamSmbDirectoryCandidates(
       listDirectory,
       connection,
       directory.path,
       onBatch,
       seenPaths,
+      options,
     ))
   }
 
@@ -215,7 +221,7 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadata
         .filter(entry => entry.isDirectory || isAudioFile(entry.name))
         .map(toBrowserNode)
     },
-    async streamEnumerateSelection(connection, selection = {}, onBatch) {
+    async streamEnumerateSelection(connection, selection = {}, onBatch, options = {}) {
       const items = []
       const seenPaths = new Set()
 
@@ -226,6 +232,7 @@ function createSmbProvider({ listDirectory, readMetadata, downloadFile, metadata
           directory.pathOrUri,
           onBatch,
           seenPaths,
+          options,
         ))
       }
 

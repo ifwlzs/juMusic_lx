@@ -4,6 +4,10 @@ const { buildAggregateSongs } = require('./dedupe.js')
 const { classifyHydrationResult } = require('./hydrationPolicy.js')
 const { buildGeneratedListsForConnection } = require('./systemLists.js')
 const { mapWithConcurrency } = require('./providers/mapWithConcurrency.js')
+const {
+  createNetworkFailureGuard,
+  isNetworkLikeError,
+} = require('./syncResilience.js')
 
 // 中文注释：hydrate 阶段的并发度。webdav/smb/onedrive 补元数据需要把整首歌下载到临时文件，
 // 串行执行时一次同步的耗时基本等于「所有歌曲下载时间之和」。
@@ -242,6 +246,8 @@ async function runRemoteStreamingSync({
   jobControl = null,
   skipMissingRemoval = false,
   sharedReusableSourceItems = [],
+  consecutiveNetworkFailureLimit = 5,
+  hydrateConcurrency = HYDRATE_CONCURRENCY,
 }) {
   const provider = registry.get(connection.providerType)
   if ((!provider?.streamEnumerateSelection && !provider?.enumerateSelection) || !provider?.hydrateCandidate) {
@@ -276,6 +282,7 @@ async function runRemoteStreamingSync({
   let cachedVisibleStateRules
   let cachedVisibleStateConnections
   let cachedSiblingSnapshots = new Map()
+  const networkGuard = createNetworkFailureGuard({ consecutiveFailureLimit: consecutiveNetworkFailureLimit })
 
   const getVisibleStateRules = async({ refresh = false } = {}) => {
     if (!refresh && cachedVisibleStateRules !== undefined) return cachedVisibleStateRules
@@ -399,7 +406,7 @@ async function runRemoteStreamingSync({
   try {
     await assertJobCanContinue()
     await persistSyncWorkspace('enumerate')
-    await notifications?.showSyncProgress({
+    await notifications?.showSyncProgress?.({
       connectionName: connection.displayName,
       phase: 'enumerate',
       discoveredCount: 0,
@@ -411,7 +418,7 @@ async function runRemoteStreamingSync({
       ...batchCommitterOptions,
       onFlush: async(batch) => {
         committedItems.push(...batch)
-        await notifications?.showSyncProgress({
+        await notifications?.showSyncProgress?.({
           connectionName: connection.displayName,
           phase: 'commit',
           discoveredCount: discoveredCandidates.length,
@@ -427,7 +434,7 @@ async function runRemoteStreamingSync({
       if (!batch.length) return
       let flushedEarlyInBatch = false
 
-      await notifications?.showSyncProgress({
+      await notifications?.showSyncProgress?.({
         connectionName: connection.displayName,
         phase: 'hydrate',
         discoveredCount: discoveredCandidates.length + batch.length,
@@ -501,7 +508,7 @@ async function runRemoteStreamingSync({
             // 中文注释：暂停错误(MEDIA_IMPORT_JOB_PAUSED)立即终止链并向上传播，
             // 让整个 mapWithConcurrency 失败;其它错误(单首歌的临时故障)吞掉,
             // 不影响后续歌曲提交。
-            if (error?.code === 'MEDIA_IMPORT_JOB_PAUSED') {
+            if (error?.code === 'MEDIA_IMPORT_JOB_PAUSED' || error?.code === 'MEDIA_LIBRARY_NETWORK_UNAVAILABLE') {
               commitChainAborted = true
               throw error
             }
@@ -511,11 +518,21 @@ async function runRemoteStreamingSync({
         return commitChain
       }
 
-      await mapWithConcurrency(pendingHydrate, HYDRATE_CONCURRENCY, async({ candidate, candidateKey }) => {
+      await mapWithConcurrency(pendingHydrate, hydrateConcurrency, async({ candidate, candidateKey }) => {
         let classification = { state: 'hydrating' }
         let lastError = ''
+        let lastErrorObject = null
         let lastMetadata = null
         let metadataLevelReached = candidate.metadataLevelReached || 0
+
+        await notifications?.showSyncProgress?.({
+          connectionName: connection.displayName,
+          phase: 'hydrate',
+          discoveredCount: discoveredCandidates.length,
+          committedCount: committedItems.length,
+          totalCount: Math.max(discoveredCandidates.length, 1),
+          currentPath: candidate.fileName || candidate.pathOrUri || '',
+        })
 
         for (let attempt = 1; attempt <= maxHydrateAttempts; attempt += 1) {
           await assertJobCanContinue()
@@ -523,8 +540,11 @@ async function runRemoteStreamingSync({
             const hydrated = await provider.hydrateCandidate(connection, candidate, { attempt })
             lastMetadata = hydrated?.metadata || null
             metadataLevelReached = hydrated?.metadataLevelReached ?? metadataLevelReached
+            lastErrorObject = null
+            lastError = ''
           } catch (error) {
             lastMetadata = null
+            lastErrorObject = error
             lastError = String(error?.message || error || 'hydrate failed')
           }
 
@@ -547,24 +567,71 @@ async function runRemoteStreamingSync({
           if (classification.state !== 'hydrating') break
         }
 
+        if (classification.state === 'ready') {
+          networkGuard.recordSuccess()
+        } else if (isNetworkLikeError(lastErrorObject)) {
+          networkGuard.recordFailure(lastErrorObject)
+        }
+
         // 中文注释：并发时,多首歌同时越过 hydrate 循环开头的检查点。
         // 若某一首完成后暂停信号到达,其它还在飞的歌曲会继续完成 hydrate。
         // 在入队提交前再检查一次:若此时已暂停,则这首歌的提交任务不入队,
         // 同时抛出暂停错误让 mapWithConcurrency 失败、终止整个同步。
-        await assertJobCanContinue()
-
         // 中文注释：这一首刚 hydrate 完就立刻排进提交链，不等同批其它歌曲。
-        // 注意：不在提交任务里再调用 assertJobCanContinue，因为并发时它会在
-        // 「其它歌曲已完成 hydrate」之后才执行，此时 isPauseRequested 可能
-        // 已为 true，但这首歌既然已完成 hydrate 就应该让它提交。
-        // 暂停检查只在 hydrate 循环开头(第 521 行)，决定是否启动新的 hydrate 尝试。
+        // 不在提交前再检查暂停：并发时其它歌曲可能已经把 isPauseRequested 设为 true，
+        // 但这首歌既然已完成 hydrate 就应该提交。
         await enqueueCommit(async() => {
-          if (classification.state === 'ready') readyCount += 1
-          if (classification.state === 'degraded') degradedCount += 1
+          const previousItem = previousItemsByKey.get(candidateKey)
+          const canReusePrevious = Boolean(
+            previousItem
+            && Number(previousItem.durationSec) > 0
+            && previousItem.scanStatus !== 'degraded',
+          )
+
+          if (classification.state === 'ready') {
+            readyCount += 1
+            const sourceItem = buildSourceItemFromCandidate({
+              connection,
+              candidate: {
+                ...candidate,
+                sourceStableKey: candidateKey,
+              },
+              classification,
+              scanAt,
+            })
+            candidateStates.set(candidateKey, {
+              ...candidateStates.get(candidateKey),
+              hydrateState: 'committed',
+            })
+            await committer.push(sourceItem)
+            if (flushAfterBatch) {
+              await committer.flush()
+              flushedEarlyInBatch = true
+            }
+            return
+          }
+
           if (lastError) failedCount += 1
 
-          if (classification.state !== 'ready' && classification.state !== 'degraded') return
+          if (canReusePrevious) {
+            candidateStates.set(candidateKey, {
+              ...candidateStates.get(candidateKey),
+              hydrateState: 'committed',
+            })
+            await committer.push({
+              ...previousItem,
+              lastSeenAt: scanAt,
+            })
+            if (flushAfterBatch) {
+              await committer.flush()
+              flushedEarlyInBatch = true
+            }
+            return
+          }
 
+          if (classification.state !== 'degraded' || isNetworkLikeError(lastErrorObject)) return
+
+          degradedCount += 1
           const sourceItem = buildSourceItemFromCandidate({
             connection,
             candidate: {
@@ -579,7 +646,7 @@ async function runRemoteStreamingSync({
             hydrateState: 'committed',
           })
           await committer.push(sourceItem)
-          if (flushAfterBatch && !flushedEarlyInBatch) {
+          if (flushAfterBatch) {
             await committer.flush()
             flushedEarlyInBatch = true
           }
@@ -604,7 +671,7 @@ async function runRemoteStreamingSync({
       await processCandidateBatch(enumerateResult.items || [])
     }
 
-    await notifications?.showSyncProgress({
+    await notifications?.showSyncProgress?.({
       connectionName: connection.displayName,
       phase: 'hydrate',
       discoveredCount: discoveredCandidates.length,
@@ -622,7 +689,7 @@ async function runRemoteStreamingSync({
     })
 
     if (!skipMissingRemoval && removedIds.length && typeof listApi?.removeMissingSongs === 'function') {
-      await notifications?.showSyncProgress({
+      await notifications?.showSyncProgress?.({
         connectionName: connection.displayName,
         phase: 'reconcile_delete',
         discoveredCount: discoveredCandidates.length,
@@ -665,7 +732,7 @@ async function runRemoteStreamingSync({
       failedCount,
     })
 
-    await notifications?.showSyncFinished({
+    await notifications?.showSyncFinished?.({
       connectionName: connection.displayName,
       committedCount: nextItems.length,
       removedCount: removedIds.length,
@@ -737,7 +804,7 @@ async function runRemoteStreamingSync({
       committedCount: committedItems.length,
       failedCount: failedCount || 1,
     })
-    await notifications?.showSyncFailed({
+    await notifications?.showSyncFailed?.({
       connectionName: connection.displayName,
       errorMessage: String(error?.message || error || '同步失败'),
     })

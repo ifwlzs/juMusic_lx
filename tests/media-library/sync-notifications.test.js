@@ -44,3 +44,30 @@ test('buildFinishedMessage reports committed and removed counts', () => {
     '已更新 12/15 首歌曲，移除 2 首',
   )
 })
+
+test('buildFinishedMessage caps committed count at discovered total', () => {
+  assert.equal(
+    buildFinishedMessage({ committedCount: 10574, totalCount: 10566 }),
+    '已更新 10566/10566 首歌曲',
+  )
+})
+
+test('buildProgressMessage appends the current path so scan progress keeps moving', () => {
+  assert.equal(
+    buildProgressMessage({
+      phase: 'enumerate',
+      discoveredCount: 8000,
+      currentPath: '/Music/Artist/Album',
+    }),
+    '正在扫描远端媒体 8000 · /Music/Artist/Album',
+  )
+  assert.equal(
+    buildProgressMessage({
+      phase: 'hydrate',
+      committedCount: 12,
+      totalCount: 20,
+      currentPath: 'song.flac',
+    }),
+    '正在补全歌曲信息 12/20 · song.flac',
+  )
+})

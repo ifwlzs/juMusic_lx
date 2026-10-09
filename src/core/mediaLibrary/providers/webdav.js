@@ -1,6 +1,7 @@
 const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
 const { parseMultiStatus } = require('./webdavXml.js')
 const { resolveDownloadResult } = require('../downloadResult.js')
+const { isNetworkLikeError } = require('../syncResilience.js')
 const { buildWebdavVersionToken } = require('../versionToken.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
@@ -96,7 +97,8 @@ async function resolveTrackEntry(request, connection, pathOrUri) {
   return entries.find(item => normalizeHref(item.href) === normalizedTarget) || null
 }
 
-async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, onBatch, seenKeys = new Set(), directoryConcurrency = DEFAULT_CONCURRENCY) {
+async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, onBatch, seenKeys = new Set(), directoryConcurrency = DEFAULT_CONCURRENCY, options = {}) {
+  await options.onDirectory?.({ pathOrUri })
   const entries = await requestPropfind(request, connection, pathOrUri, '1')
   const normalizedRoot = normalizeHref(pathOrUri)
   const currentFiles = []
@@ -124,7 +126,14 @@ async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, o
   if (currentCandidates.length) await emitBatches(currentCandidates, onBatch)
 
   const items = [...currentCandidates]
-  const nestedItems = await mapWithConcurrency(nestedDirectories, directoryConcurrency, async directory => {
+  const descendableDirectories = nestedDirectories.filter(directory => {
+    if (typeof options.shouldDescendDirectory !== 'function') return true
+    return options.shouldDescendDirectory({
+      pathOrUri: directory.href,
+      modifiedTime: directory.modifiedTime || 0,
+    }) !== false
+  })
+  const nestedItems = await mapWithConcurrency(descendableDirectories, directoryConcurrency, async directory => {
     return await streamWebdavDirectoryCandidates(
       request,
       connection,
@@ -132,6 +141,7 @@ async function streamWebdavDirectoryCandidates(request, connection, pathOrUri, o
       onBatch,
       seenKeys,
       directoryConcurrency,
+      options,
     )
   })
   for (const result of nestedItems) items.push(...result)
@@ -159,7 +169,8 @@ async function readRemoteMetadata({
       operation: 'webdav metadata download',
     })
     return await readMetadata(tempFilePath, connection, item)
-  } catch {
+  } catch (error) {
+    if (isNetworkLikeError(error)) throw error
     return null
   } finally {
     if (removeTempFile) {
@@ -310,7 +321,7 @@ function createWebdavProvider({
         .filter(item => isDirectoryHref(item.href) || isAudioFile(getFileName(item.href)))
         .map(toBrowserNode)
     },
-    async streamEnumerateSelection(connection, selection = {}, onBatch) {
+    async streamEnumerateSelection(connection, selection = {}, onBatch, options = {}) {
       const items = []
       const seenKeys = new Set()
       for (const directory of selection.directories || []) {
@@ -321,6 +332,7 @@ function createWebdavProvider({
           onBatch,
           seenKeys,
           directoryConcurrency,
+          options,
         ))
       }
       for (const track of selection.tracks || []) {

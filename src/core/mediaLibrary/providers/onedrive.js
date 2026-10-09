@@ -1,5 +1,6 @@
 const { DEFAULT_CONCURRENCY, mapWithConcurrency } = require('./mapWithConcurrency.js')
 const { resolveDownloadResult } = require('../downloadResult.js')
+const { isNetworkLikeError } = require('../syncResilience.js')
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'])
 
@@ -102,7 +103,8 @@ async function readRemoteMetadata({
       operation: 'onedrive metadata download',
     })
     return await readMetadata(tempFilePath, connection, item)
-  } catch {
+  } catch (error) {
+    if (isNetworkLikeError(error)) throw error
     return null
   } finally {
     if (removeTempFile) {
@@ -244,7 +246,8 @@ function dedupeCandidates(candidates = [], seenKeys = new Set()) {
   })
 }
 
-async function streamDirectoryCandidates(listChildren, connection, pathOrUri, onBatch, seenKeys) {
+async function streamDirectoryCandidates(listChildren, connection, pathOrUri, onBatch, seenKeys, options = {}) {
+  await options.onDirectory?.({ pathOrUri })
   const entries = await collectPagedChildren(listChildren, connection, pathOrUri)
   const files = []
   const nestedDirectories = []
@@ -265,12 +268,18 @@ async function streamDirectoryCandidates(listChildren, connection, pathOrUri, on
 
   const items = [...currentCandidates]
   for (const entry of dedupeItems(nestedDirectories)) {
+    const nestedPath = buildPathOrUri(entry)
+    if (typeof options.shouldDescendDirectory === 'function' && options.shouldDescendDirectory({
+      pathOrUri: nestedPath,
+      modifiedTime: entry?.lastModifiedDateTime ? Date.parse(entry.lastModifiedDateTime) || 0 : 0,
+    }) === false) continue
     items.push(...await streamDirectoryCandidates(
       listChildren,
       connection,
-      buildPathOrUri(entry),
+      nestedPath,
       onBatch,
       seenKeys,
+      options,
     ))
   }
 
@@ -294,7 +303,7 @@ function createOneDriveProvider({
         .filter(item => item?.folder || isAudioFile(item?.name))
         .map(toBrowserNode)
     },
-    async streamEnumerateSelection(connection, selection = {}, onBatch) {
+    async streamEnumerateSelection(connection, selection = {}, onBatch, options = {}) {
       const items = []
       const seenKeys = new Set()
       for (const directory of selection.directories || []) {
@@ -304,6 +313,7 @@ function createOneDriveProvider({
           directory.pathOrUri,
           onBatch,
           seenKeys,
+          options,
         ))
       }
       for (const track of selection.tracks || []) {

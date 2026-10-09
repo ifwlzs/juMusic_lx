@@ -85,3 +85,10 @@ test('runtime registry 默认开启 WebDAV 同步补元数据并保持扫描轻�
   assert.match(file, /const webdavProvider = createWebdavProvider\([\s\S]+?hydrateMetadataOnScan:\s*false,/)
   assert.doesNotMatch(file, /const webdavProvider = createWebdavProvider\([\s\S]+?hydrateMetadataOnSync:\s*false,/)
 })
+
+test('runtime registry applies webdav request and download timeouts', () => {
+  const file = readFile('src/core/mediaLibrary/runtimeRegistry.js')
+  assert.match(file, /createTimeoutSignal/)
+  assert.match(file, /connectionTimeout/)
+  assert.match(file, /readTimeout/)
+})
