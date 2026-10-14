@@ -11,7 +11,7 @@ import {
 } from '@/core/list'
 import { deleteImportRule, updateImportRule, updateMediaConnection } from './importSync'
 import { runEligibleMediaLibraryAutoSync } from './autoSync'
-import { createMediaImportJobQueue } from './jobs.js'
+import { createMediaImportJobQueue, DEFAULT_STALE_HEARTBEAT_MS } from './jobs.js'
 import { createMediaLibraryListApi } from './listApi'
 import { getMediaLibraryRuntimeRegistry } from './runtimeRegistry'
 import { createMediaLibrarySyncNotifications } from './syncNotifications'
@@ -252,6 +252,17 @@ const getQueue = () => {
 
 export const ensureMediaLibraryJobQueue = async() => getQueue().ensureProcessing()
 
+export const hasActiveMediaLibrarySyncJobs = async() => {
+  const jobs = await mediaLibraryRepository.getImportJobs() as LX.MediaLibrary.ImportJob[]
+  const currentTime = Date.now()
+  return (jobs || []).some(job => {
+    if (job.status === 'queued') return true
+    if (job.status !== 'running') return false
+    if (!job.heartbeatAt) return true
+    return currentTime - job.heartbeatAt <= DEFAULT_STALE_HEARTBEAT_MS
+  })
+}
+
 export const startMediaLibraryJobQueue = () => {
   void ensureMediaLibraryJobQueue()
 }
@@ -273,10 +284,9 @@ export const enqueueImportRuleSyncJob = async({
 }) => {
   const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
   const connection = connections.find(item => item.connectionId === connectionId)
-  await maybeStartBackgroundSync(connection)
   await setRuleStatus(ruleId, 'running', 'queued')
   await setConnectionStatus(connectionId, 'running', 'queued')
-  return getQueue().enqueueImportRuleJob({
+  const job = await getQueue().enqueueImportRuleJob({
     connectionId,
     ruleId,
     payload: {
@@ -286,6 +296,8 @@ export const enqueueImportRuleSyncJob = async({
     },
     conflictMode,
   })
+  await maybeStartBackgroundSync(connection)
+  return job
 }
 
 export const enqueueConnectionSyncJob = async({
@@ -299,7 +311,6 @@ export const enqueueConnectionSyncJob = async({
 }) => {
   const connections = await mediaLibraryRepository.getConnections() as LX.MediaLibrary.SourceConnection[]
   const connection = connections.find(item => item.connectionId === connectionId)
-  await maybeStartBackgroundSync(connection)
   const job = await getQueue().enqueueConnectionJob({
     connectionId,
     payload: {
@@ -311,6 +322,7 @@ export const enqueueConnectionSyncJob = async({
     await setConnectionRulesStatus(connectionId, 'running', 'queued')
     await setConnectionStatus(connectionId, 'running', 'queued')
   }
+  await maybeStartBackgroundSync(connection)
   return job
 }
 

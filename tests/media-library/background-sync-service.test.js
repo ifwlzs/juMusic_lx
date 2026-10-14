@@ -28,6 +28,9 @@ test('android media library sync host uses a foreground headless task service', 
   assert.match(packageFile, /new MediaLibrarySyncServiceModule/)
   assert.match(manifestFile, /MediaLibrarySyncTaskService/)
   assert.match(manifestFile, /foregroundServiceType="dataSync"/)
+  assert.match(manifestFile, /FOREGROUND_SERVICE_DATA_SYNC/)
+  assert.match(serviceFile, /HeadlessJsTaskConfig\([\s\S]*12L?\s*\*\s*60L?\s*\*\s*60L?\s*\*\s*1000L?/)
+  assert.match(serviceFile, /stopForeground\(false\)|STOP_FOREGROUND_DETACH/)
 })
 
 test('js media library sync registers a headless task and requests native background execution', () => {
@@ -43,6 +46,7 @@ test('js media library sync registers a headless task and requests native backgr
 
   assert.match(taskFile, /runMediaLibrarySyncHeadlessTask/)
   assert.match(taskFile, /ensureMediaLibraryJobQueue/)
+  assert.match(taskFile, /hasActiveMediaLibrarySyncJobs/)
   assert.match(taskFile, /stopBackgroundSync/)
 
   assert.match(bridgeFile, /startBackgroundSync/)
@@ -50,6 +54,15 @@ test('js media library sync registers a headless task and requests native backgr
 
   assert.match(queueFile, /startBackgroundSync/)
   assert.match(queueFile, /ensureMediaLibraryJobQueue/)
+  assert.match(queueFile, /hasActiveMediaLibrarySyncJobs/)
+  assert.match(
+    queueFile,
+    /enqueueImportRuleJob\([\s\S]*maybeStartBackgroundSync\(connection\)/,
+  )
+  assert.match(
+    queueFile,
+    /enqueueConnectionJob\([\s\S]*maybeStartBackgroundSync\(connection\)/,
+  )
 })
 
 test('android sync foreground service reuses the latest notification state instead of always reverting to the placeholder', () => {
@@ -66,3 +79,33 @@ test('android sync foreground service reuses the latest notification state inste
   assert.match(moduleFile, /showNotification\(title, message, true\)/)
   assert.match(serviceFile, /buildForegroundNotification\(/)
 })
+
+test('waitUntilMediaLibraryQueueIdle keeps draining while jobs remain active', async() => {
+  const servicePath = require.resolve('../../src/utils/nativeModules/mediaLibrarySyncService.js')
+  require.cache[servicePath] = {
+    id: servicePath,
+    filename: servicePath,
+    loaded: true,
+    exports: {
+      startBackgroundSync() { return false },
+      stopBackgroundSync() { return false },
+    },
+  }
+  const { waitUntilMediaLibraryQueueIdle } = require('../../src/core/mediaLibrary/backgroundSyncTask.js')
+  let ensureCalls = 0
+  let activeChecks = 0
+
+  await waitUntilMediaLibraryQueueIdle({
+    async ensureProcessing() {
+      ensureCalls += 1
+    },
+    async hasActiveJobs() {
+      activeChecks += 1
+      return activeChecks < 3
+    },
+  })
+
+  assert.equal(ensureCalls, 3)
+  assert.equal(activeChecks, 3)
+})
+

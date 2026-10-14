@@ -54,7 +54,9 @@ public class MediaLibrarySyncTaskService extends HeadlessJsTaskService {
     if (intent != null && intent.hasExtra(EXTRA_TRIGGER)) {
       data.putString(EXTRA_TRIGGER, intent.getStringExtra(EXTRA_TRIGGER));
     }
-    return new HeadlessJsTaskConfig(TASK_KEY, data, 0, true);
+    // 中文注释：超时取 12 小时。媒体库全量同步上万首歌可能跑很久，
+    // 0 在部分 RN 版本里会被当成立刻结束。allowedInForeground 让前台点更新也能挂上前台服务。
+    return new HeadlessJsTaskConfig(TASK_KEY, data, 12L * 60L * 60L * 1000L, true);
   }
 
   @Override
@@ -65,7 +67,8 @@ public class MediaLibrarySyncTaskService extends HeadlessJsTaskService {
   @Override
   public void onDestroy() {
     RUNNING.set(false);
-    stopForeground(true);
+    // 中文注释：不要把通知一起清掉。同步完成/失败的通知需要留在栏里给用户看。
+    stopForeground(false);
     super.onDestroy();
   }
 }
