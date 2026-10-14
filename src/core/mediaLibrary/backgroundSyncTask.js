@@ -2,11 +2,26 @@ const { stopBackgroundSync } = require('../../utils/nativeModules/mediaLibrarySy
 
 const MEDIA_LIBRARY_SYNC_HEADLESS_TASK = 'MediaLibrarySyncHeadlessTask'
 
+async function waitUntilMediaLibraryQueueIdle({
+  ensureProcessing,
+  hasActiveJobs,
+} = {}) {
+  do {
+    await ensureProcessing?.()
+  } while (await hasActiveJobs?.())
+}
+
 async function runMediaLibrarySyncHeadlessTask() {
-  const { ensureMediaLibraryJobQueue } = require('./jobQueue')
+  const {
+    ensureMediaLibraryJobQueue,
+    hasActiveMediaLibrarySyncJobs,
+  } = require('./jobQueue')
 
   try {
-    await ensureMediaLibraryJobQueue()
+    await waitUntilMediaLibraryQueueIdle({
+      ensureProcessing: ensureMediaLibraryJobQueue,
+      hasActiveJobs: hasActiveMediaLibrarySyncJobs,
+    })
   } finally {
     try {
       await stopBackgroundSync()
@@ -17,4 +32,5 @@ async function runMediaLibrarySyncHeadlessTask() {
 module.exports = {
   MEDIA_LIBRARY_SYNC_HEADLESS_TASK,
   runMediaLibrarySyncHeadlessTask,
+  waitUntilMediaLibraryQueueIdle,
 }
