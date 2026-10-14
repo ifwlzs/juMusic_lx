@@ -31,6 +31,9 @@ test('android media library sync host uses a foreground headless task service', 
   assert.match(manifestFile, /FOREGROUND_SERVICE_DATA_SYNC/)
   assert.match(serviceFile, /HeadlessJsTaskConfig\([\s\S]*12L?\s*\*\s*60L?\s*\*\s*60L?\s*\*\s*1000L?/)
   assert.match(serviceFile, /stopForeground\(false\)|STOP_FOREGROUND_DETACH/)
+  assert.match(serviceFile, /START_STICKY/)
+  assert.match(serviceFile, /sticky_restart/)
+  assert.match(moduleFile, /MediaLibrarySyncPrefs/)
 })
 
 test('js media library sync registers a headless task and requests native background execution', () => {

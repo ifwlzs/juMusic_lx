@@ -32,7 +32,7 @@ final class SpectrumPlaybackDelay {
   }
 
   private final ArrayDeque<Frame> queue = new ArrayDeque<>();
-  private final int delayMs;
+  private int delayMs;
   private final int bandCount;
 
   SpectrumPlaybackDelay() {
@@ -42,6 +42,10 @@ final class SpectrumPlaybackDelay {
   SpectrumPlaybackDelay(int delayMs, int bandCount) {
     this.delayMs = Math.max(0, delayMs);
     this.bandCount = Math.max(1, bandCount);
+  }
+
+  void setDelayMs(int delayMs) {
+    this.delayMs = Math.max(0, delayMs);
   }
 
   void submit(float[] bands, long nowMs) {

@@ -1,5 +1,7 @@
 package io.ifwlzs.jumusic.lx.visualizer;
 
+import android.content.Context;
+
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 
@@ -14,8 +16,18 @@ import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 public final class SpectrumTap {
 
   private static volatile boolean installed = false;
+  private static volatile Context appContext;
 
   private SpectrumTap() {}
+
+  public static void attachContext(Context context) {
+    if (context == null) return;
+    appContext = context.getApplicationContext();
+  }
+
+  static Context getAppContext() {
+    return appContext;
+  }
 
   /**
    * 中文注释：返回给 ExoPlayer 使用的音频处理器数组。

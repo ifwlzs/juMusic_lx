@@ -45,7 +45,16 @@ public class MediaLibrarySyncTaskService extends HeadlessJsTaskService {
             true
         )
     );
-    return super.onStartCommand(intent, flags, startId);
+    if (intent == null) {
+      if (!MediaLibrarySyncPrefs.isActive(this)) {
+        stopSelf();
+        return START_NOT_STICKY;
+      }
+      intent = createIntent(this);
+      intent.putExtra(EXTRA_TRIGGER, "sticky_restart");
+    }
+    super.onStartCommand(intent, flags, startId);
+    return START_STICKY;
   }
 
   @Override
