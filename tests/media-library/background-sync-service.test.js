@@ -95,6 +95,7 @@ test('waitUntilMediaLibraryQueueIdle keeps draining while jobs remain active', a
   let ensureCalls = 0
   let activeChecks = 0
 
+  const waits = []
   await waitUntilMediaLibraryQueueIdle({
     async ensureProcessing() {
       ensureCalls += 1
@@ -103,9 +104,13 @@ test('waitUntilMediaLibraryQueueIdle keeps draining while jobs remain active', a
       activeChecks += 1
       return activeChecks < 3
     },
+    async wait(ms) {
+      waits.push(ms)
+    },
   })
 
   assert.equal(ensureCalls, 3)
   assert.equal(activeChecks, 3)
+  assert.deepEqual(waits, [500, 500])
 })
 

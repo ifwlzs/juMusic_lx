@@ -11,6 +11,7 @@ const {
   createNetworkFailureGuard,
   isNetworkLikeError,
 } = require('./syncResilience.js')
+const { createCheckpointGate } = require('./checkpointGate.js')
 
 function dedupeSourceItems(items = []) {
   const map = new Map()
@@ -656,8 +657,10 @@ async function runIncrementalSync({
     })
   }
 
-  const persistIncrementalCheckpoint = async() => {
+  const checkpointGate = createCheckpointGate()
+  const persistIncrementalCheckpoint = async({ force = false } = {}) => {
     if (typeof repository.saveImportSnapshot !== 'function') return
+    if (!checkpointGate.shouldSave(processedCount, { force })) return
     await repository.saveImportSnapshot(rule.ruleId, {
       ruleId: rule.ruleId,
       scannedAt: previousSnapshot.scannedAt ?? null,
@@ -668,6 +671,7 @@ async function runIncrementalSync({
       selectionStats: previousSnapshot.selectionStats || [],
       items: dedupeSourceItems([...nextItemsByKey.values()]),
     })
+    checkpointGate.markSaved(processedCount)
   }
 
   const assertJobCanContinue = async() => {
