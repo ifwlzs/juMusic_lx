@@ -577,12 +577,6 @@ async function runFullSync({
   }
 }
 
-function shouldDescendUnchangedDirectory(directory, lastIncrementalCutoff) {
-  const modifiedTime = Number(directory?.modifiedTime) || 0
-  if (!modifiedTime || !lastIncrementalCutoff) return true
-  return modifiedTime > lastIncrementalCutoff
-}
-
 async function runIncrementalSync({
   connection,
   rule,
@@ -629,9 +623,6 @@ async function runIncrementalSync({
   let processedCount = 0
   const networkGuard = createNetworkFailureGuard({ consecutiveFailureLimit: consecutiveNetworkFailureLimit })
   const enumerateOptions = {
-    shouldDescendDirectory(directory) {
-      return shouldDescendUnchangedDirectory(directory, lastIncrementalCutoff)
-    },
     async onDirectory(directory) {
       await jobControl?.heartbeat?.()
       if (await jobControl?.isPauseRequested?.()) throw createMediaImportJobPausedError()

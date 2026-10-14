@@ -2691,7 +2691,7 @@ test('syncImportRule incremental finished notification uses this-run counts inst
   }])
 })
 
-test('syncImportRule incremental passes shouldDescendDirectory using lastIncrementalCutoff', async() => {
+test('syncImportRule incremental keeps descending nested directories when folder mtime is stale', async() => {
   const connection = createConnection({ providerType: 'webdav', displayName: 'Remote Disk' })
   const rule = createRule()
   let streamOptions = null
@@ -2741,9 +2741,7 @@ test('syncImportRule incremental passes shouldDescendDirectory using lastIncreme
     now: () => 200,
   })
 
-  assert.equal(typeof streamOptions.shouldDescendDirectory, 'function')
-  assert.equal(streamOptions.shouldDescendDirectory({ modifiedTime: 140 }), false)
-  assert.equal(streamOptions.shouldDescendDirectory({ modifiedTime: 180 }), true)
+  assert.equal(streamOptions.shouldDescendDirectory, undefined)
   assert.equal(typeof streamOptions.onDirectory, 'function')
 })
 

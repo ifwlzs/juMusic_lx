@@ -25,6 +25,7 @@ public class SpectrumAnalyzerTest {
     testPlaybackDelayHoldsUntilDue();
     testPlaybackDelayEmitsInOrderAfterDelay();
     testPlaybackDelayResetDropsPendingFrames();
+    testOutputDelayPolicyUsesLongerBluetoothDelay();
     System.out.println("\nAll " + passed + " spectrum checks passed.");
   }
 
@@ -214,5 +215,18 @@ public class SpectrumAnalyzerTest {
     final int[] emitted = { 0 };
     delay.drain(1000L, ignored -> emitted[0]++);
     check("reset drops unpublished frames", emitted[0] == 0, "reset still emitted " + emitted[0]);
+  }
+
+  private static void testOutputDelayPolicyUsesLongerBluetoothDelay() {
+    check(
+      "speaker delay stays at 100ms",
+      SpectrumOutputDelayPolicy.resolveDelayMs(false) == 100,
+      "got " + SpectrumOutputDelayPolicy.resolveDelayMs(false)
+    );
+    check(
+      "bluetooth delay is longer than speaker delay",
+      SpectrumOutputDelayPolicy.resolveDelayMs(true) > SpectrumOutputDelayPolicy.resolveDelayMs(false),
+      "bt=" + SpectrumOutputDelayPolicy.resolveDelayMs(true)
+    );
   }
 }

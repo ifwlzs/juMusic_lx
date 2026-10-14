@@ -1,6 +1,10 @@
 package io.ifwlzs.jumusic.lx.visualizer;
 
+import android.content.Context;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -65,6 +69,7 @@ public final class SpectrumAudioBufferSink
         analyzer.pushSample(mixed / channelCount);
 
         if (analyzer.isFrameReady()) {
+          playbackDelay.setDelayMs(SpectrumOutputDelayPolicy.resolveDelayMs(isBluetoothOutput()));
           playbackDelay.submit(analyzer.analyze(), SystemClock.uptimeMillis());
           schedulePublish();
         }
@@ -72,6 +77,23 @@ public final class SpectrumAudioBufferSink
     } finally {
       buffer.order(originalOrder);
     }
+  }
+
+  private boolean isBluetoothOutput() {
+    Context context = SpectrumTap.getAppContext();
+    if (context == null) return false;
+    AudioManager manager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+    if (manager == null) return false;
+    if (manager.isBluetoothA2dpOn()) return true;
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
+    AudioDeviceInfo[] devices = manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+    for (AudioDeviceInfo device : devices) {
+      int type = device.getType();
+      if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void schedulePublish() {

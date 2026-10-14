@@ -14,6 +14,7 @@ public class VisualizerModule extends ReactContextBaseJavaModule {
 
   VisualizerModule(ReactApplicationContext reactContext) {
     super(reactContext);
+    SpectrumTap.attachContext(reactContext);
   }
 
   @Override

@@ -27,6 +27,7 @@ public class MediaLibrarySyncServiceModule extends ReactContextBaseJavaModule {
   public void startBackgroundSync(Promise promise) {
     try {
       ReactApplicationContext context = getReactApplicationContext();
+      MediaLibrarySyncPrefs.setActive(context, true);
       if (MediaLibrarySyncTaskService.isRunning()) {
         promise.resolve(true);
         return;
@@ -45,6 +46,7 @@ public class MediaLibrarySyncServiceModule extends ReactContextBaseJavaModule {
   public void stopBackgroundSync(Promise promise) {
     try {
       ReactApplicationContext context = getReactApplicationContext();
+      MediaLibrarySyncPrefs.setActive(context, false);
       boolean stopped = context.stopService(MediaLibrarySyncTaskService.createIntent(context));
       promise.resolve(stopped);
     } catch (Exception exception) {

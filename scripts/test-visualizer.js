@@ -15,6 +15,7 @@ const sources = [
   path.join(nativeDir, 'SpectrumAnalyzer.java'),
   path.join(nativeDir, 'AudioSpectrumBus.java'),
   path.join(nativeDir, 'SpectrumPlaybackDelay.java'),
+  path.join(nativeDir, 'SpectrumOutputDelayPolicy.java'),
   testFile,
 ]
 
