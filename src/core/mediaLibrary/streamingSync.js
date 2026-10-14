@@ -8,6 +8,7 @@ const {
   createNetworkFailureGuard,
   isNetworkLikeError,
 } = require('./syncResilience.js')
+const { createCheckpointGate } = require('./checkpointGate.js')
 
 // 中文注释：hydrate 阶段的并发度。webdav/smb/onedrive 补元数据需要把整首歌下载到临时文件，
 // 串行执行时一次同步的耗时基本等于「所有歌曲下载时间之和」。
@@ -302,10 +303,12 @@ async function runRemoteStreamingSync({
     return connections
   }
 
-  const persistCheckpoint = async(currentCommittedItems = committedItems) => {
+  const snapshotGate = createCheckpointGate()
+  const persistCheckpoint = async(currentCommittedItems = committedItems, { force = false } = {}) => {
     const checkpointItems = mergeSourceItems(previousSnapshot.items, dedupeSourceItems(currentCommittedItems))
     await recomputeVisibleState(checkpointItems, { persistFinalState: false })
-    if (typeof repository.saveImportSnapshot === 'function') {
+    const count = currentCommittedItems.length
+    if (typeof repository.saveImportSnapshot === 'function' && snapshotGate.shouldSave(count, { force })) {
       await repository.saveImportSnapshot(rule.ruleId, {
         ruleId: rule.ruleId,
         scannedAt: previousSnapshot.scannedAt ?? null,
@@ -314,6 +317,7 @@ async function runRemoteStreamingSync({
         lastFullValidationAt: previousSnapshot.lastFullValidationAt ?? null,
         pendingFullValidation: previousSnapshot.pendingFullValidation === true,
       })
+      snapshotGate.markSaved(count)
     }
     return checkpointItems
   }
