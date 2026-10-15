@@ -34,6 +34,7 @@ function createPrefetchScheduler({
   shouldDeferPrefetch = async() => false,
   wait = delay => new Promise(resolve => setTimeout(resolve, delay)),
   retryDelayMs = 1500,
+  maxDeferMs = 5_000,
 }) {
   let currentToken = 0
 
@@ -43,10 +44,13 @@ function createPrefetchScheduler({
       const token = currentToken
       if (!currentMusicInfo || !nextMusicInfo) return
       await Promise.resolve()
+      let deferredMs = 0
       for (;;) {
         if (token !== currentToken) return
         if (!await shouldDeferPrefetch()) break
+        if (deferredMs >= maxDeferMs) break
         await wait(retryDelayMs)
+        deferredMs += retryDelayMs
       }
       if (token !== currentToken) return
       await ensureCached(nextMusicInfo, 'prefetch')
