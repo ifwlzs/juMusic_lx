@@ -31,9 +31,11 @@ const prefetchScheduler = createPrefetchScheduler({
     ])
     return shouldDeferPrefetchForRemoteSync({ syncRuns, importJobs })
   },
+  maxDeferMs: 5_000,
 })
-const preloadNextMusicUrl = async(curTime: number) => {
-  if (preloadMusicInfo.isLoading || curTime - preloadMusicInfo.preProgress < 3) return
+const preloadNextMusicUrl = async(curTime: number, { force = false } = {}) => {
+  if (preloadMusicInfo.isLoading) return
+  if (!force && curTime - preloadMusicInfo.preProgress < 3) return
   preloadMusicInfo.isLoading = true
   console.log('preload next music url')
   const info = await getNextPlayMusicInfo()
@@ -83,8 +85,14 @@ export default () => {
     }
   }
 
+  const handlePlaying = () => {
+    if (!playerState.isPlay || preloadMusicInfo.info || preloadMusicInfo.isLoading) return
+    void preloadNextMusicUrl(playerState.progress.nowPlayTime, { force: true })
+  }
+
   global.app_event.on('setProgress', setProgress)
   global.app_event.on('musicToggled', handleSetPlayInfo)
+  global.app_event.on('playerPlaying', handlePlaying)
   global.state_event.on('configUpdated', handleConfigUpdated)
   global.state_event.on('playProgressChanged', handlePlayProgressChanged)
 }

@@ -33,6 +33,29 @@ test('prefetch scheduler starts the next track after current playback begins', a
   assert.deepEqual(calls, [['next', 'prefetch']])
 })
 
+test('prefetch scheduler stops deferring after maxDeferMs so playback is not blocked by a long sync', async() => {
+  const calls = []
+  const waits = []
+  const scheduler = createPrefetchScheduler({
+    async ensureCached(musicInfo, origin) {
+      calls.push([musicInfo.id, origin])
+    },
+    async shouldDeferPrefetch() {
+      return true
+    },
+    async wait(delay) {
+      waits.push(delay)
+    },
+    retryDelayMs: 1000,
+    maxDeferMs: 2500,
+  })
+
+  await scheduler.onTrackStarted({ id: 'current' }, { id: 'next' })
+
+  assert.deepEqual(calls, [['next', 'prefetch']])
+  assert.deepEqual(waits, [1000, 1000, 1000])
+})
+
 test('prefetch scheduler defers next-track downloads while remote sync is actively enumerating or hydrating', async() => {
   const calls = []
   const waits = []
@@ -205,4 +228,6 @@ test('media library playback path records play caches and next-track prefetch ch
   assert.match(preloadFile, /mediaLibraryRepository\.getSyncRuns\(\)/)
   assert.match(preloadFile, /mediaLibraryRepository\.getImportJobs\(\)/)
   assert.match(preloadFile, /prefetchMediaLibraryTrack/)
+  assert.match(preloadFile, /playerPlaying/)
+  assert.match(preloadFile, /maxDeferMs/)
 })
