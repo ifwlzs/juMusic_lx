@@ -36,15 +36,15 @@ test('current track id is read from the native queue so auto-advance cannot see 
   assert.match(handlePlayMusicBlock, /await TrackPlayer\.remove\(/)
 })
 
-test('playback service keeps the session playing on the silence placeholder while auto-advancing', () => {
+test('playback service pauses the silence placeholder instead of looping it', () => {
   const serviceFile = readFile('src/plugins/player/service.ts')
+  const emitBlock = serviceFile.slice(serviceFile.indexOf('const emitAutoAdvance'))
 
-  assert.match(serviceFile, /setRepeatMode\(\s*RepeatMode\.Track\s*\)/)
-  assert.match(serviceFile, /playerEnded\(\)/)
-  assert.match(serviceFile, /PlaybackQueueEnded/)
-  assert.doesNotMatch(serviceFile, /isEmpty\(\)\) \{\s*[\s\S]{0,80}TrackPlayer\.pause\(\)/)
-  assert.match(serviceFile, /autoAdvanceInFlight/)
-  assert.match(serviceFile, /gettingUrlId/)
+  assert.match(emitBlock, /TrackPlayer\.pause\(\)/)
+  assert.doesNotMatch(emitBlock, /setRepeatMode\(\s*RepeatMode\.Track\s*\)/)
+  assert.match(emitBlock, /playerEnded\(\)/)
+  assert.match(emitBlock, /autoAdvanceInFlight/)
+  assert.match(emitBlock, /gettingUrlId/)
 })
 
 test('loading a concrete track clears native track-repeat so auto-advance does not loop the next song', () => {
@@ -60,6 +60,7 @@ test('loading a concrete track clears native track-repeat so auto-advance does n
       handlePlayMusicBlock.indexOf('TrackPlayer.skip('),
     '切到真实资源前应关掉占位静音的 Track 循环',
   )
+  assert.doesNotMatch(handlePlayMusicBlock, /else \{\s*await TrackPlayer\.pause\(\)/)
 })
 
 test('player stop does not advance to the next track after stopping playback', () => {
