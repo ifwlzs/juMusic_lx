@@ -10,7 +10,7 @@ import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 
 let isInitialized = false
-let autoAdvanceTrackId: string | null = null
+let autoAdvanceInFlight = false
 
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
@@ -122,7 +122,7 @@ const registerPlaybackService = async() => {
     if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
 
     if (!isEmpty()) {
-      autoAdvanceTrackId = null
+      autoAdvanceInFlight = false
       return
     }
 
@@ -201,10 +201,11 @@ const registerPlaybackService = async() => {
 }
 
 const emitAutoAdvance = async() => {
-  const trackId = global.lx.playerTrackId || 'ended'
-  if (autoAdvanceTrackId === trackId) return
-  autoAdvanceTrackId = trackId
-  // 中文注释：占位静音轨循环，保持 MusicService 处于 Playing，后台 JS 才能继续解析下一首 URL。
+  // 中文注释：静音占位轨约 2 秒。RepeatMode.Track 循环时 QueueEnded / TrackChanged
+  // 会反复进来。若每次都 playerEnded -> playNext，正在下载的 WebDAV 会被取消，
+  // 进度就一直 0 秒跳到 2 秒，新链接永远出不来。
+  if (autoAdvanceInFlight || global.lx.gettingUrlId) return
+  autoAdvanceInFlight = true
   await TrackPlayer.setRepeatMode(RepeatMode.Track)
   global.app_event.playerEnded()
   global.app_event.playerEmptied()

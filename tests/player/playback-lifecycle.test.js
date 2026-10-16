@@ -43,6 +43,8 @@ test('playback service keeps the session playing on the silence placeholder whil
   assert.match(serviceFile, /playerEnded\(\)/)
   assert.match(serviceFile, /PlaybackQueueEnded/)
   assert.doesNotMatch(serviceFile, /isEmpty\(\)\) \{\s*[\s\S]{0,80}TrackPlayer\.pause\(\)/)
+  assert.match(serviceFile, /autoAdvanceInFlight/)
+  assert.match(serviceFile, /gettingUrlId/)
 })
 
 test('loading a concrete track clears native track-repeat so auto-advance does not loop the next song', () => {
