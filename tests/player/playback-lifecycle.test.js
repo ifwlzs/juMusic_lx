@@ -20,6 +20,22 @@ test('playback service keeps decisive play states even while a transient track o
   assert.match(serviceFile, /if\s*\(\s*shouldIgnoreTransientState\s*\)\s*return/)
 })
 
+test('current track id is read from the native queue so auto-advance cannot see a stale placeholder', () => {
+  const playListFile = readFile('src/plugins/player/playList.ts')
+  const getCurrentTrackIdBlock = playListFile.slice(
+    playListFile.indexOf('export const getCurrentTrackId = async'),
+    playListFile.indexOf('export const getCurrentTrack = async'),
+  )
+  const handlePlayMusicBlock = playListFile.slice(
+    playListFile.indexOf('const handlePlayMusic = async'),
+    playListFile.indexOf('let playPromise = Promise.resolve()'),
+  )
+
+  assert.match(getCurrentTrackIdBlock, /TrackPlayer\.getQueue\(/)
+  assert.doesNotMatch(getCurrentTrackIdBlock, /list\[currentTrackIndex\]/)
+  assert.match(handlePlayMusicBlock, /await TrackPlayer\.remove\(/)
+})
+
 test('playback service keeps the session playing on the silence placeholder while auto-advancing', () => {
   const serviceFile = readFile('src/plugins/player/service.ts')
 
