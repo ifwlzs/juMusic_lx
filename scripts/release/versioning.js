@@ -173,6 +173,40 @@ const parseReleaseNotes = markdown => sanitizeReleaseNotesMarkdown(markdown)
   .replace(/(?:^|(\n))#{1,6}\s+(.+)\n/g, '$1$2\n')
   .trim()
 
+const SKIP_COMMIT_SUBJECT = /^(chore\(release\)|merge:|Merge\b|docs:)/i
+
+const parseConventionalSubject = subject => {
+  const match = String(subject || '').match(/^(feat|fix|docs|style|refactor|perf|test|chore|build|ci)(?:\(([^)]+)\))?:\s*(.+)$/i)
+  if (!match) return { type: 'other', text: String(subject || '').trim() }
+  return {
+    type: match[1].toLowerCase(),
+    text: match[3].trim(),
+  }
+}
+
+const buildReleaseNotesFromCommitSubjects = (subjects = []) => {
+  const added = []
+  const fixed = []
+  const others = []
+
+  for (const subject of subjects) {
+    const value = String(subject || '').trim()
+    if (!value || SKIP_COMMIT_SUBJECT.test(value)) continue
+    const parsed = parseConventionalSubject(value)
+    if (!parsed.text) continue
+    const line = `- ${parsed.text}`
+    if (parsed.type === 'feat' || parsed.type === 'perf') added.push(line)
+    else if (parsed.type === 'fix') fixed.push(line)
+    else if (parsed.type === 'other') others.push(line)
+  }
+
+  const sections = []
+  if (added.length) sections.push(`### 新增\n\n${added.join('\n')}`)
+  if (fixed.length) sections.push(`### 修复\n\n${fixed.join('\n')}`)
+  if (others.length) sections.push(`### 其他\n\n${others.join('\n')}`)
+  return sections.join('\n\n')
+}
+
 const parseChangelog = text => {
   const versions = []
   const lines = text.split(/\r\n|\r|\n/)
@@ -309,6 +343,7 @@ const applyReleaseVersion = ({
 
 module.exports = {
   applyReleaseVersion,
+  buildReleaseNotesFromCommitSubjects,
   buildVersionCode,
   buildVersionCodeFromDisplayVersion,
   formatDisplayVersion,

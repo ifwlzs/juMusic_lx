@@ -230,6 +230,25 @@ test('sanitizeReleaseNotesMarkdown removes contributor mentions but preserves is
   ].join('\n'))
 })
 
+test('buildReleaseNotesFromCommitSubjects groups feat/fix and skips merge and chore release commits', () => {
+  const { buildReleaseNotesFromCommitSubjects } = require(versioningPath)
+
+  const result = buildReleaseNotesFromCommitSubjects([
+    'fix(player): WebDAV 改为 HTTP 流播放，不再等整首下完',
+    'feat(media-library): 增量同步检查点降频',
+    'merge: stream webdav playback',
+    'chore(release): v0.26.10161432 [skip release]',
+    'Merge branch \'main\' of https://github.com/ifwlzs/juMusic_lx',
+    'docs: 更新说明',
+  ])
+
+  assert.match(result, /### 新增/)
+  assert.match(result, /- 增量同步检查点降频/)
+  assert.match(result, /### 修复/)
+  assert.match(result, /- WebDAV 改为 HTTP 流播放，不再等整首下完/)
+  assert.doesNotMatch(result, /chore\(release\)|skip release|merge:|Merge branch/)
+})
+
 test('getLatestChangelogBody returns the newest changelog section body for GitHub release notes', () => {
   assert.equal(fs.existsSync(versioningPath), true)
   const { getLatestChangelogBody } = require(versioningPath)
@@ -318,6 +337,7 @@ test('release workflow restores gradlew execute permission on Linux runners', ()
 test('release workflow uses sanitized release body, disables generated notes, and sets a Chinese release title', () => {
   const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/release.yml'), 'utf8')
   const updateChangeLog = fs.readFileSync(path.resolve(__dirname, '../../publish/utils/updateChangeLog.js'), 'utf8')
+  const prepareRelease = fs.readFileSync(path.resolve(__dirname, '../../scripts/release/prepare-release.js'), 'utf8')
 
   assert.match(workflow, /body_path:\s*\.\/publish\/releaseBody\.md/)
   assert.match(workflow, /generate_release_notes:\s*false/)
@@ -325,6 +345,9 @@ test('release workflow uses sanitized release body, disables generated notes, an
   assert.match(workflow, /### 安装包 MD5/)
   assert.match(updateChangeLog, /releaseBody\.md/)
   assert.match(updateChangeLog, /getLatestChangelogBody/)
+  assert.match(updateChangeLog, /buildReleaseNotesFromCommitSubjects/)
+  assert.match(prepareRelease, /getCommitSubjectsSinceLastRelease/)
+  assert.match(prepareRelease, /pretty=format:%s/)
 })
 
 test('release workflow uses a no-daemon release build on CI', () => {
