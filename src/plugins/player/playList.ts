@@ -101,11 +101,15 @@ export const isTempTrack = (trackId: string) => /\/\/default$/.test(trackId)
 
 export const getCurrentTrackId = async() => {
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-  return list[currentTrackIndex]?.id
+  if (currentTrackIndex == null) return
+  const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
+  return queue[currentTrackIndex]?.id
 }
 export const getCurrentTrack = async() => {
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-  return list[currentTrackIndex]
+  if (currentTrackIndex == null) return
+  const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
+  return queue[currentTrackIndex]
 }
 
 export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: boolean, lyric?: string, force = false) => {
@@ -171,7 +175,8 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
   }
 
   if (queue.length > 2) {
-    void TrackPlayer.remove(Array(queue.length - 2).fill(null).map((_, i) => i)).then(() => list.splice(0, list.length - 2))
+    await TrackPlayer.remove(Array(queue.length - 2).fill(null).map((_, i) => i))
+    list.splice(0, list.length - 2)
   }
 }
 let playPromise = Promise.resolve()
