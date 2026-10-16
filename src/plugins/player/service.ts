@@ -201,12 +201,12 @@ const registerPlaybackService = async() => {
 }
 
 const emitAutoAdvance = async() => {
-  // 中文注释：静音占位轨约 2 秒。RepeatMode.Track 循环时 QueueEnded / TrackChanged
-  // 会反复进来。若每次都 playerEnded -> playNext，正在下载的 WebDAV 会被取消，
-  // 进度就一直 0 秒跳到 2 秒，新链接永远出不来。
+  // 中文注释：占位静音约 2 秒。不能 RepeatMode.Track 循环它，否则进度 0-2 跳、
+  // 歌词当 Playing 在滚，实际没有音乐。暂停后等下一首 file 就绪再播。
   if (autoAdvanceInFlight || global.lx.gettingUrlId) return
   autoAdvanceInFlight = true
-  await TrackPlayer.setRepeatMode(RepeatMode.Track)
+  await TrackPlayer.setRepeatMode(RepeatMode.Off)
+  await TrackPlayer.pause()
   global.app_event.playerEnded()
   global.app_event.playerEmptied()
 }

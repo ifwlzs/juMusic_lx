@@ -167,9 +167,8 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
       }
     }
   } else {
-    await TrackPlayer.pause()
     if (!isTempTrack(track.id as string)) {
-      await TrackPlayer.seekTo(time)
+      if (time) await TrackPlayer.seekTo(time)
       await TrackPlayer.play()
     }
   }
