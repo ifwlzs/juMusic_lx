@@ -138,10 +138,9 @@ test('mediaLibrary 播放链路通过 credentialRef 解析远端凭据并优先�
   assert.match(content, /getMediaLibraryRuntimeRegistry/)
   assert.match(content, /provider\.downloadToCache\(/)
   assert.match(content, /buildMediaLibraryCacheFilePath/)
-  assert.match(content, /buildWebdavUrl/)
-  assert.match(content, /setPlayHeaders/)
-  assert.match(content, /resolveConnectionCredential/)
+  assert.doesNotMatch(content, /buildWebdavHeaders|buildWebdavUrl/)
   assert.doesNotMatch(content, /downloadSmbFile/)
+  assert.doesNotMatch(content, /resolveConnectionCredential/)
   assert.doesNotMatch(content, /connection\.credentials\./)
 })
 

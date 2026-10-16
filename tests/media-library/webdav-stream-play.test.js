@@ -17,12 +17,12 @@ test('webdav play url is an http(s) stream instead of waiting for a full local d
   assert.deepEqual(getPlayHeaders(url), headers)
 })
 
-test('media library getMusicUrl streams webdav and player tracks carry auth headers', () => {
+test('media library getMusicUrl plays a local cache file instead of a raw webdav http stream', () => {
   const mediaLibraryFile = readFile('src/core/music/mediaLibrary.ts')
   const playListFile = readFile('src/plugins/player/playList.ts')
 
-  assert.match(mediaLibraryFile, /buildWebdavUrl/)
-  assert.match(mediaLibraryFile, /setPlayHeaders/)
-  assert.match(playListFile, /getPlayHeaders/)
-  assert.match(playListFile, /headers:/)
+  assert.match(mediaLibraryFile, /resolveLocalPlayableFilePath/)
+  assert.match(mediaLibraryFile, /return `file:\/\/\$\{filePath\}`/)
+  assert.doesNotMatch(mediaLibraryFile, /setPlayHeaders/)
+  assert.doesNotMatch(playListFile, /getPlayHeaders/)
 })
