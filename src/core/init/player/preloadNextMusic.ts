@@ -1,11 +1,13 @@
 import { getMusicUrl } from '@/core/music'
-import { createPrefetchScheduler, shouldDeferPrefetchForRemoteSync } from '@/core/mediaLibrary/prefetch'
+import { createPrefetchScheduler, shouldDeferPrefetchForRemoteSync, shouldPrefetchNextTrack } from '@/core/mediaLibrary/prefetch'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
 import { prefetchMediaLibraryTrack } from '@/core/music/mediaLibrary'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
+import { getDuration, getPosition } from '@/plugins/player'
 import { checkUrl } from '@/utils/request'
 import playerState from '@/store/player/state'
 import { isCached } from '@/plugins/player/utils'
+import BackgroundTimer from 'react-native-background-timer'
 
 
 const preloadMusicInfo = {
@@ -60,6 +62,29 @@ const preloadNextMusicUrl = async(curTime: number, { force = false } = {}) => {
 }
 
 export default () => {
+  let prefetchWatchId: number | null = null
+
+  const stopPrefetchWatch = () => {
+    if (prefetchWatchId == null) return
+    BackgroundTimer.clearInterval(prefetchWatchId)
+    prefetchWatchId = null
+  }
+
+  const maybePrefetchByPosition = async() => {
+    if (!playerState.isPlay || preloadMusicInfo.info || preloadMusicInfo.isLoading) return
+    const [position, duration] = await Promise.all([getPosition(), getDuration()])
+    if (!shouldPrefetchNextTrack({ durationSec: duration, positionSec: position })) return
+    void preloadNextMusicUrl(position, { force: true })
+  }
+
+  const startPrefetchWatch = () => {
+    if (prefetchWatchId != null) return
+    prefetchWatchId = BackgroundTimer.setInterval(() => {
+      void maybePrefetchByPosition()
+    }, 2000)
+    void maybePrefetchByPosition()
+  }
+
   const setProgress = (time: number) => {
     if (!playerState.musicInfo.id) return
     preloadMusicInfo.preProgress = time
@@ -68,6 +93,7 @@ export default () => {
   const handleSetPlayInfo = () => {
     resetPreloadInfo()
     prefetchScheduler.cancel()
+    stopPrefetchWatch()
   }
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
@@ -79,20 +105,28 @@ export default () => {
   }
 
   const handlePlayProgressChanged: typeof global.state_event.playProgressChanged = (progress) => {
-    const duration = progress.maxPlayTime
-    if (duration > 10 && duration - progress.nowPlayTime < 10 && !preloadMusicInfo.info) {
-      void preloadNextMusicUrl(progress.nowPlayTime)
-    }
+    if (!shouldPrefetchNextTrack({
+      durationSec: progress.maxPlayTime,
+      positionSec: progress.nowPlayTime,
+    })) return
+    if (preloadMusicInfo.info || preloadMusicInfo.isLoading) return
+    void preloadNextMusicUrl(progress.nowPlayTime, { force: true })
   }
 
   const handlePlaying = () => {
-    if (!playerState.isPlay || preloadMusicInfo.info || preloadMusicInfo.isLoading) return
-    void preloadNextMusicUrl(playerState.progress.nowPlayTime, { force: true })
+    if (!playerState.isPlay) return
+    startPrefetchWatch()
+  }
+
+  const handlePause = () => {
+    stopPrefetchWatch()
   }
 
   global.app_event.on('setProgress', setProgress)
   global.app_event.on('musicToggled', handleSetPlayInfo)
   global.app_event.on('playerPlaying', handlePlaying)
+  global.app_event.on('pause', handlePause)
+  global.app_event.on('playerPause', handlePause)
   global.state_event.on('configUpdated', handleConfigUpdated)
   global.state_event.on('playProgressChanged', handlePlayProgressChanged)
 }

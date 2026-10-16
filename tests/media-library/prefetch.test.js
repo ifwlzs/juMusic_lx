@@ -8,6 +8,7 @@ const { upsertCacheEntry } = require('../../src/core/mediaLibrary/cache.js')
 const {
   createPrefetchScheduler,
   shouldDeferPrefetchForRemoteSync,
+  shouldPrefetchNextTrack,
 } = require('../../src/core/mediaLibrary/prefetch.js')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
@@ -20,6 +21,13 @@ const createMemoryStorage = () => {
     async remove(key) { map.delete(key) },
   }
 }
+
+test('shouldPrefetchNextTrack starts in the last 15 seconds of a real song', () => {
+  assert.equal(shouldPrefetchNextTrack({ durationSec: 180, positionSec: 170 }), true)
+  assert.equal(shouldPrefetchNextTrack({ durationSec: 180, positionSec: 100 }), false)
+  assert.equal(shouldPrefetchNextTrack({ durationSec: 2, positionSec: 1 }), false)
+  assert.equal(shouldPrefetchNextTrack({ durationSec: 0, positionSec: 0 }), false)
+})
 
 test('prefetch scheduler starts the next track after current playback begins', async() => {
   const calls = []
@@ -230,4 +238,7 @@ test('media library playback path records play caches and next-track prefetch ch
   assert.match(preloadFile, /prefetchMediaLibraryTrack/)
   assert.match(preloadFile, /playerPlaying/)
   assert.match(preloadFile, /maxDeferMs/)
+  assert.match(preloadFile, /shouldPrefetchNextTrack/)
+  assert.match(preloadFile, /BackgroundTimer/)
+  assert.match(preloadFile, /getPosition/)
 })
