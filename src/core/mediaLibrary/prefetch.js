@@ -12,6 +12,19 @@ function isMatchingSyncWork(run, job) {
   return true
 }
 
+function shouldPrefetchNextTrack({
+  durationSec = 0,
+  positionSec = 0,
+  windowSec = 15,
+} = {}) {
+  const duration = Number(durationSec) || 0
+  const position = Number(positionSec) || 0
+  const window = Number(windowSec) || 15
+  if (duration <= 10) return false
+  const remaining = duration - position
+  return remaining >= 0 && remaining <= window
+}
+
 function shouldDeferPrefetchForRemoteSync({
   syncRuns = [],
   importJobs = [],
@@ -64,4 +77,5 @@ function createPrefetchScheduler({
 module.exports = {
   createPrefetchScheduler,
   shouldDeferPrefetchForRemoteSync,
+  shouldPrefetchNextTrack,
 }
