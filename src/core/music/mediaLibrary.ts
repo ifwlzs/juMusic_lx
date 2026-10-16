@@ -1,11 +1,14 @@
 import { buildLyricInfo } from './utils'
 import { parseLyric } from './local'
-import { invalidateCache, upsertCacheEntry } from '@/core/mediaLibrary/cache'
+import { invalidateCache, isCacheUsable, upsertCacheEntry } from '@/core/mediaLibrary/cache'
 import { buildMediaLibraryCacheFilePath } from '@/core/mediaLibrary/cachePath'
+import { resolveConnectionCredential } from '@/core/mediaLibrary/credentials'
 import { resolveDownloadResult } from '@/core/mediaLibrary/downloadResult'
+import { setPlayHeaders } from '@/core/mediaLibrary/playHeaders'
 import { resolvePlayableResource } from '@/core/mediaLibrary/playbackResolver'
 import { getMediaLibraryRuntimeRegistry } from '@/core/mediaLibrary/runtimeRegistry'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
+import { buildWebdavHeaders, buildWebdavUrl } from '@/core/mediaLibrary/webdav'
 import { mkdir, temporaryDirectoryPath, unlink } from '@/utils/fs'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 
@@ -102,6 +105,27 @@ export const getMusicUrl = async({ musicInfo, isRefresh }: {
   musicInfo: LX.Music.MusicInfoRemoteFile
   isRefresh: boolean
 }) => {
+  if (musicInfo.source === 'webdav' && !isRefresh) {
+    const mediaLibrary = musicInfo.meta.mediaLibrary!
+    const cacheEntry = await mediaLibraryRepository.findCacheBySourceItemId(mediaLibrary.sourceItemId)
+    const sourceItem = {
+      providerType: mediaLibrary.providerType,
+      sourceItemId: mediaLibrary.sourceItemId,
+      versionToken: mediaLibrary.versionToken,
+      pathOrUri: mediaLibrary.remotePathOrUri,
+    }
+    if (isCacheUsable(cacheEntry, sourceItem)) {
+      return `file://${cacheEntry!.localFilePath}`
+    }
+    const connections = (await mediaLibraryRepository.getConnections()) as LX.MediaLibrary.SourceConnection[]
+    const connection = connections.find(item => item.connectionId === mediaLibrary.connectionId)
+    if (connection) {
+      const credential = await resolveConnectionCredential(connection, mediaLibraryRepository)
+      const streamUrl = buildWebdavUrl(connection.rootPathOrUri, mediaLibrary.remotePathOrUri)
+      setPlayHeaders(streamUrl, buildWebdavHeaders(credential))
+      return streamUrl
+    }
+  }
   const filePath = await resolveLocalPlayableFilePath(musicInfo, isRefresh, 'play')
   return `file://${filePath}`
 }
