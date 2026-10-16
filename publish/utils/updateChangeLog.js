@@ -8,6 +8,7 @@ const versionPath = jp('../version.json')
 const releaseBodyPath = jp('../releaseBody.md')
 const {
   applyReleaseVersion,
+  buildReleaseNotesFromCommitSubjects,
   buildVersionCodeFromDisplayVersion,
   formatDisplayVersion,
   formatReleaseDate,
@@ -19,6 +20,7 @@ const readJson = filePath => JSON.parse(fs.readFileSync(filePath, 'utf-8'))
 
 module.exports = async(newVerNum, {
   versionCode,
+  commitSubjects = [],
 } = {}) => {
   const pkg = readJson(pkgPath)
   const packageLock = fs.existsSync(packageLockPath) ? readJson(packageLockPath) : null
@@ -28,8 +30,12 @@ module.exports = async(newVerNum, {
   const version_bak = JSON.stringify(version, null, 2)
   const changelog_bak = fs.readFileSync(changelogPath, 'utf-8')
   if (!newVerNum) newVerNum = formatDisplayVersion()
-  const newMDChangeLog = fs.readFileSync(jp('../changeLog.md'), 'utf-8')
+  const generatedNotes = buildReleaseNotesFromCommitSubjects(commitSubjects)
+  const newMDChangeLog = generatedNotes || fs.readFileSync(jp('../changeLog.md'), 'utf-8')
   const releaseBodyMarkdown = sanitizeReleaseNotesMarkdown(newMDChangeLog)
+  if (generatedNotes) {
+    fs.writeFileSync(jp('../changeLog.md'), `${generatedNotes.trimEnd()}\n`)
+  }
   const knownVersions = [
     pkg.version,
     version.version,

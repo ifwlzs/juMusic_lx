@@ -28,6 +28,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 修复
 
+- 修复 GitHub 发版说明一直沿用过期的 publish/changeLog.md：改为根据上次 tag 到本次的提交自动生成新增/修复
 - 修复 WebDAV 点播卡在「歌曲链接获取中」、进度 0 秒跳 2 秒：改为直接用带认证的 HTTP 流播放，不再等整首下完才给播放器地址
 - 修复下一首要等整首下完才开播：当前曲剩余约 15 秒时后台预加载下一首（锁屏也生效），先拉开头数据
 - 修复 WebDAV 新链接一直加载不出来、进度 0 秒跳 2 秒：静音占位循环时不再反复切歌，避免把正在下载的文件取消掉
