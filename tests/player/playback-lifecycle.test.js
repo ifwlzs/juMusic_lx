@@ -20,6 +20,30 @@ test('playback service keeps decisive play states even while a transient track o
   assert.match(serviceFile, /if\s*\(\s*shouldIgnoreTransientState\s*\)\s*return/)
 })
 
+test('playback service keeps the session playing on the silence placeholder while auto-advancing', () => {
+  const serviceFile = readFile('src/plugins/player/service.ts')
+
+  assert.match(serviceFile, /setRepeatMode\(\s*RepeatMode\.Track\s*\)/)
+  assert.match(serviceFile, /playerEnded\(\)/)
+  assert.match(serviceFile, /PlaybackQueueEnded/)
+  assert.doesNotMatch(serviceFile, /isEmpty\(\)\) \{\s*[\s\S]{0,80}TrackPlayer\.pause\(\)/)
+})
+
+test('loading a concrete track clears native track-repeat so auto-advance does not loop the next song', () => {
+  const playListFile = readFile('src/plugins/player/playList.ts')
+  const handlePlayMusicBlock = playListFile.slice(
+    playListFile.indexOf('const handlePlayMusic = async'),
+    playListFile.indexOf('let playPromise = Promise.resolve()'),
+  )
+
+  assert.match(handlePlayMusicBlock, /setRepeatMode\(\s*RepeatMode\.Off\s*\)/)
+  assert.ok(
+    handlePlayMusicBlock.indexOf('setRepeatMode(RepeatMode.Off)') <
+      handlePlayMusicBlock.indexOf('TrackPlayer.skip('),
+    '切到真实资源前应关掉占位静音的 Track 循环',
+  )
+})
+
 test('player stop does not advance to the next track after stopping playback', () => {
   const playerUtilsFile = readFile('src/plugins/player/utils.ts')
   const playerCoreFile = readFile('src/core/player/player.ts')
