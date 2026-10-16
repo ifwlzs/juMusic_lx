@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
-import TrackPlayer, { State as TPState, Event as TPEvent } from 'react-native-track-player'
+import TrackPlayer, { State as TPState, Event as TPEvent, RepeatMode } from 'react-native-track-player'
 // import { store } from '@/store'
 // import { action as playerAction, STATUS } from '@/store/modules/player'
 import { isTempId, isEmpty } from './utils'
@@ -10,6 +10,7 @@ import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 
 let isInitialized = false
+let autoAdvanceTrackId: string | null = null
 
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
@@ -120,31 +121,12 @@ const registerPlaybackService = async() => {
     if (info.track == null) return
     if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
 
-    // console.log('global.lx.playerTrackId====>', global.lx.playerTrackId)
-    if (isEmpty()) {
-      // console.log('====TEMP PAUSE====')
-      await TrackPlayer.pause()
-      global.app_event.playerPause()
-      global.app_event.pause()
-      global.app_event.playerEnded()
-      global.app_event.playerEmptied()
-      // if (retryTrack) {
-      //   if (retryTrack.musicId == retryGetUrlId) {
-      //     if (++retryGetUrlNum > 1) {
-      //       store.dispatch(playerAction.playNext(true))
-      //       retryGetUrlId = null
-      //       retryTrack = null
-      //       return
-      //     }
-      //   } else {
-      //     retryGetUrlId = retryTrack.musicId
-      //     retryGetUrlNum = 0
-      //   }
-      //   store.dispatch(playerAction.refreshMusicUrl(global.lx.playInfo.currentPlayMusicInfo, errorTime))
-      // } else {
-      //   store.dispatch(playerAction.playNext(true))
-      // }
+    if (!isEmpty()) {
+      autoAdvanceTrackId = null
+      return
     }
+
+    await emitAutoAdvance()
   //   // if (!info.nextTrack) return
   //   // if (info.track) {
   //   //   const track = info.track.substring(0, info.track.lastIndexOf('__//'))
@@ -206,7 +188,26 @@ const registerPlaybackService = async() => {
   //   console.log('playback-destroy')
   //   store.dispatch(playerAction.destroy())
   // })
+  if (TPEvent.PlaybackQueueEnded) {
+    TrackPlayer.addEventListener(TPEvent.PlaybackQueueEnded, async() => {
+      if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
+      global.lx.playerTrackId = await getCurrentTrackId()
+      if (!isEmpty() && !isTempId()) return
+      await emitAutoAdvance()
+    })
+  }
+
   isInitialized = true
+}
+
+const emitAutoAdvance = async() => {
+  const trackId = global.lx.playerTrackId || 'ended'
+  if (autoAdvanceTrackId === trackId) return
+  autoAdvanceTrackId = trackId
+  // 中文注释：占位静音轨循环，保持 MusicService 处于 Playing，后台 JS 才能继续解析下一首 URL。
+  await TrackPlayer.setRepeatMode(RepeatMode.Track)
+  global.app_event.playerEnded()
+  global.app_event.playerEmptied()
 }
 
 
