@@ -1,7 +1,5 @@
 import TrackPlayer, { RepeatMode, State } from 'react-native-track-player'
 import BackgroundTimer from 'react-native-background-timer'
-import { defaultUrl } from '@/config'
-// import { action as playerAction } from '@/store/modules/player'
 import settingState from '@/store/setting/state'
 
 
@@ -47,21 +45,9 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
       artwork,
       userAgent: defaultUserAgent,
       musicId: mInfo.id,
-      // original: { ...musicInfo },
       duration,
     })
   }
-  track.push({
-    id: `${mInfo.id}__//${Math.random()}__//default`,
-    url: defaultUrl,
-    title: mInfo.name || 'Unknow',
-    artist: mInfo.singer || 'Unknow',
-    album,
-    artwork,
-    musicId: mInfo.id,
-    // original: { ...musicInfo },
-    duration: 0,
-  })
   return track
   // console.log('buildTrack', musicInfo.name, url)
 }
@@ -132,50 +118,33 @@ export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: bool
 }
 
 export const initTrackInfo = async(musicInfo: LX.Player.PlayMusic, mInfo: LX.Player.MusicInfo) => {
-  const tracks = buildTracks(musicInfo)
-  await TrackPlayer.add(tracks).then(() => list.push(...tracks))
-  const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
-  await TrackPlayer.skip(queue.findIndex(t => t.id == tracks[0].id))
   delayUpdateMusicInfo(mInfo)
 }
 
 
 const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
-// console.log(tracks, time)
   const tracks = buildTracks(musicInfo, url)
   const track = tracks[0]
-  // await updateMusicInfo(track)
-  const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-  await TrackPlayer.add(tracks).then(() => list.push(...tracks))
-  const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
-  await TrackPlayer.setRepeatMode(RepeatMode.Off)
-  await TrackPlayer.skip(queue.findIndex(t => t.id == track.id))
-  // WebDAV/SMB/OneDrive 等远端媒体会先停播再解析缓存文件，底层在 stop/skip 后可能回到 1.0 倍速。
-  // 这里在真实资源切入队列后重新套用当前设置，确保远端缓存歌曲和普通歌曲的倍速语义一致。
-  await TrackPlayer.setRate(settingState.setting['player.playbackRate'])
+  if (!track) return
 
-  if (currentTrackIndex == null) {
-    if (!isTempTrack(track.id as string)) {
-      if (time) await TrackPlayer.seekTo(time)
-      if (global.lx.restorePlayInfo) {
-        await TrackPlayer.pause()
-        global.lx.restorePlayInfo = null
-
-        // 恢复播放信息时保持暂停，避免应用启动阶段在未确认设置语义前自动出声。
-      } else {
-        await TrackPlayer.play()
-      }
-    }
-  } else {
-    if (!isTempTrack(track.id as string)) {
-      if (time) await TrackPlayer.seekTo(time)
+  global.lx.suppressAutoAdvance = true
+  try {
+    await TrackPlayer.reset()
+    list.length = 0
+    await TrackPlayer.add([track])
+    list.push(track)
+    await TrackPlayer.setRepeatMode(RepeatMode.Off)
+    await TrackPlayer.setRate(settingState.setting['player.playbackRate'])
+    if (time) await TrackPlayer.seekTo(time)
+    if (global.lx.restorePlayInfo) {
+      await TrackPlayer.pause()
+      global.lx.restorePlayInfo = null
+    } else {
       await TrackPlayer.play()
     }
-  }
-
-  if (queue.length > 2) {
-    await TrackPlayer.remove(Array(queue.length - 2).fill(null).map((_, i) => i))
-    list.splice(0, list.length - 2)
+  } finally {
+    global.lx.suppressAutoAdvance = false
+    global.lx.playerTrackId = track.id as string
   }
 }
 let playPromise = Promise.resolve()
