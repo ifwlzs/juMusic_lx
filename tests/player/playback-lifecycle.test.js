@@ -37,15 +37,14 @@ test('current track id is read from the native queue so auto-advance cannot see 
   assert.doesNotMatch(handlePlayMusicBlock, /defaultUrl/)
 })
 
-test('playback service pauses the silence placeholder instead of looping it', () => {
+test('auto-advance flag is released after kicking off playNext', () => {
   const serviceFile = readFile('src/plugins/player/service.ts')
   const emitBlock = serviceFile.slice(serviceFile.indexOf('const emitAutoAdvance'))
 
-  assert.match(emitBlock, /TrackPlayer\.pause\(\)/)
-  assert.doesNotMatch(emitBlock, /setRepeatMode\(\s*RepeatMode\.Track\s*\)/)
   assert.match(emitBlock, /playerEnded\(\)/)
-  assert.match(emitBlock, /autoAdvanceInFlight/)
-  assert.match(emitBlock, /gettingUrlId/)
+  assert.match(emitBlock, /autoAdvanceInFlight = false/)
+  assert.doesNotMatch(emitBlock, /TrackPlayer\.pause\(\)/)
+  assert.doesNotMatch(emitBlock, /setRepeatMode\(\s*RepeatMode\.Track\s*\)/)
 })
 
 test('queue ended auto-advances even when the current track is still the finished song', () => {
