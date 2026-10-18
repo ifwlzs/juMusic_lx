@@ -121,7 +121,8 @@ const registerPlaybackService = async() => {
     if (info.track == null) return
     if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
 
-    if (!isEmpty()) {
+    const hasNextTrack = info.nextTrack != null
+    if (!isEmpty() && !isTempId() && hasNextTrack) {
       autoAdvanceInFlight = false
       return
     }
@@ -192,7 +193,6 @@ const registerPlaybackService = async() => {
     TrackPlayer.addEventListener(TPEvent.PlaybackQueueEnded, async() => {
       if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
       global.lx.playerTrackId = await getCurrentTrackId()
-      if (!isEmpty() && !isTempId()) return
       await emitAutoAdvance()
     })
   }
@@ -203,7 +203,7 @@ const registerPlaybackService = async() => {
 const emitAutoAdvance = async() => {
   // 中文注释：占位静音约 2 秒。不能 RepeatMode.Track 循环它，否则进度 0-2 跳、
   // 歌词当 Playing 在滚，实际没有音乐。暂停后等下一首 file 就绪再播。
-  if (autoAdvanceInFlight || global.lx.gettingUrlId) return
+  if (autoAdvanceInFlight || global.lx.gettingUrlId || global.lx.suppressAutoAdvance) return
   autoAdvanceInFlight = true
   await TrackPlayer.setRepeatMode(RepeatMode.Off)
   await TrackPlayer.pause()

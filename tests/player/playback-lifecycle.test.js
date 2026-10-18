@@ -47,6 +47,19 @@ test('playback service pauses the silence placeholder instead of looping it', ()
   assert.match(emitBlock, /gettingUrlId/)
 })
 
+test('queue ended auto-advances even when the current track is still the finished song', () => {
+  const serviceFile = readFile('src/plugins/player/service.ts')
+  const playerFile = readFile('src/core/player/player.ts')
+  const queueEndedBlock = serviceFile.slice(
+    serviceFile.indexOf('TPEvent.PlaybackQueueEnded'),
+    serviceFile.indexOf('isInitialized = true'),
+  )
+
+  assert.match(queueEndedBlock, /emitAutoAdvance/)
+  assert.doesNotMatch(queueEndedBlock, /if\s*\(\s*!isEmpty\(\)\s*&&\s*!isTempId\(\)\s*\)\s*return/)
+  assert.match(playerFile, /suppressAutoAdvance/)
+})
+
 test('loading a concrete track clears native track-repeat so auto-advance does not loop the next song', () => {
   const playListFile = readFile('src/plugins/player/playList.ts')
   const handlePlayMusicBlock = playListFile.slice(

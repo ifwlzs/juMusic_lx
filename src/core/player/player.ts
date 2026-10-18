@@ -267,7 +267,12 @@ const handlePlay = async() => {
 
   if (!musicInfo) return
 
-  await setStop()
+  global.lx.suppressAutoAdvance = true
+  try {
+    await setStop()
+  } finally {
+    global.lx.suppressAutoAdvance = false
+  }
   global.app_event.pause()
 
   clearDelayNextTimeout()
@@ -703,7 +708,12 @@ export const pause = async() => {
  */
 export const stop = async() => {
   playbackAnalyticsRuntime.setPendingEndReason('manual_stop')
-  await setStop()
+  global.lx.suppressAutoAdvance = true
+  try {
+    await setStop()
+  } finally {
+    global.lx.suppressAutoAdvance = false
+  }
   setTimeout(() => {
     global.app_event.stop()
   })
