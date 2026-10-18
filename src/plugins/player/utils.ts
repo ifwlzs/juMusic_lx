@@ -16,6 +16,14 @@ export const isEmpty = (trackId = global.lx.playerTrackId) => {
   // console.log(trackId)
   return !trackId || emptyIdRxp.test(trackId)
 }
+
+export const isNearEndOfTrack = (position = 0, duration = 0, windowSec = 2) => {
+  const durationSec = Number(duration) || 0
+  const positionSec = Number(position) || 0
+  if (durationSec <= 10) return false
+  const remaining = durationSec - positionSec
+  return remaining >= 0 && remaining <= windowSec
+}
 export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempIdRxp.test(trackId)
 
 // export const replacePlayTrack = async(newTrack, oldTrack) => {

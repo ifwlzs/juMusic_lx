@@ -211,7 +211,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
 }
 
 
-const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {
+const playCurrentMusic = (musicInfo: LX.Player.PlayMusic) => {
   setMusicUrl(musicInfo)
 
   void getPicPath({ musicInfo, listId: playerState.playMusicInfo.listId }).then((url: string) => {
@@ -238,10 +238,13 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
     if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setStatusText(global.i18n.t('lyric__load_error'))
   })
+}
+
+const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {
+  playCurrentMusic(musicInfo)
 }, 200)
 
-// 处理音乐播放
-const handlePlay = async() => {
+const handlePlay = async({ immediate = false } = {}) => {
   if (!isInitialized()) {
     await checkNotificationPermission()
     void checkIgnoringBatteryOptimization()
@@ -268,13 +271,15 @@ const handlePlay = async() => {
 
   if (!musicInfo) return
 
-  global.lx.suppressAutoAdvance = true
-  try {
-    await setStop()
-  } finally {
-    global.lx.suppressAutoAdvance = false
+  if (!immediate) {
+    global.lx.suppressAutoAdvance = true
+    try {
+      await setStop()
+    } finally {
+      global.lx.suppressAutoAdvance = false
+    }
+    global.app_event.pause()
   }
-  global.app_event.pause()
 
   clearDelayNextTimeout()
   clearLoadTimeout()
@@ -282,7 +287,8 @@ const handlePlay = async() => {
 
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay) addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
 
-  debouncePlay(musicInfo)
+  if (immediate) playCurrentMusic(musicInfo)
+  else debouncePlay(musicInfo)
 }
 
 /**
@@ -469,7 +475,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 
 const handlePlayNext = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
   setPlayMusicInfo(playMusicInfo.listId, playMusicInfo.musicInfo, playMusicInfo.isTempPlay, playMusicInfo.analyticsContext)
-  await handlePlay()
+  await handlePlay({ immediate: true })
 }
 /**
  * 下一曲
