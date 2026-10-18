@@ -40,6 +40,9 @@ global.lx = {
   // 是否播放完后退出应用
   isPlayedStop: false,
 
+  // handlePlay 里 TrackPlayer.stop 会误触发 QueueEnded，这段时间禁止自动切歌
+  suppressAutoAdvance: false,
+
   // prevListPlayIndex: -1,
 
   // syncKeyInfo: {},
