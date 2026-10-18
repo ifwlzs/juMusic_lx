@@ -67,6 +67,7 @@ export {
   updateMetaData,
   onStateChange,
   isEmpty,
+  isNearEndOfTrack,
   useBufferProgress,
   initTrackInfo,
 } from './utils'

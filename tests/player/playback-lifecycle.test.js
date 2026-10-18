@@ -5,6 +5,15 @@ const path = require('node:path')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
+test('isNearEndOfTrack treats the last two seconds as a natural ending', () => {
+  const utilsFile = readFile('src/plugins/player/utils.ts')
+  const eventFile = readFile('src/core/init/player/playerEvent.ts')
+  const playerFile = readFile('src/core/player/player.ts')
+  assert.match(utilsFile, /export const isNearEndOfTrack/)
+  assert.match(eventFile, /isNearEndOfTrack\(/)
+  assert.match(playerFile, /handlePlay\(\{\s*immediate:\s*true\s*\}\)/)
+})
+
 test('player update options stop playback when the Android app is closed', () => {
   const playerUtilsFile = readFile('src/plugins/player/utils.ts')
 

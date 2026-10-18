@@ -1,7 +1,7 @@
 import { playNext, setMusicUrl } from '@/core/player/player'
 import { setStatusText } from '@/core/player/playStatus'
 import { getPlayerRetryStatusTextKey } from '@/core/player/retryStatus'
-import { getPosition, isEmpty, setStop } from '@/plugins/player'
+import { getPosition, isEmpty, isNearEndOfTrack, setStop } from '@/plugins/player'
 import { isActive } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
@@ -91,6 +91,10 @@ export default () => {
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
+    if (isNearEndOfTrack(playerState.progress.nowPlayTime, playerState.progress.maxPlayTime)) {
+      void playNext(true)
+      return
+    }
     if (playerState.playMusicInfo.musicInfo && retryNum < 2) { // 若音频URL无效则尝试刷新2次URL
       let musicInfo = playerState.playMusicInfo.musicInfo
       void getPosition().then((position) => {
