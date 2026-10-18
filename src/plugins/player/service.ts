@@ -118,11 +118,8 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.PlaybackTrackChanged, async info => {
     // console.log('PlaybackTrackChanged====>', info)
     global.lx.playerTrackId = await getCurrentTrackId()
-    if (info.track == null) return
     if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
-
-    const hasNextTrack = info.nextTrack != null
-    if (!isEmpty() && !isTempId() && hasNextTrack) {
+    if (info.track == null || (!isEmpty() && !isTempId())) {
       autoAdvanceInFlight = false
       return
     }

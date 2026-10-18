@@ -6,7 +6,7 @@ import { resolveDownloadResult } from '@/core/mediaLibrary/downloadResult'
 import { resolvePlayableResource } from '@/core/mediaLibrary/playbackResolver'
 import { getMediaLibraryRuntimeRegistry } from '@/core/mediaLibrary/runtimeRegistry'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
-import { mkdir, temporaryDirectoryPath, unlink } from '@/utils/fs'
+import { existsFile, mkdir, temporaryDirectoryPath, unlink } from '@/utils/fs'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 
 const MEDIA_LIBRARY_CACHE_DIR = `${temporaryDirectoryPath}/media-library`
@@ -54,6 +54,10 @@ const resolveLocalPlayableFilePath = async(musicInfo: LX.Music.MusicInfoRemoteFi
     const localFilePath = getCacheFilePath(musicInfo)
     let cacheEntry = await mediaLibraryRepository.findCacheBySourceItemId(musicInfo.meta.mediaLibrary!.sourceItemId)
     if (cacheEntry && cacheEntry.localFilePath !== localFilePath) {
+      await invalidateCache(cacheEntry, unlink, mediaLibraryRepository)
+      cacheEntry = null
+    }
+    if (cacheEntry && !await existsFile(cacheEntry.localFilePath)) {
       await invalidateCache(cacheEntry, unlink, mediaLibraryRepository)
       cacheEntry = null
     }

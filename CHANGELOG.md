@@ -28,6 +28,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 修复
 
+- 修复一直卡在 2 秒加载且不自动播放：去掉 2 秒静音占位轨，队列只放真实歌曲，曲终靠 QueueEnded 切下一首
 - 修复歌曲播完停住不自动下一首：队列结束时即使还停在当前曲也会切下一首；手动 stop 时不会误触发
 - 修复切歌后歌词在滚却没声音、进度总在 0-2 秒：去掉占位静音循环，切到真实文件后不再先 pause
 - 修复 WebDAV 歌词能滚却没声音：播放改回本地缓存文件，不再走 NAS HTTP 直链（直链常无声，歌词下载却能成功）

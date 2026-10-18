@@ -33,7 +33,8 @@ test('current track id is read from the native queue so auto-advance cannot see 
 
   assert.match(getCurrentTrackIdBlock, /TrackPlayer\.getQueue\(/)
   assert.doesNotMatch(getCurrentTrackIdBlock, /list\[currentTrackIndex\]/)
-  assert.match(handlePlayMusicBlock, /await TrackPlayer\.remove\(/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
+  assert.doesNotMatch(handlePlayMusicBlock, /defaultUrl/)
 })
 
 test('playback service pauses the silence placeholder instead of looping it', () => {
@@ -60,19 +61,20 @@ test('queue ended auto-advances even when the current track is still the finishe
   assert.match(playerFile, /suppressAutoAdvance/)
 })
 
-test('loading a concrete track clears native track-repeat so auto-advance does not loop the next song', () => {
+test('playable tracks are queued without the 2s silence placeholder', () => {
   const playListFile = readFile('src/plugins/player/playList.ts')
+  const buildTracksBlock = playListFile.slice(
+    playListFile.indexOf('const buildTracks ='),
+    playListFile.indexOf('// const buildTrack'),
+  )
   const handlePlayMusicBlock = playListFile.slice(
     playListFile.indexOf('const handlePlayMusic = async'),
     playListFile.indexOf('let playPromise = Promise.resolve()'),
   )
 
-  assert.match(handlePlayMusicBlock, /setRepeatMode\(\s*RepeatMode\.Off\s*\)/)
-  assert.ok(
-    handlePlayMusicBlock.indexOf('setRepeatMode(RepeatMode.Off)') <
-      handlePlayMusicBlock.indexOf('TrackPlayer.skip('),
-    '切到真实资源前应关掉占位静音的 Track 循环',
-  )
+  assert.doesNotMatch(buildTracksBlock, /url:\s*defaultUrl/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.play\(/)
   assert.doesNotMatch(handlePlayMusicBlock, /else \{\s*await TrackPlayer\.pause\(\)/)
 })
 
@@ -97,12 +99,12 @@ test('player reapplies configured playback rate after loading a concrete track',
   )
 
   assert.match(playListFile, /settingState\.setting\['player\.playbackRate'\]/)
-  assert.match(handlePlayMusicBlock, /TrackPlayer\.skip\(/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
   assert.match(handlePlayMusicBlock, /TrackPlayer\.setRate\(\s*settingState\.setting\['player\.playbackRate'\]\s*\)/)
   assert.ok(
     handlePlayMusicBlock.indexOf("TrackPlayer.setRate(settingState.setting['player.playbackRate'])") >
-      handlePlayMusicBlock.indexOf('TrackPlayer.skip('),
-    '倍速应在切到真实资源后重新应用，避免 stop/skip 或远端缓存加载把底层 rate 重置为 1',
+      handlePlayMusicBlock.indexOf('TrackPlayer.reset('),
+    '倍速应在重置队列并加入真实资源后重新应用',
   )
 })
 

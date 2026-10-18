@@ -148,7 +148,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
-    setResource(musicInfo, url, playerState.progress.nowPlayTime)
+    setResource(musicInfo, url, 0)
   }).catch((err: any) => {
     console.log(err)
     setStatusText(err.message as string)
@@ -174,6 +174,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
   const playMusicInfo = playerState.playMusicInfo
 
   void initTrackInfo(musicInfo, playerState.musicInfo)
+  setMusicUrl(musicInfo)
 
   // 中文注释：守卫必须实时读 playerState.playMusicInfo，不能用上面捕获的 playMusicInfo 快照。
   // setPlayMusicInfo 是整体替换 state.playMusicInfo 对象，所以快照的 .musicInfo 永远指向
