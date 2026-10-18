@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
-import TrackPlayer, { State as TPState, Event as TPEvent, RepeatMode } from 'react-native-track-player'
+import TrackPlayer, { State as TPState, Event as TPEvent } from 'react-native-track-player'
 // import { store } from '@/store'
 // import { action as playerAction, STATUS } from '@/store/modules/player'
 import { isTempId, isEmpty } from './utils'
@@ -198,14 +198,17 @@ const registerPlaybackService = async() => {
 }
 
 const emitAutoAdvance = async() => {
-  // 中文注释：占位静音约 2 秒。不能 RepeatMode.Track 循环它，否则进度 0-2 跳、
-  // 歌词当 Playing 在滚，实际没有音乐。暂停后等下一首 file 就绪再播。
+  // 中文注释：只负责触发 playNext。不要在这里 pause，否则曲终状态变成暂停，
+  // 下一首还没取到 URL 时界面会停住。in-flight 必须在本次触发后清掉，
+  // 否则 TrackChanged 若没把旗标清掉，之后每首歌播完都不会再切。
   if (autoAdvanceInFlight || global.lx.gettingUrlId || global.lx.suppressAutoAdvance) return
   autoAdvanceInFlight = true
-  await TrackPlayer.setRepeatMode(RepeatMode.Off)
-  await TrackPlayer.pause()
-  global.app_event.playerEnded()
-  global.app_event.playerEmptied()
+  try {
+    global.app_event.playerEnded()
+    global.app_event.playerEmptied()
+  } finally {
+    autoAdvanceInFlight = false
+  }
 }
 
 
