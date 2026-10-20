@@ -91,6 +91,7 @@ export default () => {
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
+    if (global.lx.suppressAutoAdvance || global.lx.gettingUrlId) return
     if (shouldTreatPlaybackErrorAsEnd({
       position: playerState.progress.nowPlayTime,
       duration: playerState.progress.maxPlayTime,

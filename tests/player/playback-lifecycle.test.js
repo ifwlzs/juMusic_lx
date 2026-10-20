@@ -5,6 +5,13 @@ const path = require('node:path')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
+test('auto next is coalesced and errors during url load do not skip another song', () => {
+  const playerFile = readFile('src/core/player/player.ts')
+  const eventFile = readFile('src/core/init/player/playerEvent.ts')
+  assert.match(playerFile, /lastAutoNextAt/)
+  assert.match(eventFile, /suppressAutoAdvance \|\| global\.lx\.gettingUrlId/)
+})
+
 test('stale url results cannot start a previous song after playNext', () => {
   const playerFile = readFile('src/core/player/player.ts')
   const playListFile = readFile('src/plugins/player/playList.ts')
