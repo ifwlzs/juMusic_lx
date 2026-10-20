@@ -9,9 +9,13 @@ test('isNearEndOfTrack treats the last two seconds as a natural ending', () => {
   const utilsFile = readFile('src/plugins/player/utils.ts')
   const eventFile = readFile('src/core/init/player/playerEvent.ts')
   const playerFile = readFile('src/core/player/player.ts')
+  const serviceFile = readFile('src/plugins/player/service.ts')
   assert.match(utilsFile, /export const isNearEndOfTrack/)
-  assert.match(eventFile, /isNearEndOfTrack\(/)
+  assert.match(utilsFile, /export const shouldTreatPlaybackErrorAsEnd/)
+  assert.match(eventFile, /shouldTreatPlaybackErrorAsEnd\(/)
   assert.match(playerFile, /handlePlay\(\{\s*immediate:\s*true\s*\}\)/)
+  const emitBlock = serviceFile.slice(serviceFile.indexOf('const emitAutoAdvance'))
+  assert.doesNotMatch(emitBlock, /gettingUrlId/)
 })
 
 test('player update options stop playback when the Android app is closed', () => {

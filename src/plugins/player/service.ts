@@ -201,7 +201,7 @@ const emitAutoAdvance = async() => {
   // 中文注释：只负责触发 playNext。不要在这里 pause，否则曲终状态变成暂停，
   // 下一首还没取到 URL 时界面会停住。in-flight 必须在本次触发后清掉，
   // 否则 TrackChanged 若没把旗标清掉，之后每首歌播完都不会再切。
-  if (autoAdvanceInFlight || global.lx.gettingUrlId || global.lx.suppressAutoAdvance) return
+  if (autoAdvanceInFlight || global.lx.suppressAutoAdvance) return
   autoAdvanceInFlight = true
   try {
     global.app_event.playerEnded()

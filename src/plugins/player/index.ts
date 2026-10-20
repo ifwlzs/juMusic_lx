@@ -68,6 +68,7 @@ export {
   onStateChange,
   isEmpty,
   isNearEndOfTrack,
+  shouldTreatPlaybackErrorAsEnd,
   useBufferProgress,
   initTrackInfo,
 } from './utils'
