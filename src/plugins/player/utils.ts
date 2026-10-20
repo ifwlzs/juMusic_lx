@@ -24,6 +24,16 @@ export const isNearEndOfTrack = (position = 0, duration = 0, windowSec = 2) => {
   const remaining = durationSec - positionSec
   return remaining >= 0 && remaining <= windowSec
 }
+
+export const shouldTreatPlaybackErrorAsEnd = ({
+  position = 0,
+  duration = 0,
+  isPlay = false,
+} = {}) => {
+  if (isNearEndOfTrack(position, duration)) return true
+  // 曲终 handleEnded 会把进度清成 0。这时再报错应切下一首，不能重下当前曲。
+  return !isPlay && duration > 10 && position < 1
+}
 export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempIdRxp.test(trackId)
 
 // export const replacePlayTrack = async(newTrack, oldTrack) => {

@@ -28,6 +28,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 修复
 
+- 修复播完后重播上一首：曲终报错不再重下当前曲，自动切歌也不再被 gettingUrlId 挡住
 - 修复歌曲播完后卡住五六秒才下一首：曲终附近的播放错误不再走 5 秒重试，自动切歌立刻取链、不再先 stop
 - 修复自动下一首只生效一次：切歌旗标在触发 playNext 后立即释放；曲终不再额外 pause
 - 修复一直卡在 2 秒加载且不自动播放：去掉 2 秒静音占位轨，队列只放真实歌曲，曲终靠 QueueEnded 切下一首

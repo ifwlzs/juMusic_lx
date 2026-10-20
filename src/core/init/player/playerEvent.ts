@@ -1,7 +1,7 @@
 import { playNext, setMusicUrl } from '@/core/player/player'
 import { setStatusText } from '@/core/player/playStatus'
 import { getPlayerRetryStatusTextKey } from '@/core/player/retryStatus'
-import { getPosition, isEmpty, isNearEndOfTrack, setStop } from '@/plugins/player'
+import { getPosition, isEmpty, shouldTreatPlaybackErrorAsEnd, setStop } from '@/plugins/player'
 import { isActive } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
@@ -91,7 +91,11 @@ export default () => {
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
-    if (isNearEndOfTrack(playerState.progress.nowPlayTime, playerState.progress.maxPlayTime)) {
+    if (shouldTreatPlaybackErrorAsEnd({
+      position: playerState.progress.nowPlayTime,
+      duration: playerState.progress.maxPlayTime,
+      isPlay: playerState.isPlay,
+    })) {
       void playNext(true)
       return
     }
