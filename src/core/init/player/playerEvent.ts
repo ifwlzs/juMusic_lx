@@ -95,7 +95,7 @@ export default () => {
       position: playerState.progress.nowPlayTime,
       duration: playerState.progress.maxPlayTime,
       isPlay: playerState.isPlay,
-    })) {
+    }) || !playerState.isPlay) {
       void playNext(true)
       return
     }

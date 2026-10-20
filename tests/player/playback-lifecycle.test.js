@@ -5,6 +5,24 @@ const path = require('node:path')
 
 const readFile = filePath => fs.readFileSync(path.resolve(__dirname, '../../', filePath), 'utf8')
 
+test('stale url results cannot start a previous song after playNext', () => {
+  const playerFile = readFile('src/core/player/player.ts')
+  const playListFile = readFile('src/plugins/player/playList.ts')
+  const eventFile = readFile('src/core/init/player/playerEvent.ts')
+  const setMusicUrlBlock = playerFile.slice(
+    playerFile.indexOf('export const setMusicUrl'),
+    playerFile.indexOf('const handleRestorePlay'),
+  )
+  const handlePlayMusicBlock = playListFile.slice(
+    playListFile.indexOf('const handlePlayMusic = async'),
+    playListFile.indexOf('let playPromise = Promise.resolve()'),
+  )
+
+  assert.match(setMusicUrlBlock, /playMusicInfo\.musicInfo\?\.id/)
+  assert.match(handlePlayMusicBlock, /playMusicInfo\.musicInfo\?\.id/)
+  assert.match(eventFile, /!playerState\.isPlay/)
+})
+
 test('isNearEndOfTrack treats the last two seconds as a natural ending', () => {
   const utilsFile = readFile('src/plugins/player/utils.ts')
   const eventFile = readFile('src/core/init/player/playerEvent.ts')

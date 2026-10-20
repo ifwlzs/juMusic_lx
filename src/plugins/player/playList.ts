@@ -1,6 +1,7 @@
 import TrackPlayer, { RepeatMode, State } from 'react-native-track-player'
 import BackgroundTimer from 'react-native-background-timer'
 import settingState from '@/store/setting/state'
+import playerState from '@/store/player/state'
 
 
 const list: LX.Player.Track[] = []
@@ -123,6 +124,7 @@ export const initTrackInfo = async(musicInfo: LX.Player.PlayMusic, mInfo: LX.Pla
 
 
 const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
+  if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
   const tracks = buildTracks(musicInfo, url)
   const track = tracks[0]
   if (!track) return
@@ -135,6 +137,7 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
     list.push(track)
     await TrackPlayer.setRepeatMode(RepeatMode.Off)
     await TrackPlayer.setRate(settingState.setting['player.playbackRate'])
+    if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     if (time) await TrackPlayer.seekTo(time)
     if (global.lx.restorePlayInfo) {
       await TrackPlayer.pause()
@@ -151,8 +154,10 @@ let playPromise = Promise.resolve()
 let actionId = Math.random()
 export const playMusic = (musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
   const id = actionId = Math.random()
+  const musicId = musicInfo.id
   void playPromise.finally(() => {
     if (id != actionId) return
+    if (musicId != playerState.playMusicInfo.musicInfo?.id) return
     playPromise = handlePlayMusic(musicInfo, url, time)
   })
 }
