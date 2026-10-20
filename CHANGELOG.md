@@ -152,6 +152,12 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 - 补充归档 `2026-04-09-media-library-incremental-sync` 与 `2026-04-09-play-detail-background-extended-range` 两份历史实现计划，便于后续追溯增量同步和播放页背景调参范围设计
 - 新增 `2026-04-28-year-end-report-32p-design` 规格文档，统一 32 页年度报告口径（夜间归属、年度评分、时段划分与页面指标定义）
 
+## [0.26.10201646](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.10201620...v0.26.10201646) - 2026-10-20
+
+修复
+
+- 加快歌曲加载，有缓存直接播
+
 ## [0.26.10201620](https://github.com/ifwlzs/juMusic_lx/compare/v0.26.10201612...v0.26.10201620) - 2026-10-20
 
 修复
