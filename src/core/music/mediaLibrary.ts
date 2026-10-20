@@ -6,10 +6,10 @@ import { resolveDownloadResult } from '@/core/mediaLibrary/downloadResult'
 import { resolvePlayableResource } from '@/core/mediaLibrary/playbackResolver'
 import { getMediaLibraryRuntimeRegistry } from '@/core/mediaLibrary/runtimeRegistry'
 import { mediaLibraryRepository } from '@/core/mediaLibrary/storage'
-import { existsFile, mkdir, temporaryDirectoryPath, unlink } from '@/utils/fs'
+import { existsFile, mkdir, privateStorageDirectoryPath, unlink } from '@/utils/fs'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 
-const MEDIA_LIBRARY_CACHE_DIR = `${temporaryDirectoryPath}/media-library`
+const MEDIA_LIBRARY_CACHE_DIR = `${privateStorageDirectoryPath}/media-library`
 const pendingPlayableFilePaths = new Map<string, Promise<string>>()
 
 const getCacheFilePath = (musicInfo: LX.Music.MusicInfoRemoteFile) => {

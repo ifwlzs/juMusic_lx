@@ -1,5 +1,6 @@
 function isCacheUsable(cacheEntry, sourceItem) {
-  return Boolean(cacheEntry) && cacheEntry.versionToken === sourceItem.versionToken
+  // 中文注释：播放优先用本地文件。versionToken 不同也先播缓存，避免同步后整库作废又重新下载。
+  return Boolean(cacheEntry?.localFilePath)
 }
 
 async function invalidateCache(cacheEntry, unlinkFile, repository) {

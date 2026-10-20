@@ -131,7 +131,8 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
 
   global.lx.suppressAutoAdvance = true
   try {
-    await TrackPlayer.reset()
+    const queue = await TrackPlayer.getQueue()
+    if (queue.length) await TrackPlayer.remove(queue.map((_, index) => index))
     list.length = 0
     await TrackPlayer.add([track])
     list.push(track)

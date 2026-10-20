@@ -43,7 +43,7 @@ test('播放解析优先本地文件，其次有效缓存，最后远端拉取',
   assert.deepEqual(calls, [])
 })
 
-test('播放解析遇到过期缓存时先失效删除，再重新拉取', async() => {
+test('播放解析遇到 token 变化时仍先使用本地缓存，避免整首重下', async() => {
   const calls = []
   const result = await resolvePlayableResource({
     sourceItem: {
@@ -67,8 +67,8 @@ test('播放解析遇到过期缓存时先失效删除，再重新拉取', async
     },
   })
 
-  assert.equal(result.url, 'file:///cache/new.mp3')
-  assert.deepEqual(calls, ['invalidate:cache_1', 'download'])
+  assert.equal(result.url, 'file:///cache/old.mp3')
+  assert.deepEqual(calls, [])
 })
 
 test('upsertCacheEntry 只替换当前 sourceItem 的缓存记录', async() => {
