@@ -64,7 +64,8 @@ test('current track id is read from the native queue so auto-advance cannot see 
 
   assert.match(getCurrentTrackIdBlock, /TrackPlayer\.getQueue\(/)
   assert.doesNotMatch(getCurrentTrackIdBlock, /list\[currentTrackIndex\]/)
-  assert.match(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
+  assert.doesNotMatch(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.remove\(/)
   assert.doesNotMatch(handlePlayMusicBlock, /defaultUrl/)
 })
 
@@ -103,7 +104,7 @@ test('playable tracks are queued without the 2s silence placeholder', () => {
   )
 
   assert.doesNotMatch(buildTracksBlock, /url:\s*defaultUrl/)
-  assert.match(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
+  assert.doesNotMatch(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
   assert.match(handlePlayMusicBlock, /TrackPlayer\.play\(/)
   assert.doesNotMatch(handlePlayMusicBlock, /else \{\s*await TrackPlayer\.pause\(\)/)
 })
@@ -129,12 +130,12 @@ test('player reapplies configured playback rate after loading a concrete track',
   )
 
   assert.match(playListFile, /settingState\.setting\['player\.playbackRate'\]/)
-  assert.match(handlePlayMusicBlock, /TrackPlayer\.reset\(/)
+  assert.match(handlePlayMusicBlock, /TrackPlayer\.add\(/)
   assert.match(handlePlayMusicBlock, /TrackPlayer\.setRate\(\s*settingState\.setting\['player\.playbackRate'\]\s*\)/)
   assert.ok(
     handlePlayMusicBlock.indexOf("TrackPlayer.setRate(settingState.setting['player.playbackRate'])") >
-      handlePlayMusicBlock.indexOf('TrackPlayer.reset('),
-    '倍速应在重置队列并加入真实资源后重新应用',
+      handlePlayMusicBlock.indexOf('TrackPlayer.add('),
+    '倍速应在加入真实资源后重新应用',
   )
 })
 
