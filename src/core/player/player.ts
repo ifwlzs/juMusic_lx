@@ -148,6 +148,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
+    if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setResource(musicInfo, url, 0)
   }).catch((err: any) => {
     console.log(err)
