@@ -483,7 +483,13 @@ const handlePlayNext = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
  * @param isAutoToggle 是否自动切换
  * @returns
  */
+let lastAutoNextAt = 0
 export const playNext = async(isAutoToggle = false): Promise<void> => {
+  if (isAutoToggle) {
+    const now = Date.now()
+    if (now - lastAutoNextAt < 800) return
+    lastAutoNextAt = now
+  }
   if (!isAutoToggle) playbackAnalyticsRuntime.setPendingEndReason('manual_next')
   if (playerState.tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = playerState.tempPlayList[0]

@@ -28,6 +28,7 @@ Change log format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 修复
 
+- 修复下一首还在加载就被错误处理再切走：加载中忽略 error 自动切歌，800ms 内的自动下一首合并为一次
 - 修复加载歌曲比以前慢：有本地缓存就直接播，不再因 versionToken 变化整首重下；切歌改为换队列而不是 reset 拆掉播放器
 - 修复切到下一首后仍把上一首塞进播放器：过期的 URL/开播任务一律丢弃；未在播放时的报错切下一首而不是重载当前曲
 - 修复播完后重播上一首：曲终报错不再重下当前曲，自动切歌也不再被 gettingUrlId 挡住
