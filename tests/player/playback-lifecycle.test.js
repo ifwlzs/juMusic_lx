@@ -12,23 +12,7 @@ test('auto next is coalesced and errors during url load do not skip another song
   assert.match(eventFile, /suppressAutoAdvance \|\| global\.lx\.gettingUrlId/)
 })
 
-test('stale url results cannot start a previous song after playNext', () => {
-  const playerFile = readFile('src/core/player/player.ts')
-  const playListFile = readFile('src/plugins/player/playList.ts')
-  const eventFile = readFile('src/core/init/player/playerEvent.ts')
-  const setMusicUrlBlock = playerFile.slice(
-    playerFile.indexOf('export const setMusicUrl'),
-    playerFile.indexOf('const handleRestorePlay'),
-  )
-  const handlePlayMusicBlock = playListFile.slice(
-    playListFile.indexOf('const handlePlayMusic = async'),
-    playListFile.indexOf('let playPromise = Promise.resolve()'),
-  )
-
-  assert.match(setMusicUrlBlock, /playMusicInfo\.musicInfo\?\.id/)
-  assert.match(handlePlayMusicBlock, /playMusicInfo\.musicInfo\?\.id/)
-  assert.match(eventFile, /!playerState\.isPlay/)
-})
+// 中文注释：过期请求和原生当前曲的一致性改由 track-switch.test.js 执行真实链路验证。
 
 test('isNearEndOfTrack treats the last two seconds as a natural ending', () => {
   const utilsFile = readFile('src/plugins/player/utils.ts')

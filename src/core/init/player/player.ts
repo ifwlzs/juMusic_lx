@@ -8,6 +8,7 @@ import { refreshNotificationIcon } from '@/plugins/player/utils'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
+import { setNowPlayTime } from '@/core/player/progress'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -28,7 +29,8 @@ export default async(setting: LX.AppSetting) => {
     // resetPlayerMusicInfo()
     // global.app_event.stop()
     playbackAnalyticsRuntime.setPendingEndReason('completed')
-    global.app_event.setProgress(0, undefined, { isSeek: false, reason: 'auto_end_reset' })
+    // 中文注释：曲终只清零显示进度；setProgress 事件会真正 seek，让仍在原生队列的旧歌曲重播。
+    setNowPlayTime(0)
     setStatusText(global.i18n.t('player__end'))
     void playNext(true)
     // })

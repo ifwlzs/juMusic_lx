@@ -123,23 +123,40 @@ export const initTrackInfo = async(musicInfo: LX.Player.PlayMusic, mInfo: LX.Pla
 }
 
 
-const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
-  if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
+// 中文注释：原生 remove 会保留当前项，必须先选中新轨道，再清理旧项；每个异步边界都检查请求归属。
+const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number, isCurrentRequest: () => boolean) => {
+  if (!isCurrentRequest()) return
   const tracks = buildTracks(musicInfo, url)
   const track = tracks[0]
   if (!track) return
 
   global.lx.suppressAutoAdvance = true
   try {
-    const queue = await TrackPlayer.getQueue()
-    if (queue.length) await TrackPlayer.remove(queue.map((_, index) => index))
-    list.length = 0
+    await TrackPlayer.pause()
+    if (!isCurrentRequest()) return
     await TrackPlayer.add([track])
-    list.push(track)
+    if (!isCurrentRequest()) return
+    const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
+    if (!isCurrentRequest()) return
+    const nextIndex = queue.findIndex(item => item.id === track.id)
+    if (nextIndex < 0) throw new Error('player track missing after add')
+    await TrackPlayer.skip(nextIndex)
+    if (!isCurrentRequest()) return
+    const previousIndexes = queue.flatMap((item, index) => item.id === track.id ? [] : [index])
+    if (previousIndexes.length) await TrackPlayer.remove(previousIndexes)
+    if (!isCurrentRequest()) return
+    list.splice(0, list.length, track)
     await TrackPlayer.setRepeatMode(RepeatMode.Off)
+    if (!isCurrentRequest()) return
     await TrackPlayer.setRate(settingState.setting['player.playbackRate'])
-    if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
+    if (!isCurrentRequest()) return
     if (time) await TrackPlayer.seekTo(time)
+    if (!isCurrentRequest()) return
+    // 中文注释：只发布原生实际选中的轨道，不能用目标 id 掩盖切换失败。
+    const currentTrackId = await getCurrentTrackId()
+    if (!isCurrentRequest()) return
+    if (currentTrackId !== track.id) throw new Error('player track selection failed')
+    global.lx.playerTrackId = currentTrackId
     if (global.lx.restorePlayInfo) {
       await TrackPlayer.pause()
       global.lx.restorePlayInfo = null
@@ -148,19 +165,18 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
     }
   } finally {
     global.lx.suppressAutoAdvance = false
-    global.lx.playerTrackId = track.id as string
   }
 }
 let playPromise = Promise.resolve()
 let actionId = Math.random()
-export const playMusic = (musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
+export const playMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number, isCurrentRequest: () => boolean = () => true) => {
   const id = actionId = Math.random()
-  const musicId = musicInfo.id
-  void playPromise.finally(() => {
-    if (id != actionId) return
-    if (musicId != playerState.playMusicInfo.musicInfo?.id) return
-    playPromise = handlePlayMusic(musicInfo, url, time)
-  })
+  const playMusicInfo = playerState.playMusicInfo
+  const isCurrent = () => id === actionId && playMusicInfo === playerState.playMusicInfo && musicInfo.id === playerState.playMusicInfo.musicInfo?.id && isCurrentRequest()
+  // 中文注释：立即把新任务接入串行链，失败交给调用者处理，同时不阻塞后续歌曲的切换。
+  const task = playPromise.then(async() => handlePlayMusic(musicInfo, url, time, isCurrent))
+  playPromise = task.catch(() => {})
+  return task
 }
 
 // let musicId = null

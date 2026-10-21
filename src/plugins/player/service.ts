@@ -5,7 +5,8 @@ import TrackPlayer, { State as TPState, Event as TPEvent } from 'react-native-tr
 import { isTempId, isEmpty } from './utils'
 // import { play as lrcPlay, pause as lrcPause } from '@/core/lyric'
 import { exitApp } from '@/core/common'
-import { getCurrentTrackId } from './playList'
+import { getCurrentTrack, getCurrentTrackId } from './playList'
+import playerState from '@/store/player/state'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { playbackAnalyticsRuntime } from '@/core/mediaLibrary/playbackAnalyticsRuntime'
 
@@ -189,7 +190,13 @@ const registerPlaybackService = async() => {
   if (TPEvent.PlaybackQueueEnded) {
     TrackPlayer.addEventListener(TPEvent.PlaybackQueueEnded, async() => {
       if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
-      global.lx.playerTrackId = await getCurrentTrackId()
+      // 中文注释：旧曲的结束事件可能在下一首下载/播放期间迟到，不能再按当下的选曲跳一次。
+      const playMusicInfo = playerState.playMusicInfo
+      if (global.lx.suppressAutoAdvance || global.lx.gettingUrlId) return
+      const [track, state] = await Promise.all([getCurrentTrack(), TrackPlayer.getState()])
+      if (playMusicInfo !== playerState.playMusicInfo || global.lx.suppressAutoAdvance || global.lx.gettingUrlId) return
+      if (state !== TPState.Stopped || !track || track.musicId !== playMusicInfo.musicInfo?.id) return
+      global.lx.playerTrackId = track.id as string
       await emitAutoAdvance()
     })
   }

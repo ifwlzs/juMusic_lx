@@ -126,52 +126,9 @@ export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempI
 //   },
 // }
 
-const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: number) => void, delay = 800) => {
-  let delayTimer: number | null = null
-  let isDelayRun = false
-  let timer: number | null = null
-  let _musicInfo: LX.Player.PlayMusic | null = null
-  let _url = ''
-  let _time = 0
-  return (musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
-    _musicInfo = musicInfo
-    _url = url
-    _time = time
-    if (timer) {
-      BackgroundTimer.clearTimeout(timer)
-      timer = null
-    }
-    if (isDelayRun) {
-      if (delayTimer) {
-        BackgroundTimer.clearTimeout(delayTimer)
-        delayTimer = null
-      }
-      timer = BackgroundTimer.setTimeout(() => {
-        timer = null
-        let musicInfo = _musicInfo
-        let url = _url
-        let time = _time
-        _musicInfo = null
-        _url = ''
-        _time = 0
-        isDelayRun = false
-        fn(musicInfo!, url, time)
-      }, delay)
-    } else {
-      isDelayRun = true
-      fn(musicInfo, url, time)
-      delayTimer = BackgroundTimer.setTimeout(() => {
-        delayTimer = null
-        isDelayRun = false
-      }, 500)
-    }
-  }
-})((musicInfo, url, time) => {
-  handlePlayMusic(musicInfo, url, time)
-})
-
-export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number) => {
-  playMusic(musicInfo, url, duration ?? 0)
+// 中文注释：取链和原生切换共用请求守卫；底层已串行化，不再额外延迟 800ms 执行过期资源。
+export const setResource = async(musicInfo: LX.Player.PlayMusic, url: string, duration = 0, isCurrentRequest: () => boolean = () => true) => {
+  return handlePlayMusic(musicInfo, url, duration, isCurrentRequest)
 }
 
 export const setPlay = async() => TrackPlayer.play()
